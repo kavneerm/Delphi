@@ -1,0 +1,27 @@
+{
+  "name": "inevitable-frontier",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "shots": "node scripts/shoot.ts",
+    "probe": "node scripts/probe.ts",
+    "check:invariant": "node scripts/invariant.ts",
+    "check:parallax": "node scripts/parallax.ts",
+    "check": "npm run typecheck && npm run check:invariant && npm run check:parallax"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "playwright": "1.62.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.1"
+  },
+  "dependencies": {
+    "gsap": "3.15.0",
+    "lenis": "1.3.26"
+  }
+}

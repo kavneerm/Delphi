@@ -1,0 +1,457 @@
+/* ---------------------------------------------------------------------------
+   Reset — only what this page actually needs.
+   --------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #1b2a4a;
+  color: #f5f0e8;
+  /* Phase 6 replaces this with the display grotesque (build.md B7). */
+  font-family: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
+    system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Lenis takes over wheel handling; these are the two rules it needs. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Scroll container and the pinned stage.
+   Sticky, not a ScrollTrigger pin — no pin-spacer, no layout shift.
+   --------------------------------------------------------------------------- */
+#scroll {
+  position: relative;
+  height: var(--scroll-height, 700vh);
+}
+
+#stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+  --horizon-frac: 0.58;
+  --vp-frac: 0.5;
+  --bleed: 64px;
+}
+
+/* ---------------------------------------------------------------------------
+   Depth slots. Eight, permanent, identical in every act.
+   --------------------------------------------------------------------------- */
+.slot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Outer layer: lateral drift only. Promoted so its SVG rasterises once. */
+.layer {
+  position: absolute;
+  inset: calc(-1 * var(--bleed));
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.layer.locked {
+  /* VP-registered geometry. Never transformed, by construction. */
+  will-change: auto;
+  transform: none;
+}
+
+/* No depth-of-field blur. It contradicts the chunky pixel-art register (art-direction §3,
+   amended): a blurred foreground over hard-edged art reads as a rendering error, not as
+   depth. Depth is carried by the parallax rates and the aerial perspective instead — and
+   this returns two filtered full-screen layers to the frame budget. */
+
+/* Inner layer: transition travel. Separate element so drift and travel never
+   contend for one transform, and so each can be asserted independently. */
+.travel {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.part {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.layer svg,
+.travel svg,
+.part svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   The invariant, as measurable DOM. Never transformed, never written to by the
+   render pass. scripts/invariant.ts reads these.
+   --------------------------------------------------------------------------- */
+#anchor-horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--horizon-frac) * 100%);
+  height: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+
+#anchor-vp {
+  position: absolute;
+  left: calc(var(--vp-frac) * 100%);
+  top: calc(var(--horizon-frac) * 100%);
+  width: 0;
+  height: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Copy. Real DOM text, always. Reveals are driven by p, never by a timer.
+   Colour is constant at #F5F0E8 across every act — the scrim adapts, the text
+   does not (art-direction §8). Scrim opacity is solved per act against the
+   worst-case backdrop inside the column, with a hard 4.5:1 floor.
+   --------------------------------------------------------------------------- */
+#copy {
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  pointer-events: none;
+}
+
+.copy-col {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.1rem;
+  max-width: min(46ch, 38vw);
+}
+
+.copy-block {
+  padding: 1.15rem 1.4rem;
+  border-radius: 2px;
+  color: #f5f0e8;
+  opacity: 0;
+  will-change: opacity, transform;
+  background: color-mix(in srgb, var(--scrim-tone) calc(var(--scrim-alpha) * 100%), transparent);
+  backdrop-filter: blur(14px) saturate(0.75);
+  -webkit-backdrop-filter: blur(14px) saturate(0.75);
+}
+
+.col-left {
+  left: 8vw;
+  top: 12vh;
+}
+
+.col-right {
+  right: 5vw;
+  top: 12vh;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.col-centre {
+  left: 50%;
+  top: 20vh;
+  transform: translateX(-50%);
+  align-items: center;
+  text-align: center;
+  max-width: min(60ch, 76vw);
+}
+
+@media (max-width: 820px) {
+  .copy-col {
+    left: 5vw;
+    right: 5vw;
+    max-width: none;
+  }
+  .col-right {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .col-centre {
+    left: 5vw;
+    right: 5vw;
+    transform: none;
+    max-width: none;
+  }
+}
+
+.copy-block h1,
+.copy-block h2 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.copy-block h1 {
+  font-size: clamp(1.9rem, 4.2vw, 3.4rem);
+}
+
+.copy-block h2 {
+  font-size: clamp(1.5rem, 3.2vw, 2.6rem);
+}
+
+.copy-block .statement {
+  font-size: clamp(1.9rem, 4.6vw, 3.6rem);
+}
+
+.copy-block p {
+  margin: 0;
+  font-size: clamp(1rem, 1.25vw, 1.125rem);
+  font-weight: 400;
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.copy-block .lede {
+  font-size: clamp(0.95rem, 1.1vw, 1rem);
+  opacity: 0.92;
+}
+
+.copy-block .eyebrow {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+/* Words reveal individually for headings. Transform and opacity only. */
+.word {
+  display: inline-block;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+/* Scroll cue: a thin descending rule, not a bouncing arrow. */
+.scroll-cue {
+  display: block;
+  width: 1px;
+  height: 3.2rem;
+  margin-top: 1.1rem;
+  background: linear-gradient(to bottom, #f5f0e8, transparent);
+  opacity: 0.55;
+}
+
+/* CTA */
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+}
+
+.cta .button {
+  display: inline-block;
+  padding: 0.85rem 1.6rem;
+  background: #ff5e3a;
+  color: #1b1210;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  border-radius: 2px;
+}
+
+.cta .button:hover {
+  background: #ff7554;
+}
+
+.cta .quiet {
+  color: #f5f0e8;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(245 240 232 / 0.4);
+  padding-bottom: 2px;
+}
+
+.cta .quiet:hover {
+  border-bottom-color: #f5f0e8;
+}
+
+.cta-sep {
+  opacity: 0.5;
+}
+
+.footer-note {
+  font-size: 0.85rem;
+  opacity: 0.72;
+}
+
+/* Focus must stay visible everywhere (brief §8). */
+a:focus-visible {
+  outline: 3px solid #ffe8b0;
+  outline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   Debug overlay. Dev only, or ?debug=1. Never present in a screenshot.
+   --------------------------------------------------------------------------- */
+#debug {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 10px;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #f5f0e8;
+  background: rgb(0 0 0 / 0.66);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 4px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion. A first-class path, not a degraded one: no pin, no scrub, no
+   parallax. Each act is one static composition with its copy beneath it, in
+   normal document flow, and the whole argument is present.
+   --------------------------------------------------------------------------- */
+.act-static {
+  position: relative;
+}
+
+.act-static .scene {
+  position: relative;
+  height: 72vh;
+  overflow: hidden;
+  isolation: isolate;
+  --horizon-frac: 0.58;
+  --vp-frac: 0.5;
+  --bleed: 0px;
+}
+
+.act-static .copy-static {
+  max-width: 62ch;
+  margin: 0 auto;
+  padding: 3rem 8vw 4rem;
+}
+
+.act-static .copy-static h1,
+.act-static .copy-static h2 {
+  margin: 0 0 0.6em;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.act-static .copy-static p {
+  margin: 0 0 1em;
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.act-static .copy-static .eyebrow {
+  margin-bottom: 0.4em;
+}
+
+.act-static .copy-static .statement {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+.act-static .copy-static .cta {
+  justify-content: flex-start;
+  margin-top: 2rem;
+}
+
+.act-static {
+  background: #12100f;
+  color: #f5f0e8;
+}
+
+/* ---------------------------------------------------------------------------
+   Print-process finish. art-direction §3.
+   Nothing here animates a filter primitive: the halftone and grain are static
+   patterns, and the channel plates separate by transform only.
+   --------------------------------------------------------------------------- */
+.post-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Chromatic aberration. The pair is isolated so `screen` composites the two channel
+   plates against each other, not against the scene behind the slot. */
+.plates {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+/* Red and cyan channel plates. Screened together they reconstruct the original. */
+.plate {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.plate svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.plate-red {
+  filter: url(#chan-red);
+  opacity: 1;
+}
+
+.plate-cyan {
+  filter: url(#chan-cyan);
+  opacity: 1;
+}
+
+/* Halftone: dot screen in shadow regions only, multiplied. Static pattern fill. */
+.halftone {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* Paper grain over the whole stage — the last thing that says "printed". */
+#stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 850;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}

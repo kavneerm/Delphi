@@ -4,3 +4,5 @@ shots/
 .DS_Store
 *.log
 .claude/agent-memory/
+.claude/worktrees/
+scratch/

@@ -15,13 +15,31 @@
 import { ART_SCALE } from '../config.ts';
 import { TRANSPARENT, type Palette, type Rgb } from './palette.ts';
 
-/** 4x4 ordered Bayer matrix, normalised to 0..15. Dithering between two ramp steps. */
-const BAYER4 = [
-  0, 8, 2, 10,
-  12, 4, 14, 6,
-  3, 11, 1, 9,
-  15, 7, 13, 5,
+/**
+ * 8x8 ordered Bayer matrix, 0..63.
+ *
+ * 8x8 rather than 4x4, and the reason is measured. A 4x4 matrix quantises coverage to
+ * sixteenths, so a smoothly varying density crosses a threshold every ~6% and, because the
+ * pattern is regular, one whole Bayer position lights up across the entire width at once.
+ * That is a hard full-width contour. check:invariant caught it as "strongest boundary near
+ * the horizon is at y=516 (100% coverage), want 522" — a band edge two art cells above the
+ * horizon, strong enough to outrank the horizon itself.
+ *
+ * 8x8 makes the steps 1/64, so a contour changes 1.6% of pixels instead of 6.25% and stops
+ * being a boundary at all. It also makes the sky ramp read less mechanically.
+ */
+const BAYER = [
+  0, 32, 8, 40, 2, 34, 10, 42,
+  48, 16, 56, 24, 50, 18, 58, 26,
+  12, 44, 4, 36, 14, 46, 6, 38,
+  60, 28, 52, 20, 62, 30, 54, 22,
+  3, 35, 11, 43, 1, 33, 9, 41,
+  51, 19, 59, 27, 49, 17, 57, 25,
+  15, 47, 7, 39, 13, 45, 5, 37,
+  63, 31, 55, 23, 61, 29, 53, 21,
 ];
+const BAYER_N = 8;
+const BAYER_LEVELS = 64;
 
 export class Buf {
   /** Dimensions in art pixels. */
@@ -162,9 +180,9 @@ export class Buf {
       }
       // Ordered dither: the threshold varies per (x, y) so the boundary breaks up into a
       // stable pattern rather than a hard line or a noise field.
-      const rowBase = (cy & 3) * 4;
+      const rowBase = (cy % BAYER_N) * BAYER_N;
       for (let cx = x0; cx < x1; cx++) {
-        const threshold = ((BAYER4[rowBase + (cx & 3)] ?? 0) + 0.5) / 16;
+        const threshold = ((BAYER[rowBase + (cx % BAYER_N)] ?? 0) + 0.5) / BAYER_LEVELS;
         this.idx[cy * this.w + cx] = frac > threshold ? hiIndex : loIndex;
       }
     }
@@ -182,6 +200,50 @@ export class Buf {
     this.scan(points, (x, y) => {
       this.idx[y * this.w + x] = index;
     });
+  }
+
+  /**
+   * Partial coverage by ordered dither — how pixel art does translucency.
+   *
+   * A layer's buffer is opaque indices with no alpha, and it sits on its own canvas, so a
+   * translucent fill cannot composite against the layer below the way `fill-opacity` did.
+   * Scattering the colour at `density` coverage on a Bayer threshold gives the same read at
+   * viewing distance, is what the reference art actually does, and keeps every pixel a
+   * single palette entry.
+   */
+  rectDither(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    index: number,
+    /** Constant coverage, or a function of vertical position through the band (0..1). */
+    density: number | ((t: number) => number),
+  ): void {
+    const x0 = Math.max(0, this.ax(x));
+    const y0 = Math.max(0, this.ay(y));
+    const x1 = Math.min(this.w, Math.max(x0 + 1, this.ax(x + Math.max(w, 0))));
+    const y1 = Math.min(this.h, Math.max(y0 + 1, this.ay(y + Math.max(h, 0))));
+    const span = Math.max(1, y1 - y0 - 1);
+    for (let cy = y0; cy < y1; cy++) {
+      const d =
+        typeof density === 'number'
+          ? Math.max(0, Math.min(1, density))
+          : Math.max(0, Math.min(1, density((cy - y0) / span)));
+      // Protected rows stay undithered, for the same reason vRamp respects them: the
+      // horizon is measured as a tonal step across the vanishing-point corridor, and a
+      // dither that lands the same tone on both sides of it in some columns erases the
+      // step there. Measured: a 30%-dithered haze band took horizon coverage at 390x844
+      // from 100% to 50%, against a 55% floor, and moved the strongest boundary one art
+      // cell low. The old 30%-opacity wash could not do that — it tinted both sides
+      // equally and left the step intact.
+      if (this.noDither.has(cy)) continue;
+      const rowBase = (cy % BAYER_N) * BAYER_N;
+      for (let cx = x0; cx < x1; cx++) {
+        const threshold = ((BAYER[rowBase + (cx % BAYER_N)] ?? 0) + 0.5) / BAYER_LEVELS;
+        if (d > threshold) this.idx[cy * this.w + cx] = index;
+      }
+    }
   }
 
   /**
@@ -303,19 +365,26 @@ export class Buf {
    * trees read as venetian blinds. Working on the finished pixels instead means the
    * outline follows the silhouette and nothing else.
    */
-  outline(index: number, strokeIndex: number, options: { bottom?: boolean } = {}): void {
+  outline(inside: number | Iterable<number>, strokeIndex: number, options: { bottom?: boolean } = {}): void {
     const bottom = options.bottom ?? true;
+    const set = typeof inside === 'number' ? new Set([inside]) : new Set(inside);
     const source = this.idx.slice();
-    const at = (x: number, y: number): number =>
-      x < 0 || y < 0 || x >= this.w || y >= this.h ? TRANSPARENT : (source[y * this.w + x] ?? 0);
+    const isInside = (x: number, y: number): boolean => {
+      if (x < 0 || y < 0 || x >= this.w || y >= this.h) return false;
+      return set.has(source[y * this.w + x] ?? TRANSPARENT);
+    };
     for (let y = 0; y < this.h; y++) {
       for (let x = 0; x < this.w; x++) {
-        if (at(x, y) !== index) continue;
+        if (!isInside(x, y)) continue;
+        // Passing the whole group's tones means the outline follows the silhouette and
+        // does not trace every internal tone change — which is the bug `outlined()` had:
+        // it stroked every rect it wrapped, including each row of a stacked disc, and the
+        // trees came out looking like venetian blinds.
         const edge =
-          at(x - 1, y) !== index ||
-          at(x + 1, y) !== index ||
-          at(x, y - 1) !== index ||
-          (bottom && at(x, y + 1) !== index);
+          !isInside(x - 1, y) ||
+          !isInside(x + 1, y) ||
+          !isInside(x, y - 1) ||
+          (bottom && !isInside(x, y + 1));
         if (edge) this.idx[y * this.w + x] = strokeIndex;
       }
     }

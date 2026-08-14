@@ -312,7 +312,25 @@ slots and acts still SVG.
 - [x] D5 plates share one raster; D12 explicit integer canvas sizing; `#stage-critical`
       removal moved to after the first painted frame.
 - [x] `scripts/register.ts` + `?frozen=1`.
-- [ ] Act I slots 0–6; then Acts II–IV (P5).
+- [x] **Act I fully ported** — all eight slots plus `parts`. **0.00% non-uniform at all
+      three viewports**, with Act IV unported at 11.5/17.7/32.8% as the control.
+- [ ] Acts II–IV (P5).
+
+Three things the checks caught during the port, none of which was visible by looking:
+
+1. **The halftone overlay can never be cell-uniform.** It is a dot pattern masked by a
+   smooth `<linearGradient>`, so its opacity varies per device pixel. It is now emitted only
+   for SVG-backed slots; on the buffer the same job is dithering in the art (D6). This alone
+   took Act I from 9.10% to 0.00%.
+2. **Dither is not a substitute for alpha where something must stay measurable underneath.**
+   Act I's haze was ported as a 30%-coverage dither. That put the haze tone on one side of
+   the horizon and not the other in alternating rows, turning *every* art row boundary near
+   the horizon into a stronger step than the horizon — `check:invariant` failed at 100%
+   coverage two art cells high. `SlotArt.alpha` restores a uniform wash, which is uniform
+   across a cell and so costs nothing on the register.
+3. **Ordered dither contours.** A density ramp crossing a Bayer threshold lights one whole
+   matrix position across the full width at once. Moving 4×4 → 8×8 makes each contour 1.6%
+   of pixels instead of 6.25%; kept, though it was not the cause of (2).
 
 **Measured.** With `?frozen=1`, the canvas region is **0.00% non-uniform across 4,800 sky
 cells** — the substrate is pixel-exact. Whole-frame register is 11.5–43.3% broken, entirely

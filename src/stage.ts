@@ -371,7 +371,7 @@ export class Stage {
     // DOM rather than moving into the buffer: the offset is velocity-driven, so an
     // in-buffer split would re-raster the slot on every frame.
     const paintFree = (): Node =>
-      art.draw ? this.raster(act, art.draw) : this.svg(art.free ?? '');
+      art.draw ? this.raster(act, art.draw, art.alpha) : this.svg(art.free ?? '');
 
     // An aberrating slot is drawn *only* as its two channel plates — screened together
     // they reconstruct the original exactly. Keeping a full base copy underneath would
@@ -397,15 +397,25 @@ export class Stage {
       plates = { red, cyan };
     }
 
-    const halftone = halftoneOverlay(slot, this.geo);
-    if (halftone) travel.insertAdjacentHTML('beforeend', halftone);
+    // The halftone overlay is for SVG-backed slots only.
+    //
+    // It is a dot pattern masked by a smooth `<linearGradient>`, so its opacity varies per
+    // device pixel and it can never be cell-uniform — over pixel art it is exactly the
+    // screen-door artifact art-direction §3 warns against, and check:register sees it as a
+    // fine seam through every shadowed cell. On the buffer the same job is done properly by
+    // dithering between ramp steps in the art itself, where the dot is an art pixel by
+    // construction. Slots port to `draw`, and their halftone goes with them.
+    if (!art.draw) {
+      const halftone = halftoneOverlay(slot, this.geo);
+      if (halftone) travel.insertAdjacentHTML('beforeend', halftone);
+    }
 
     const parts: { el: HTMLElement; rate: number }[] = [];
     for (const part of art.parts ?? []) {
       const el = document.createElement('div');
       el.className = 'part';
       el.dataset['part'] = String(part.rate);
-      el.appendChild(this.svg(part.markup));
+      el.appendChild(part.draw ? this.raster(act, part.draw) : this.svg(part.markup ?? ''));
       travel.appendChild(el);
       parts.push({ el, rate: part.rate });
     }
@@ -439,7 +449,7 @@ export class Stage {
    * ceiling is per act, which is the right unit: it is what stops one act's ramps from
    * quietly consuming another's budget, and it is what a per-act palette check can assert.
    */
-  private raster(act: ActIndex, draw: DrawFn): HTMLCanvasElement {
+  private raster(act: ActIndex, draw: DrawFn, alpha?: number): HTMLCanvasElement {
     const { w, h } = this.geo;
     const ox = bufferOriginFor(vpPxOf(w));
     const oy = bufferOriginFor(horizonPxOf(h));
@@ -455,7 +465,11 @@ export class Stage {
     // The horizon row must stay a clean tonal step for check:invariant to read it.
     buf.protectRow(this.geo.horizon);
     draw(buf, this.geo);
-    return canvasFor(buf, palette.toRgba());
+    const canvas = canvasFor(buf, palette.toRgba());
+    // Set on the canvas, not the layer, so the transition crossfade written to `.drift`
+    // multiplies with it rather than overwriting it.
+    if (alpha !== undefined && alpha < 1) canvas.style.opacity = String(alpha);
+    return canvas;
   }
 
   private svg(markup: string): SVGSVGElement {

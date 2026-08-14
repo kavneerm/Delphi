@@ -46,7 +46,9 @@ export type TransitionVerb = 'rise' | 'extrude' | 'crossfade' | 'drift';
  * the rest of slot 0.
  */
 export interface SlotPart {
-  readonly markup: string;
+  /** Paints this part. Takes precedence over `markup` when present. */
+  readonly draw?: DrawFn;
+  readonly markup?: string;
   /** Lateral self-motion across the page, as a fraction of stage width. */
   readonly rate: number;
 }
@@ -66,6 +68,18 @@ export interface SlotArt {
   readonly verb: TransitionVerb;
   /** Paints the drifting layer. Takes precedence over `free` when present. */
   readonly draw?: DrawFn;
+  /**
+   * Constant opacity for the drawn layer, 0..1. Multiplies with the transition crossfade.
+   *
+   * Reach for this only where a layer must be *seen through* — atmospheric washes. Partial
+   * coverage is normally expressed by dithering, which is how pixel art does translucency
+   * and keeps every pixel a palette entry. But dither cannot substitute for alpha when
+   * something has to stay measurable underneath: dithering Act I's haze made every art row
+   * boundary near the horizon into a tonal step, which outranked the horizon and failed
+   * check:invariant at 100% coverage six pixels high. A constant opacity is uniform across
+   * a cell, so it costs nothing on the register.
+   */
+  readonly alpha?: number;
   /** Paints the VP-locked layer. Takes precedence over `locked` when present. */
   readonly drawLocked?: DrawFn;
   /**

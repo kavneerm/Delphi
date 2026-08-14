@@ -18,6 +18,7 @@
  */
 
 import type { ActDefinition, Geometry, SlotArt } from './types.ts';
+import type { Buf } from '../art/buffer.ts';
 import { gradientRamp, multiply, over, parseHex } from '../art/palette.ts';
 import {
   circle,
@@ -175,6 +176,105 @@ function castShadowPoints(geo: Geometry, b: Building): (readonly [number, number
 
 function castShadow(geo: Geometry, b: Building): string {
   return poly(castShadowPoints(geo, b), P.castShadow);
+}
+
+/**
+ * Buffer version of `buildingMarkup`. Same composition, painted as pixels.
+ *
+ * Returns the tones it used, so the caller can outline the group's *silhouette* rather
+ * than every internal tone boundary.
+ */
+function drawBuilding(buf: Buf, geo: Geometry, b: Building): number[] {
+  const { x, width, base, height } = facade(geo, b);
+  const roofY = base - height;
+  const body = tint(P.town, P.skyHorizon, Math.max(0, (1 - b.d) * 0.3));
+  const iBody = buf.tone(body, 'town body');
+  const iRoof = buf.tone(shade(body, 0.3), 'roof');
+  const iAwning = buf.tone(shade(body, 0.32), 'awning');
+  const iPost = buf.tone(shade(body, 0.36), 'post');
+  const iWindow = buf.tone(P.window, 'window');
+  const iRim = buf.tone(tint(b.d < 0.6 ? RIM_FAR : RIM, P.sunRim, 0.55), 'rim');
+
+  buf.rect(x, roofY, width, height, iBody);
+
+  if (b.falseFront) {
+    const parapet = height * 0.15;
+    buf.rect(x - width * 0.03, roofY - parapet, width * 1.06, parapet, iBody);
+    buf.rect(x - width * 0.03, roofY - parapet, width * 1.06, parapet * 0.24, iRoof);
+  } else {
+    const pitch = height * 0.13;
+    buf.poly(
+      [
+        [x - width * 0.05, roofY],
+        [x + width / 2, roofY - pitch],
+        [x + width * 1.05, roofY],
+      ],
+      iRoof,
+    );
+  }
+
+  const awning = width * 0.24;
+  const awningX = b.side === -1 ? x + width - awning : x;
+  const awningY = base - height * 0.3;
+  buf.rect(awningX, awningY, awning, height * 0.045, iAwning);
+  buf.rect(
+    b.side === -1 ? awningX : awningX + awning - width * 0.02,
+    awningY,
+    width * 0.02,
+    height * 0.3,
+    iPost,
+  );
+
+  // Window grid, same hash and density as the SVG version.
+  const gx = x + width * 0.12;
+  const gy = roofY + height * 0.2;
+  const gw = width * 0.76;
+  const gh = height * 0.44;
+  const density = 0.52 + ((b.seed * 37) % 30) / 100;
+  const cellW = gw / b.cols;
+  const cellH = gh / b.rows;
+  const paneW = cellW * 0.46;
+  const paneH = cellH * 0.42;
+  for (let row = 0; row < b.rows; row++) {
+    for (let col = 0; col < b.cols; col++) {
+      const hash = ((row * 73856093) ^ (col * 19349663) ^ (b.seed * 83492791)) >>> 0;
+      if ((hash % 1000) / 1000 > density) continue;
+      buf.rect(
+        gx + col * cellW + (cellW - paneW) / 2,
+        gy + row * cellH + (cellH - paneH) / 2,
+        paneW,
+        paneH,
+        iWindow,
+      );
+    }
+  }
+
+  const roofSeed = b.seed * 2654435761;
+  if (roofSeed % 3 !== 0) {
+    const cw = width * 0.09;
+    const cx = x + width * (0.2 + ((roofSeed >>> 7) % 50) / 100);
+    buf.rect(cx, roofY - height * 0.13, cw, height * 0.13, iBody);
+    buf.rect(cx - cw * 0.2, roofY - height * 0.15, cw * 1.4, height * 0.025, iRoof);
+  }
+
+  // Rim light on the road-facing edge: the sun is at the VP.
+  buf.rect(
+    b.side === -1 ? x + width - Math.max(width * 0.018, 2.5) : x,
+    roofY,
+    Math.max(width * 0.018, 2.5),
+    height,
+    iRim,
+  );
+
+  return [iBody, iRoof, iAwning, iPost, iWindow, iRim];
+}
+
+function drawBird(buf: Buf, x: number, y: number, size: number, index: number): void {
+  const t = Math.max(size * 0.22, 2);
+  buf.line(x - size, y, x - size * 0.34, y - size * 0.5, index, t);
+  buf.line(x - size * 0.34, y - size * 0.5, x, y, index, t);
+  buf.line(x, y, x + size * 0.34, y - size * 0.5, index, t);
+  buf.line(x + size * 0.34, y - size * 0.5, x + size, y, index, t);
 }
 
 /** A bird: chunk staircases, never a curve. §3 forbids curves and sub-chunk detail alike. */
@@ -364,6 +464,22 @@ function build(geo: Geometry): readonly SlotArt[] {
   const hazeBand = h * 0.06;
   const haze: SlotArt = {
     verb: 'crossfade',
+    // Dithered at 30% coverage rather than filled at 30% opacity. The layer has its own
+    // canvas and no alpha, so it cannot composite against the sky below it; scattering the
+    // haze tone on a Bayer threshold reads the same and is what the references do.
+    // Solid band at a constant 30% layer opacity — not a dither.
+    //
+    // This is the one place in the act where alpha is load-bearing rather than decorative.
+    // The horizon has to remain *measurable through* the haze: check:invariant reads it as
+    // a tonal step across the vanishing-point corridor. A uniform wash tints both sides
+    // equally and leaves the step intact; a dither lands the haze tone on one side and not
+    // the other in alternating rows, which turns every art row boundary near the horizon
+    // into a stronger "boundary" than the horizon itself. Measured, at 100% coverage two
+    // art cells high.
+    alpha: 0.3,
+    draw: (buf) => {
+      buf.rect(left, horizon - hazeBand, full, hazeBand * 2, buf.tone(P.skyHorizon, 'haze'));
+    },
     // Flat band, hard edges. §3 permits a smooth gradient in the slot 7 sky and nowhere
     // else; a ramped haze is the exact thing the pixel register forbids.
     free: rect(left, horizon - hazeBand, full, hazeBand * 2, P.skyHorizon, ' fill-opacity="0.3"'),
@@ -413,6 +529,40 @@ function build(geo: Geometry): readonly SlotArt[] {
     verb: 'rise',
     clipBottom: horizon,
     travelPx: h * 0.28,
+    draw: (buf) => {
+      const iMesa = buf.tone(P.mesa, 'mesa');
+      const iMesaShade = buf.tone(shade(P.mesa, 0.24), 'mesa shade');
+      for (const m of mesaSpec) {
+        const cx = w * m.cx;
+        const topY = horizon - h * m.top;
+        const halfTop = w * m.halfW * 0.66;
+        const halfBottom = w * m.halfW;
+        const skew = w * m.lean;
+        const stepX = halfTop * 0.28;
+        const stepY = h * m.top * 0.13;
+        buf.poly(
+          [
+            [cx - halfBottom, horizon + bleed],
+            [cx - halfTop + skew, topY + stepY],
+            [cx - stepX + skew, topY + stepY],
+            [cx - stepX + skew, topY],
+            [cx + halfTop + skew, topY],
+            [cx + halfBottom, horizon + bleed],
+          ],
+          iMesa,
+        );
+        const away = Math.sign(cx - vp) || 1;
+        buf.poly(
+          [
+            [cx + away * halfBottom, horizon + bleed],
+            [cx + away * halfTop + skew, topY],
+            [cx + away * halfTop * 0.42 + skew, topY],
+            [cx + away * halfBottom * 0.46, horizon + bleed],
+          ],
+          iMesaShade,
+        );
+      }
+    },
     free: mesas,
   };
 
@@ -471,6 +621,63 @@ function build(geo: Geometry): readonly SlotArt[] {
     verb: 'rise',
     clipBottom: groundY(geo, 0.72),
     travelPx: below * 0.85,
+    draw: (buf) => {
+      const iScrub = buf.tone(P.midGround, 'scrub');
+      const iScrubShade = buf.tone(shade(P.midGround, 0.28), 'scrub shade');
+      for (let i = 0; i < 30; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const d = 0.05 + ((i * 11) % 29) / 52;
+        const y = groundY(geo, d);
+        const sc = depthScale(geo, d);
+        const spread = ((i * 37) % 100) / 100;
+        const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * (0.05 + spread * 1.9) * sc);
+        if (x < left || x > w + bleed || !clearsVP(geo, x, w * 0.03 * sc)) continue;
+        const bw = w * 0.03 * sc;
+        const bh = below * 0.06 * sc;
+        buf.poly(
+          [
+            [x - bw, y],
+            [x - bw * 0.28, y - bh],
+            [x + bw * 0.34, y - bh * 0.72],
+            [x + bw, y],
+          ],
+          iScrub,
+        );
+        buf.poly(
+          [
+            [x + bw * 0.1, y],
+            [x + bw * 0.34, y - bh * 0.72],
+            [x + bw, y],
+          ],
+          iScrubShade,
+        );
+      }
+    },
+    drawLocked: (buf) => {
+      const iPost = buf.tone(P.midGround, 'fence');
+      // The two rails were `stroke-opacity` 0.8 / 0.5 over the ground. Resolved to tones
+      // against the desert rather than dithered: a one-cell rail dithered at 50% would
+      // simply disappear for half its length.
+      const iRailNear = buf.tone(tint(P.desert, P.midGround, 0.8), 'rail near');
+      const iRailFar = buf.tone(tint(P.desert, P.midGround, 0.5), 'rail far');
+      for (const side of [-1, 1] as const) {
+        for (let i = 1; i <= 16; i++) {
+          const d = Math.pow(i / 16, 2.2) * 0.66;
+          const y = groundY(geo, d);
+          const sc = depthScale(geo, d);
+          const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.3 * sc);
+          const postH = below * 0.05 * sc;
+          if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
+          buf.rect(x - w * 0.0015 * sc, y - postH, w * 0.003 * sc, postH, iPost);
+        }
+        const nd = 0.66;
+        const ns = depthScale(geo, nd);
+        const nx = vp + side * (roadHalf(geo, nd, ROAD_NEAR_HALF, 0) + w * 0.3 * ns);
+        const ny = groundY(geo, nd);
+        buf.line(nx, ny - below * 0.05 * ns, vp, horizon, iRailNear, 1.2);
+        buf.line(nx, ny - below * 0.018 * ns, vp, horizon, iRailFar, 1.2);
+      }
+    },
     free: scrub,
     locked: fence,
   };
@@ -505,9 +712,53 @@ function build(geo: Geometry): readonly SlotArt[] {
   }
 
   // ---- slots 3 and 2 — the town --------------------------------------------
+  /** Street furniture, so the middle distance is not an empty wedge. */
+  const drawStreetProps = (buf: Buf): number[] => {
+    const used: number[] = [];
+    for (const [d, side, kind] of [
+      [0.36, -1, 'rail'],
+      [0.6, 1, 'barrel'],
+      [0.66, 1, 'trough'],
+      [1.02, -1, 'barrel'],
+    ] as const) {
+      const sc = depthScale(geo, d);
+      const gy = groundY(geo, d);
+      const px = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) * 0.82);
+      const tone = shade(tint(P.town, P.skyHorizon, Math.max(0, (1 - d) * 0.3)), 0.15);
+      const iTone = buf.tone(tone, 'street prop');
+      const iDark = buf.tone(shade(tone, 0.3), 'street prop dark');
+      used.push(iTone, iDark);
+      if (kind === 'rail') {
+        const railW = w * 0.055 * sc;
+        const railH = below * 0.075 * sc;
+        buf.rect(px - railW / 2, gy - railH, w * 0.0035 * sc, railH, iTone);
+        buf.rect(px + railW / 2, gy - railH, w * 0.0035 * sc, railH, iTone);
+        buf.rect(px - railW / 2, gy - railH, railW, below * 0.008 * sc, iTone);
+      } else if (kind === 'barrel') {
+        const bw = w * 0.016 * sc;
+        const bh = below * 0.055 * sc;
+        buf.rect(px - bw / 2, gy - bh, bw, bh, iTone);
+        buf.rect(px - bw * 0.56, gy - bh * 0.72, bw * 1.12, bh * 0.1, iDark);
+      } else {
+        const tw = w * 0.05 * sc;
+        buf.rect(px - tw / 2, gy - below * 0.03 * sc, tw, below * 0.03 * sc, iTone);
+      }
+    }
+    return used;
+  };
+
   const mid: SlotArt = {
     verb: 'extrude',
     clipBottom: groundY(geo, 0.62),
+    draw: (buf) => {
+      const tones = new Set<number>();
+      for (const b of TOWN.filter((x) => x.d < 0.6)) {
+        for (const t of drawBuilding(buf, geo, b)) tones.add(t);
+      }
+      for (const t of drawStreetProps(buf)) tones.add(t);
+      // Outline the group's silhouette, not every internal tone boundary.
+      buf.outline(tones, buf.tone(TOWN_LINE, 'town line'));
+    },
     free: outlined(
       TOWN.filter((b) => b.d < 0.6)
         .map((b) => buildingMarkup(geo, b))
@@ -531,6 +782,24 @@ function build(geo: Geometry): readonly SlotArt[] {
   const near: SlotArt = {
     verb: 'extrude',
     clipBottom: h + bleed,
+    draw: (buf) => {
+      const tones = new Set<number>();
+      for (const b of TOWN.filter((x) => x.d >= 0.6)) {
+        for (const t of drawBuilding(buf, geo, b)) tones.add(t);
+      }
+      buf.outline(tones, buf.tone(TOWN_LINE, 'town line'));
+      // One accent, the last thing the eye finds: a lamp still lit over the nearest porch.
+      buf.line(
+        lampX,
+        lampY - lampR * 2.6,
+        lampX,
+        lampY - lampR,
+        buf.tone(P.town, 'lamp arm'),
+        Math.max(lampR * 0.5, 1.5),
+      );
+      buf.disc(lampX, lampY, lampR, buf.tone(P.accent, 'lamp glow'));
+      buf.disc(lampX, lampY, lampR * 0.5, buf.tone(P.window, 'lamp core'));
+    },
     free:
       outlined(
         TOWN.filter((b) => b.d >= 0.6)
@@ -565,7 +834,38 @@ function build(geo: Geometry): readonly SlotArt[] {
     foreground += circle(x, y, w * 0.0035, P.desertShadow, ' fill-opacity="0.7"');
   }
 
-  const ground: SlotArt = { verb: 'crossfade', free: foreground };
+  const ground: SlotArt = {
+    verb: 'crossfade',
+    // Nothing full-width here: a band across slot 1 occludes every structure behind it
+    // (build.md B11 — it has caused this exact bug three times).
+    draw: (buf) => {
+      const iStone = buf.tone(shade(P.desert, 0.34), 'stone');
+      for (let i = 0; i < 14; i++) {
+        const t = ((i * 41) % 100) / 100;
+        const x = w * (0.02 + t * 0.96);
+        const y = h - below * (0.005 + (((i * 17) % 7) / 7) * 0.06);
+        const sz = w * (0.004 + (((i * 13) % 5) / 5) * 0.006);
+        buf.poly(
+          [
+            [x - sz, y],
+            [x - sz * 0.4, y - sz * 0.75],
+            [x + sz * 0.5, y - sz * 0.6],
+            [x + sz, y],
+          ],
+          iStone,
+        );
+      }
+      // Was fill-opacity 0.7 over the desert; resolved to a tone, because these are two
+      // or three cells across and dithering one at 70% deletes part of it.
+      const iPebble = buf.tone(tint(P.desert, P.desertShadow, 0.7), 'pebble');
+      for (let i = 0; i < 9; i++) {
+        const x = w * (0.06 + (((i * 29) % 100) / 100) * 0.88);
+        const y = h - below * (0.002 + (((i * 23) % 5) / 5) * 0.03);
+        buf.disc(x, y, w * 0.0035, iPebble);
+      }
+    },
+    free: foreground,
+  };
 
   // ---- slot 0 — tumbleweeds, motes, birds ----------------------------------
   const tumbleweed = (cx: number, cy: number, rad: number, spin: number): string => {
@@ -603,15 +903,53 @@ function build(geo: Geometry): readonly SlotArt[] {
     props += bird(w * cx, h * cy, h * 0.018 * sc, P.town);
   }
 
+  const drawTumbleweed = (cx: number, cy: number, rad: number, spin: number) => (buf: Buf) => {
+    const x = w * cx;
+    const y = h * cy;
+    const rr = h * rad;
+    const index = buf.tone(P.desertShadow, 'tumbleweed');
+    buf.disc(x, y, rr * 0.55, index);
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * Math.PI * 2 + spin;
+      buf.line(
+        x + Math.cos(a) * rr * 0.2,
+        y + Math.sin(a) * rr * 0.2,
+        x + Math.cos(a * 1.7 + spin) * rr,
+        y + Math.sin(a * 1.7 + spin) * rr,
+        index,
+        Math.max(rr * 0.14, 2),
+      );
+    }
+  };
+
   return [
     {
       verb: 'drift',
+      draw: (buf) => {
+        // Dust motes. Were fill-opacity 0.09; at one or two cells across, dithering at 9%
+        // erases them outright — the same class of mistake that rendered Act III's music
+        // motes as zero pixels. Resolved to a dim tone against the ground instead.
+        const iMote = buf.tone(tint(P.desert, P.skyHorizon, 0.35), 'dust mote');
+        for (let i = 0; i < 20; i++) {
+          const x = w * (((i * 37) % 100) / 100);
+          const y = horizon + below * (((i * 61) % 100) / 100) * 0.95;
+          buf.disc(x, y, h * 0.0015, iMote);
+        }
+        const iBird = buf.tone(P.town, 'bird');
+        for (const [cx, cy, sc] of [
+          [0.38, 0.22, 1],
+          [0.46, 0.175, 0.78],
+          [0.55, 0.245, 0.88],
+        ] as const) {
+          drawBird(buf, w * cx, h * cy, h * 0.018 * sc, iBird);
+        }
+      },
       free: props,
       // Two tumbleweeds crossing at different speeds (§4 slot 0). Two shapes in one markup
       // string share one transform and cannot differ.
       parts: [
-        { markup: tumbleweed(0.36, 0.93, 0.042, 0), rate: 0.5 },
-        { markup: tumbleweed(0.6, 0.82, 0.024, 1.1), rate: 0.28 },
+        { draw: drawTumbleweed(0.36, 0.93, 0.042, 0), markup: tumbleweed(0.36, 0.93, 0.042, 0), rate: 0.5 },
+        { draw: drawTumbleweed(0.6, 0.82, 0.024, 1.1), markup: tumbleweed(0.6, 0.82, 0.024, 1.1), rate: 0.28 },
       ],
     },
     ground,

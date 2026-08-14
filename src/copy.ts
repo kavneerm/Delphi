@@ -150,18 +150,20 @@ export const BLOCKS: readonly CopyBlock[] = [
       '<a class="quiet" href="#TODO-full-case">Read the full case &rarr;</a>' +
       '</p>',
   },
-  {
-    id: 'act4-footer',
-    act: 3,
-    column: 'centre',
-    reveal: { at: 0.97, over: 0.02 },
-    // TODO: organisation name, contact, socials and legal are unspecified in the copy
-    // deck. Marked rather than invented.
-    html:
-      '<p class="footer-note">' +
-      'TODO: organisation name &middot; TODO: contact &middot; TODO: socials &middot; TODO: legal' +
-      '</p>',
-  },
+  // act4-footer is withheld, not deleted.
+  //
+  // docs/copy-deck.md leaves the organisation name, contact, socials and legal
+  // unspecified, and the block was rendering those TODOs to the reader. Hidden at the
+  // client's direction until the real content exists; restoring it is uncommenting this
+  // and filling in four strings.
+  //
+  // {
+  //   id: 'act4-footer',
+  //   act: 3,
+  //   column: 'centre',
+  //   reveal: { at: 0.97, over: 0.02 },
+  //   html: '<p class="footer-note">…</p>',
+  // },
 ];
 
 /** Split a heading's text nodes into per-word spans so it can reveal by word. */

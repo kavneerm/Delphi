@@ -1088,6 +1088,38 @@ function build(geo: Geometry): readonly SlotArt[] {
       const iSheen = buf.tone(tint(P.road, P.skyGlow, 0.42), 'road sheen');
       const iKerb = buf.tone(tint(P.road, P.skyMid, 0.34), 'kerb');
       buf.poly(roadPoints, iRoad);
+      // Read it as a *road*: a kerb down each side, a worn crown, and wheel ruts
+      // converging on the vanishing point.
+      //
+      // Without these the surface is a smooth tapering band between two walls of building,
+      // which is the silhouette of a canal as much as of a street. Ruts are what say
+      // "traffic has been down here"; a kerb is what says the edge is a step rather than a
+      // bank; the crown is what says it is cambered to shed water. All VP-registered, so
+      // they converge exactly and never move.
+      const iRut = buf.tone(shadeHue(P.road, 0.24, COOL, P.skyGlow), 'wheel rut');
+      const iCrown = buf.tone(tint(P.road, P.skyGlow, 0.16), 'road crown');
+      for (const side of [-1, 1] as const) {
+        // The kerb: a one-cell lip following the road edge from the wall to the viewer.
+        let prev: [number, number] | null = null;
+        for (let i = 0; i <= 24; i++) {
+          const d = WALL_DEPTH + ((1 - WALL_DEPTH) * i) / 24;
+          const x = roadCentre(geo, d, WIND) + side * roadHalf(geo, d, ROAD_NEAR_HALF, 0);
+          const y = groundY(geo, d);
+          if (prev) buf.line(prev[0], prev[1], x, y, iKerb, 1);
+          prev = [x, y];
+        }
+      }
+      // Two ruts either side of the crown, at the width a wheelbase actually sits.
+      for (const k of [-0.52, -0.2, 0.2, 0.52] as const) {
+        let prev: [number, number] | null = null;
+        for (let i = 0; i <= 24; i++) {
+          const d = WALL_DEPTH + ((1 - WALL_DEPTH) * i) / 24;
+          const x = roadCentre(geo, d, WIND) + k * roadHalf(geo, d, ROAD_NEAR_HALF, 0);
+          const y = groundY(geo, d);
+          if (prev) buf.line(prev[0], prev[1], x, y, Math.abs(k) > 0.4 ? iRut : iCrown, 1);
+          prev = [x, y];
+        }
+      }
       // The road carries its own ramp rather than one flat fill: it is the largest single
       // surface below the horizon, and a flat fill contributes one colour and no detail to
       // it. Painted row by row in the pass below, because `vRamp` fills rectangles and this
@@ -1438,17 +1470,48 @@ function build(geo: Geometry): readonly SlotArt[] {
   const ground: SlotArt = {
     verb: 'crossfade',
     /**
-     * Empty, deliberately.
+     * Standing water along the road's two margins.
      *
-     * Held kerb stones, rubble and standing water. Removed at the client's direction, the
-     * same call as Act I's foreground pebbles: slot 1 paints in front of every structure,
-     * so scatter here is the first thing the eye meets, and at the frame edge it read as
-     * debris stuck to the bottom rather than as ground.
+     * Restored at the client's direction, but placed against the kerbs rather than
+     * scattered across the bottom of the frame, which is where they read as blobs stuck to
+     * the picture. Water pools at the edge of a cambered road, so putting it there is both
+     * what was asked for and what makes the surface read as a road: a puddle *against a
+     * kerb* describes the kerb.
      *
-     * The slot stays in the eight — an act is a parameterisation of all eight, and a
-     * missing slot is a different shape of thing from an empty one.
+     * They reflect the sodium sky, never either monolith. Ground level is the one place
+     * where the act's saturation rule has no permitted source overhead, and a cyan puddle
+     * at the frame edge would trace to nothing above it.
      */
-    draw: () => {},
+    draw: (buf) => {
+      const iPuddle = buf.tone(tint(P.road, P.skyGlow, 0.44), 'puddle');
+      const iPuddleDeep = buf.tone(tint(P.road, P.skyLower, 0.26), 'puddle deep');
+
+      for (let i = 0; i < 8; i++) {
+        const side: -1 | 1 = i % 2 === 0 ? -1 : 1;
+        const d = 0.62 + (((i * 37) % 100) / 100) * 0.42;
+        const edge = roadCentre(geo, d, WIND) + side * roadHalf(geo, d, ROAD_NEAR_HALF, 0);
+        const sc = depthScale(geo, d);
+        // Just inside the kerb, and elongated along the road the way a gutter pool is.
+        const px = edge - side * w * 0.026 * sc;
+        const py = groundY(geo, d);
+        const pw = w * (0.022 + (((i * 13) % 4) / 4) * 0.03) * sc;
+        const ph = pw * 0.3;
+        const x0 = Math.max(0, buf.ax(px - pw));
+        const x1 = Math.min(buf.w, buf.ax(px + pw));
+        const y0 = Math.max(0, buf.ay(py - ph));
+        const y1 = Math.min(buf.h, buf.ay(py + ph));
+        for (let cy = y0; cy < y1; cy++) {
+          for (let cx = x0; cx < x1; cx++) {
+            const u = (cx - (x0 + x1) / 2) / Math.max(1, (x1 - x0) / 2);
+            const v = (cy - (y0 + y1) / 2) / Math.max(1, (y1 - y0) / 2);
+            const cover = 1 - (u * u + v * v);
+            if (cover <= 0) continue;
+            if (cover < 0.45 && cover * 1.6 <= bayer(cx, cy)) continue;
+            buf.set(cx, cy, cover > 0.62 ? iPuddle : iPuddleDeep);
+          }
+        }
+      }
+    },
     free: foreground,
   };
 

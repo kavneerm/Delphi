@@ -1437,47 +1437,18 @@ function build(geo: Geometry): readonly SlotArt[] {
 
   const ground: SlotArt = {
     verb: 'crossfade',
-    draw: (buf) => {
-      const cell = cellPx(buf);
-      const iKerbStone = buf.tone(shadeHue(P.road, 0.34, COOL, P.skyGlow), 'kerb stone');
-      const iKerbLit = buf.tone(tint(P.road, P.skyMid, 0.4), 'kerb stone lit');
-      const iPuddle = buf.tone(tint(P.road, P.skyGlow, 0.44), 'puddle');
-      const iPuddleDeep = buf.tone(tint(P.road, P.skyLower, 0.26), 'puddle deep');
-
-      // Broken kerb stones and rubble at the very front of the frame.
-      for (let i = 0; i < 22; i++) {
-        const t = ((i * 41) % 100) / 100;
-        const x = w * (0.02 + t * 0.96);
-        const y = h - below * (0.004 + (((i * 17) % 7) / 7) * 0.05);
-        const s = w * (0.003 + (((i * 13) % 5) / 5) * 0.005);
-        buf.rect(x - s, y - s * 0.5, s * 2, s * 0.5, iKerbStone);
-        buf.rect(x - s, y - s * 0.5, s * 2, cell, iKerbLit);
-      }
-
-      // Standing water, reflecting the sodium sky rather than either monolith: this is
-      // ground level and the only saturation permitted here is traceable to a source
-      // directly above it, which a puddle at the frame edge is not.
-      for (let i = 0; i < 7; i++) {
-        const px = w * (0.05 + (((i * 29) % 100) / 100) * 0.9);
-        const py = h - below * (0.01 + (((i * 23) % 5) / 5) * 0.06);
-        const pw = w * (0.02 + (((i * 13) % 4) / 4) * 0.035);
-        const ph = pw * 0.22;
-        const x0 = Math.max(0, buf.ax(px - pw));
-        const x1 = Math.min(buf.w, buf.ax(px + pw));
-        const y0 = Math.max(0, buf.ay(py - ph));
-        const y1 = Math.min(buf.h, buf.ay(py + ph));
-        for (let cy = y0; cy < y1; cy++) {
-          for (let cx = x0; cx < x1; cx++) {
-            const u = (cx - (x0 + x1) / 2) / Math.max(1, (x1 - x0) / 2);
-            const v = (cy - (y0 + y1) / 2) / Math.max(1, (y1 - y0) / 2);
-            const cover = 1 - (u * u + v * v);
-            if (cover <= 0) continue;
-            if (cover < 0.45 && cover * 1.6 <= bayer(cx, cy)) continue;
-            buf.set(cx, cy, cover > 0.62 ? iPuddle : iPuddleDeep);
-          }
-        }
-      }
-    },
+    /**
+     * Empty, deliberately.
+     *
+     * Held kerb stones, rubble and standing water. Removed at the client's direction, the
+     * same call as Act I's foreground pebbles: slot 1 paints in front of every structure,
+     * so scatter here is the first thing the eye meets, and at the frame edge it read as
+     * debris stuck to the bottom rather than as ground.
+     *
+     * The slot stays in the eight — an act is a parameterisation of all eight, and a
+     * missing slot is a different shape of thing from an empty one.
+     */
+    draw: () => {},
     free: foreground,
   };
 

@@ -183,9 +183,14 @@ html.lenis body {
   text-align: right;
 }
 
+/*
+   Act I's opening sits in the upper middle and is complete at first paint — it is the
+   page's entry point and the LCP element, so it has to be on screen when the reader
+   arrives rather than revealing on scroll.
+*/
 .col-centre {
   left: 50%;
-  top: 20vh;
+  top: 16vh;
   transform: translateX(-50%);
   align-items: center;
   text-align: center;

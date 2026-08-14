@@ -64,7 +64,7 @@ export const BLOCKS: readonly CopyBlock[] = [
   {
     id: 'act1-h1',
     act: 0,
-    column: 'left',
+    column: 'centre',
     // Complete at p=0, rather than revealing over the deck's 0.01–0.04.
     //
     // Measured: with the h1 at opacity 0 on arrival the page has *no* Largest Contentful
@@ -84,21 +84,12 @@ export const BLOCKS: readonly CopyBlock[] = [
   {
     id: 'act1-body',
     act: 0,
-    column: 'left',
+    column: 'centre',
     reveal: { at: 0.065, over: 0.045, out: 0.13, outOver: 0.04 },
     html:
       '<p>Abundance is guaranteed. Competition is not. Emerging technologies could make ' +
       'intelligence, knowledge, medicine, energy, and productive capacity reach new levels ' +
       'of development and sophistication.</p>',
-  },
-  {
-    id: 'act1-transition',
-    act: 0,
-    column: 'left',
-    reveal: { at: 0.095, over: 0.02, out: 0.135, outOver: 0.04 },
-    html:
-      '<p class="lede">We see two paths ahead for AI development.</p>' +
-      '<span class="scroll-cue" aria-hidden="true"></span>',
   },
   {
     id: 'act2-eyebrow',

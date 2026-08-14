@@ -91,11 +91,15 @@ interface Building {
  * Act I and Act IV share these marks exactly, so the loop reads as one place seen twice.
  * Change one and you must change the other.
  */
-const TOWN: readonly Building[] = [
-  { side: -1, d: 0.36, width: 0.14, height: 0.5, falseFront: true, cols: 3, rows: 2, seed: 13 },
-  { side: 1, d: 0.62, width: 0.17, height: 0.52, falseFront: false, cols: 3, rows: 2, seed: 29 },
-  { side: -1, d: 1.06, width: 0.2, height: 0.6, falseFront: true, cols: 4, rows: 2, seed: 31 },
-];
+/**
+ * No town. Client direction: Act I and Act IV are open frontier, nothing built on it.
+ *
+ * Kept as an empty typed array rather than deleting the machinery, because Act IV shares
+ * these marks and the two acts must stay able to hold buildings together or not at all.
+ * Everything downstream — the facades, the cast shadows, the cel outline, the porch lamp —
+ * is written to degrade to nothing on an empty list.
+ */
+const TOWN: readonly Building[] = [];
 
 function facade(
   geo: Geometry,
@@ -694,6 +698,8 @@ function build(geo: Geometry): readonly SlotArt[] {
       const iMesa = buf.tone(P.mesa, 'mesa');
       const iMesaShade = buf.tone(shadeHue(P.mesa, 0.3), 'mesa shade');
       const iMesaLit = buf.tone(shadeHue(tint(P.mesa, P.sunRim, 0.22), -0.22), 'mesa lit');
+      const iMesaGrit = buf.tone(shadeHue(P.mesa, 0.15), 'mesa grit');
+
       for (const m of mesaSpec) {
         const cx = w * m.cx;
         const topY = horizon - h * m.top;
@@ -702,6 +708,7 @@ function build(geo: Geometry): readonly SlotArt[] {
         const skew = w * m.lean;
         const stepX = halfTop * 0.28;
         const stepY = h * m.top * 0.13;
+
         buf.poly(
           [
             [cx - halfBottom, horizon + bleed],
@@ -713,8 +720,50 @@ function build(geo: Geometry): readonly SlotArt[] {
           ],
           iMesa,
         );
-        // Sunlit cap: the top face reads warm against the cool body.
-        buf.rect(cx - halfTop * 0.92 + skew, topY, halfTop * 1.84, Math.max(h * m.top * 0.05, 2), iMesaLit);
+        // Sunlit cap: the sun is at the VP and above the horizon in this act, so the top
+        // face takes a full warm lift where Act IV's takes a fifth of one.
+        buf.rect(
+          cx - halfTop * 0.92 + skew,
+          topY,
+          halfTop * 1.84,
+          Math.max(h * m.top * 0.05, 2),
+          iMesaLit,
+        );
+
+        // Strata. A mesa face is bedded rock, and two bands of it stop the wedge reading
+        // as one flat purple mass. Polygons that follow the batter of the sides, not
+        // dithered rectangles — a rectangle is not clipped to the silhouette and scatters
+        // loose dots into the open sky either side of the mesa.
+        for (const [at, thick] of [
+          [0.34, 0.09],
+          [0.63, 0.06],
+        ] as const) {
+          const halfA = halfTop + (halfBottom - halfTop) * at;
+          const halfB = halfTop + (halfBottom - halfTop) * (at + thick);
+          const yA = topY + (horizon - topY) * at;
+          const yB = topY + (horizon - topY) * (at + thick);
+          buf.poly(
+            [
+              [cx - halfA + skew * (1 - at), yA],
+              [cx + halfA + skew * (1 - at), yA],
+              [cx + halfB + skew * (1 - at - thick), yB],
+              [cx - halfB + skew * (1 - at - thick), yB],
+            ],
+            iMesaShade,
+          );
+          // Weathered lower edge: the band below a stratum is rubble, not a ruled line.
+          // Safe as a rect because the mesa only ever widens going down, so a band of its
+          // own width cannot escape the silhouette.
+          buf.rectDither(
+            cx - halfB * 0.94 + skew * (1 - at - thick),
+            yB,
+            halfB * 1.88,
+            (horizon - topY) * 0.09,
+            iMesaShade,
+            (k) => 0.62 - 0.62 * k,
+          );
+        }
+
         const away = Math.sign(cx - vp) || 1;
         buf.poly(
           [
@@ -726,6 +775,11 @@ function build(geo: Geometry): readonly SlotArt[] {
           iMesaShade,
         );
       }
+
+      // Rock grain, once the masses are down: three mesas in two flat tones read as cut
+      // paper against the sky. Bounded above the horizon — `speckle` writes `buf.idx`
+      // directly and does not honour `protectRow`, and `toY` is exclusive.
+      speckle(buf, iMesa, iMesaGrit, 0.2, iMesaShade, 0.14, horizon - h * 0.26, horizon);
     },
     free: mesas,
   };
@@ -761,77 +815,8 @@ function build(geo: Geometry): readonly SlotArt[] {
     );
   }
 
-  // Posts march toward the VP; the rails converge on it exactly.
-  let fence = '';
-  for (const side of [-1, 1] as const) {
-    for (let i = 1; i <= 16; i++) {
-      const d = Math.pow(i / 16, 2.2) * 0.66;
-      const y = groundY(geo, d);
-      const sc = depthScale(geo, d);
-      const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.3 * sc);
-      const postH = below * 0.05 * sc;
-      if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
-      fence += rect(x - w * 0.0015 * sc, y - postH, w * 0.003 * sc, postH, P.midGround);
-    }
-    const nd = 0.66;
-    const ns = depthScale(geo, nd);
-    const nx = vp + side * (roadHalf(geo, nd, ROAD_NEAR_HALF, 0) + w * 0.3 * ns);
-    const ny = groundY(geo, nd);
-    fence += line(nx, ny - below * 0.05 * ns, vp, horizon, P.midGround, 1.2, ' fill-opacity="0.8"');
-    fence += line(nx, ny - below * 0.018 * ns, vp, horizon, P.midGround, 1.2, ' fill-opacity="0.5"');
-  }
 
 
-  /**
-   * Telegraph poles receding to the vanishing point.
-   *
-   * Drawn in slot 2, not slot 4. Slot index counts toward the viewer, so slot 4 put the
-   * poles *behind* the houses in slots 2 and 3 and the buildings appeared to be lying on
-   * top of the wires. Poles line the road; the houses are set back from it, so the poles
-   * belong in front. VP-registered, hence the locked layer, which is never transformed.
-   */
-  const drawPoles = (buf: Buf): void => {
-      // Telegraph poles receding to the vanishing point.
-    //
-    // The single most reference-evocative element on the ground plane, and cheap: a run
-    // of verticals at diminishing scale is what tells the eye how far away the horizon
-    // is. They are VP-registered, so they live in the locked layer and converge exactly.
-    const iPole = buf.tone(tint(P.town, P.skyHorizon, 0.18), 'pole');
-    const iPoleLit = buf.tone(tint(RIM, P.sunRim, 0.5), 'pole lit');
-    const iWire = buf.tone(tint(P.desert, P.town, 0.42), 'wire');
-    const poles: { x: number; top: number; base: number; scale: number }[] = [];
-    for (const side of [-1, 1] as const) {
-      for (let i = 1; i <= 11; i++) {
-        const d = Math.pow(i / 11, 2.05) * 1.06;
-        const sc = depthScale(geo, d);
-        const gy = groundY(geo, d);
-        const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.055 * sc);
-        if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
-        const poleH = below * 0.42 * sc;
-        const poleW = Math.max(w * 0.0035 * sc, 1);
-        const top = gy - poleH;
-        buf.rect(x - poleW / 2, top, poleW, poleH, iPole);
-        // Sun is at the VP, so the road-facing edge catches the light.
-        buf.rect(x - side * poleW * 0.5, top, Math.max(poleW * 0.45, 1), poleH, iPoleLit);
-        // Two crossarms, the upper one wider.
-        const armW = w * 0.022 * sc;
-        buf.rect(x - armW / 2, top + poleH * 0.06, armW, Math.max(poleH * 0.022, 1), iPole);
-        buf.rect(x - armW * 0.35, top + poleH * 0.17, armW * 0.7, Math.max(poleH * 0.018, 1), iPole);
-        poles.push({ x, top: top + poleH * 0.06, base: gy, scale: sc });
-      }
-    }
-    // Wires between consecutive poles on the same side, sagging between them.
-    for (let i = 0; i + 1 < poles.length; i++) {
-      const a = poles[i] as { x: number; top: number };
-      const b = poles[i + 1] as { x: number; top: number };
-      // Only join neighbours on the same side of the road.
-      if (Math.sign(a.x - vp) !== Math.sign(b.x - vp)) continue;
-      const sag = Math.abs(b.top - a.top) * 0.18 + Math.abs(b.x - a.x) * 0.035;
-      const mid = { x: (a.x + b.x) / 2, y: (a.top + b.top) / 2 + sag };
-      buf.line(a.x, a.top, mid.x, mid.y, iWire, 1);
-      buf.line(mid.x, mid.y, b.x, b.top, iWire, 1);
-    }
-  };
 
   const far: SlotArt = {
     verb: 'rise',
@@ -869,34 +854,10 @@ function build(geo: Geometry): readonly SlotArt[] {
         );
       }
     },
-    drawLocked: (buf) => {
-      const iPost = buf.tone(P.midGround, 'fence');
-      // The two rails were `stroke-opacity` 0.8 / 0.5 over the ground. Resolved to tones
-      // against the desert rather than dithered: a one-cell rail dithered at 50% would
-      // simply disappear for half its length.
-      const iRailNear = buf.tone(tint(P.desert, P.midGround, 0.8), 'rail near');
-      const iRailFar = buf.tone(tint(P.desert, P.midGround, 0.5), 'rail far');
-      for (const side of [-1, 1] as const) {
-        for (let i = 1; i <= 16; i++) {
-          const d = Math.pow(i / 16, 2.2) * 0.66;
-          const y = groundY(geo, d);
-          const sc = depthScale(geo, d);
-          const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.3 * sc);
-          const postH = below * 0.05 * sc;
-          if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
-          buf.rect(x - w * 0.0015 * sc, y - postH, w * 0.003 * sc, postH, iPost);
-        }
-        const nd = 0.66;
-        const ns = depthScale(geo, nd);
-        const nx = vp + side * (roadHalf(geo, nd, ROAD_NEAR_HALF, 0) + w * 0.3 * ns);
-        const ny = groundY(geo, nd);
-        buf.line(nx, ny - below * 0.05 * ns, vp, horizon, iRailNear, 1.2);
-        buf.line(nx, ny - below * 0.018 * ns, vp, horizon, iRailFar, 1.2);
-      }
-
-    },
+    // No fence. The posts and their two converging rails were the last VP-registered
+    // geometry on the ground plane; with the town and the poles gone the rails read as bare
+    // diagonals ruled across open sand rather than as a fence line.
     free: scrub,
-    locked: fence,
   };
 
   // ---- street furniture, so the middle distance is not an empty wedge -------
@@ -929,40 +890,9 @@ function build(geo: Geometry): readonly SlotArt[] {
   }
 
   // ---- slots 3 and 2 — the town --------------------------------------------
-  /** Street furniture, so the middle distance is not an empty wedge. */
-  const drawStreetProps = (buf: Buf): number[] => {
-    const used: number[] = [];
-    for (const [d, side, kind] of [
-      [0.36, -1, 'rail'],
-      [0.6, 1, 'barrel'],
-      [0.66, 1, 'trough'],
-      [1.02, -1, 'barrel'],
-    ] as const) {
-      const sc = depthScale(geo, d);
-      const gy = groundY(geo, d);
-      const px = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) * 0.82);
-      const tone = shade(tint(P.town, P.skyHorizon, Math.max(0, (1 - d) * 0.3)), 0.15);
-      const iTone = buf.tone(tone, 'street prop');
-      const iDark = buf.tone(shade(tone, 0.3), 'street prop dark');
-      used.push(iTone, iDark);
-      if (kind === 'rail') {
-        const railW = w * 0.055 * sc;
-        const railH = below * 0.075 * sc;
-        buf.rect(px - railW / 2, gy - railH, w * 0.0035 * sc, railH, iTone);
-        buf.rect(px + railW / 2, gy - railH, w * 0.0035 * sc, railH, iTone);
-        buf.rect(px - railW / 2, gy - railH, railW, below * 0.008 * sc, iTone);
-      } else if (kind === 'barrel') {
-        const bw = w * 0.016 * sc;
-        const bh = below * 0.055 * sc;
-        buf.rect(px - bw / 2, gy - bh, bw, bh, iTone);
-        buf.rect(px - bw * 0.56, gy - bh * 0.72, bw * 1.12, bh * 0.1, iDark);
-      } else {
-        const tw = w * 0.05 * sc;
-        buf.rect(px - tw / 2, gy - below * 0.03 * sc, tw, below * 0.03 * sc, iTone);
-      }
-    }
-    return used;
-  };
+  // Street furniture — a hitching rail, barrels, a water trough — removed with the town.
+  // It existed to stop the middle distance reading as an empty wedge, but furniture for a
+  // street that no longer exists reads as debris: a bracket floating on open sand.
 
   const mid: SlotArt = {
     verb: 'extrude',
@@ -972,26 +902,27 @@ function build(geo: Geometry): readonly SlotArt[] {
       for (const b of TOWN.filter((x) => x.d < 0.6)) {
         for (const t of drawBuilding(buf, geo, b)) tones.add(t);
       }
-      for (const t of drawStreetProps(buf)) tones.add(t);
       // Outline the group's silhouette, not every internal tone boundary.
       buf.outline(tones, buf.tone(TOWN_LINE, 'town line'));
     },
     free: outlined(
       TOWN.filter((b) => b.d < 0.6)
         .map((b) => buildingMarkup(geo, b))
-        .join('') + streetProps,
+        .join(''),
       TOWN_LINE,
       1.5,
     ),
   };
 
   // One accent, the last thing the eye finds: a lamp still lit over the nearest porch.
-  const lampHost = TOWN.filter((b) => b.d >= 0.6).reduce((a, b) => (b.d > a.d ? b : a));
-  const lampFacade = facade(geo, lampHost);
-  const lampX = lampFacade.x + lampFacade.width * 0.86;
-  const lampY = lampFacade.base - lampFacade.height * 0.34;
+  // `reduce` with no seed throws on an empty list, so the lamp is conditional on a host
+  // existing at all rather than on TOWN happening to be non-empty today.
+  const lampHost = TOWN.filter((b) => b.d >= 0.6).sort((a, b) => b.d - a.d)[0];
+  const lampFacade = lampHost ? facade(geo, lampHost) : null;
+  const lampX = lampFacade ? lampFacade.x + lampFacade.width * 0.86 : 0;
+  const lampY = lampFacade ? lampFacade.base - lampFacade.height * 0.34 : 0;
   const lampR = Math.max(w * 0.0055, 3.2);
-  const lamp =
+  const lamp = !lampFacade ? '' :
     line(lampX, lampY - lampR * 2.6, lampX, lampY - lampR, P.town, Math.max(lampR * 0.5, 1.5)) +
     circle(lampX, lampY, lampR, P.accent) +
     circle(lampX, lampY, lampR * 0.5, P.window);
@@ -999,13 +930,13 @@ function build(geo: Geometry): readonly SlotArt[] {
   const near: SlotArt = {
     verb: 'extrude',
     clipBottom: h + bleed,
-    drawLocked: drawPoles,
     draw: (buf) => {
       const tones = new Set<number>();
       for (const b of TOWN.filter((x) => x.d >= 0.6)) {
         for (const t of drawBuilding(buf, geo, b)) tones.add(t);
       }
       buf.outline(tones, buf.tone(TOWN_LINE, 'town line'));
+      if (!lampFacade) return;
       // One accent, the last thing the eye finds: a lamp still lit over the nearest porch.
       buf.line(
         lampX,
@@ -1054,34 +985,18 @@ function build(geo: Geometry): readonly SlotArt[] {
 
   const ground: SlotArt = {
     verb: 'crossfade',
-    // Nothing full-width here: a band across slot 1 occludes every structure behind it
-    // (build.md B11 — it has caused this exact bug three times).
-    draw: (buf) => {
-      const iStone = buf.tone(shade(P.desert, 0.34), 'stone');
-      for (let i = 0; i < 14; i++) {
-        const t = ((i * 41) % 100) / 100;
-        const x = w * (0.02 + t * 0.96);
-        const y = h - below * (0.005 + (((i * 17) % 7) / 7) * 0.06);
-        const sz = w * (0.004 + (((i * 13) % 5) / 5) * 0.006);
-        buf.poly(
-          [
-            [x - sz, y],
-            [x - sz * 0.4, y - sz * 0.75],
-            [x + sz * 0.5, y - sz * 0.6],
-            [x + sz, y],
-          ],
-          iStone,
-        );
-      }
-      // Was fill-opacity 0.7 over the desert; resolved to a tone, because these are two
-      // or three cells across and dithering one at 70% deletes part of it.
-      const iPebble = buf.tone(tint(P.desert, P.desertShadow, 0.7), 'pebble');
-      for (let i = 0; i < 9; i++) {
-        const x = w * (0.06 + (((i * 29) % 100) / 100) * 0.88);
-        const y = h - below * (0.002 + (((i * 23) % 5) / 5) * 0.03);
-        buf.disc(x, y, w * 0.0035, iPebble);
-      }
-    },
+    /**
+     * Empty, deliberately.
+     *
+     * This slot held a scatter of foreground stones and pebbles along the bottom edge.
+     * Removed at the client's direction: against a grained ground plane they read as
+     * bumps stuck to the frame rather than as rocks lying on it, and slot 1 sits in front
+     * of every structure, so anything here is the first thing the eye meets.
+     *
+     * The slot stays in the eight rather than being deleted — an act is a parameterisation
+     * of all eight, and a missing one is a different shape of thing from an empty one.
+     */
+    draw: () => {},
     free: foreground,
   };
 

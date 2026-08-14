@@ -102,11 +102,12 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  aliases = [var.domain_name, "www.${var.domain_name}"]
+
   viewer_certificate {
-    # The default *.cloudfront.net certificate. A custom domain needs an ACM certificate
-    # issued in us-east-1 — regardless of this distribution's region — plus Route 53
-    # records. Deliberately out of scope until someone asks for a domain.
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate_validation.site.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 }
 

@@ -15,3 +15,9 @@ variable "price_class" {
   type        = string
   default     = "PriceClass_100"
 }
+
+variable "domain_name" {
+  description = "Apex domain. The Route 53 hosted zone must already exist."
+  type        = string
+  default     = "inevitablefrontier.org"
+}

@@ -10,5 +10,10 @@ output "distribution_id" {
 
 output "url" {
   description = "The live site."
+  value       = "https://${var.domain_name}"
+}
+
+output "cloudfront_url" {
+  description = "Direct distribution URL, useful before DNS has propagated."
   value       = "https://${aws_cloudfront_distribution.site.domain_name}"
 }

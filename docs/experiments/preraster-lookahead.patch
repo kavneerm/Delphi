@@ -1,0 +1,108 @@
+diff --git a/src/stage.ts b/src/stage.ts
+index 650cddc..10ec5be 100644
+--- a/src/stage.ts
++++ b/src/stage.ts
+@@ -18,7 +18,7 @@ import { GRAIN_TILE_PX, grainTile } from './art/grain.ts';
+ import { Palette } from './art/palette.ts';
+ import { bufferOriginFor, horizonPx as horizonPxOf, vpPx as vpPxOf } from './config.ts';
+ import { progress, residentActs, type Frame } from './progress.ts';
+-import { slotEase, slotProgress, type ActIndex } from './timeline.ts';
++import { SEGMENTS, slotEase, slotProgress, type ActIndex } from './timeline.ts';
+ import { aberrates, aberrationOffset, halftoneOverlay, postDefs } from './post/index.ts';
+ 
+ interface ActLayer {
+@@ -42,6 +42,11 @@ interface SlotEls {
+ 
+ const SVG_NS = 'http://www.w3.org/2000/svg';
+ 
++/** Layers to pre-raster per frame while warming a neighbouring act. */
++const PRERASTER_PER_FRAME = 1;
++/** How far into a hold to start warming, as a fraction of the hold. */
++const PRERASTER_START = 0.35;
++
+ export class Stage {
+   private readonly slots: SlotEls[] = [];
+   private readonly host: HTMLElement;
+@@ -306,12 +311,19 @@ export class Stage {
+    */
+   private sync(frame: Readonly<Frame>): boolean {
+     const resident = residentActs(frame);
++    // What to KEEP and when to BUILD are separate questions, and conflating them costs more
++    // than not warming at all: if the keep-set shrinks the moment the build gate closes,
++    // every warmed layer is dropped and rebuilt on the next frame that reopens it.
++    const neighbours = this.neighbourActs(frame);
++    const keep = [...resident, ...neighbours];
++    const warming = this.shouldWarm(frame) ? neighbours : [];
+     let built = false;
++
+     for (let slot = 0; slot < SLOT_COUNT; slot++) {
+       const els = this.slots[slot];
+       if (!els) continue;
+       for (const act of [...els.layers.keys()]) {
+-        if (!resident.includes(act)) this.dropLayer(els, act);
++        if (!keep.includes(act)) this.dropLayer(els, act);
+       }
+       // Append in transition order so the incoming act paints over the outgoing one.
+       for (const act of resident) {
+@@ -321,9 +333,61 @@ export class Stage {
+         }
+       }
+     }
++
++    // Warm the neighbouring acts a layer at a time.
++    //
++    // An act change rasters every slot it owns. With one act ported that was survivable;
++    // with four it is a 30-50ms spike against a 16ms frame — R3, exactly as predicted.
++    // Rastering is not per-frame work, so the fix is not to make it faster but to stop
++    // doing it all at once: during a hold, build the neighbours at PRERASTER_PER_FRAME per
++    // frame so the transition frame itself costs nothing.
++    //
++    // Both neighbours, not just the next one: a reader scrolls back as well as forward, and
++    // warming forward only leaves every backward transition rastering a whole act in one
++    // frame.
++    let budget = PRERASTER_PER_FRAME;
++    for (const act of warming) {
++      for (let slot = SLOT_COUNT - 1; slot >= 0 && budget > 0; slot--) {
++        const els = this.slots[slot];
++        if (!els || els.layers.has(act)) continue;
++        this.buildLayer(els, slot, act);
++        // Warmed but not yet on stage: transparent until the transition's own opacity
++        // write takes over.
++        const layer = els.layers.get(act);
++        if (layer) {
++          layer.drift.style.opacity = '0';
++          if (layer.locked) layer.locked.style.opacity = '0';
++        }
++        budget -= 1;
++      }
++    }
+     return built;
+   }
+ 
++  /**
++   * The acts on either side of the current hold. Independent of progress — this is the
++   * keep-set, and a warmed layer must not be discarded because the build gate closed.
++   */
++  private neighbourActs(frame: Readonly<Frame>): ActIndex[] {
++    const segment = frame.segment;
++    if (segment.kind !== 'hold') return [];
++    const out: ActIndex[] = [];
++    for (const s of SEGMENTS) {
++      if (s.kind !== 'transition') continue;
++      if (s.a >= segment.b) out.push(s.to);
++      if (s.b <= segment.a) out.push(s.from);
++    }
++    return [...new Set(out)];
++  }
++
++  /** Far enough into a hold that warming is not wasted on a reader who turns straight back. */
++  private shouldWarm(frame: Readonly<Frame>): boolean {
++    const segment = frame.segment;
++    if (segment.kind !== 'hold') return false;
++    const span = segment.b - segment.a;
++    return span > 0 && (frame.p - segment.a) / span >= PRERASTER_START;
++  }
++
+   private dropLayer(els: SlotEls, act: ActIndex): void {
+     const layer = els.layers.get(act);
+     if (!layer) return;

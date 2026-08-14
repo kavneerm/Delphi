@@ -76,14 +76,37 @@ export function roadHalf(geo: Geometry, d: number, nearFrac = 0.3, farFrac = 0.0
 }
 
 /**
- * Half-width of the corridor either side of the vanishing point that no structure may
- * cross, as a fraction of stage width.
+ * Half-width of the corridor either side of the vanishing point kept clear of
+ * **procedurally placed** structures, as a fraction of stage width.
  *
  * art-direction §2 requires the VP visible in every act — including Act II, where the road
- * is walled off short of it. It is also what `check:invariant` measures the rendered
- * horizon in, since it is the one column guaranteed unoccluded in every act.
+ * is walled off short of it.
+ *
+ * **Restated at the client's direction, because the constant and the shipped art disagreed
+ * and the art is right.** This is an authoring guard for geometry whose position is chosen
+ * by code — scrub, fences, towers, mid-rise, trees — which is scattered and would otherwise
+ * wander across the vanishing point. It is *not* a claim that every structure in the build
+ * clears it.
+ *
+ * The known and deliberate exception: art-direction §5 fixes Act II's two monoliths at
+ * 38vw and 62vw. At a half-width of 0.082w their inner edges land 0.038w from the VP, inside
+ * this guard. That placement is specified, it predates this constant, and it is not a defect
+ * — 109px of open sky remains between the towers at 1440, and `check:invariant` reads 100%
+ * corridor coverage at the horizon with the strongest boundary exactly on the anchor.
+ *
+ * What actually must hold is the narrower claim below, and it is measured rather than
+ * asserted here.
  */
 export const VP_KEEP_CLEAR = 0.055;
+
+/**
+ * The corridor `check:invariant` measures the horizon in — the one span that must stay
+ * readable in every act, at every scroll position.
+ *
+ * This is the real invariant. `VP_KEEP_CLEAR` is a placement convention that keeps
+ * procedural scatter well outside it; this is the line that cannot be crossed.
+ */
+export const VP_CORRIDOR_HALF = 0.04;
 
 /** True if `x` (absolute px) is clear of the vanishing-point corridor. */
 export function clearsVP(geo: Geometry, x: number, halfWidth = 0): boolean {

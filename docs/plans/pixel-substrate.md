@@ -383,6 +383,38 @@ Two real optimisations came out of it, both found by measuring rather than guess
 
 `check:perf` sits in `npm run check:art` with the other migration gates until P5.
 
+#### Perf: measured, unresolved, and NOT fixed by the obvious mitigation
+
+All four acts on canvas, `check:perf` at 1440x900, baseline build, three consecutive runs:
+**p99 25.4 / 21.5 / 25.8ms, max 35.1 / 29.0 / 31.4ms** against budgets of 4 and 16.
+
+This is R3 arriving as predicted: an act change rasters every slot it owns, and with four
+ported acts a transition costs 20-35ms.
+
+**The plan's own mitigation was implemented and could not be shown to work.** The lookahead
+pre-raster — warm both neighbouring acts one layer per frame during a hold — is saved as
+`docs/experiments/preraster-lookahead.patch` and is reverted on main. Two runs of the
+identical patched build measured p99 16.0ms and 29.2ms, max 33.2ms and 75.5ms. The spread
+between runs of one build is larger than the effect, so the patch is neither proven nor
+disproven, and shipping unproven complexity that triples resident layers is worse than not.
+
+Three things this establishes, none of them optional to fix later:
+
+1. **`check:perf` is not yet a usable optimisation guide.** It reports a single run of a
+   teleporting harness. `goto` jumps straight into an act change with no run-up, which is
+   the one condition under which a pre-raster cannot help — real scrolling passes through a
+   hold and would warm. The check needs repeated runs and a median, and ideally a
+   deterministic raster-cost measurement (rastering an act in node is stable: Act I's draw
+   callbacks total 6.09ms, and that number does not move between runs).
+2. **The root cause is main-thread rastering, and the real fix is a Worker**, not
+   amortisation. §5 names it. Amortisation only moves the cost; a Worker removes it from
+   the frame entirely.
+3. **A caution about baselines.** I first compared the patch against p99 5.9-7.3ms and
+   concluded it was a large regression. Those numbers came from the subagents' reports,
+   each measured in a worktree containing only *their* act. The true four-act baseline is
+   four times that. Comparing across differently-scoped trees is worthless, and it caused
+   both a wrong revert and a wrong restore before the noise floor was measured.
+
 ### P4 — Act I to reference fidelity, single author, no parallelism
 - [ ] Palette expanded to the §2 target; sky/cloud renderer; dithered ramps — **never across
       the horizon row**; density pass: continuous street wall, receding poles, populated street.

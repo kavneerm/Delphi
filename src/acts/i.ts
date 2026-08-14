@@ -18,8 +18,8 @@
  */
 
 import type { ActDefinition, Geometry, SlotArt } from './types.ts';
-import type { Buf } from '../art/buffer.ts';
-import { gradientRamp, multiply, over, parseHex } from '../art/palette.ts';
+import { bayer, type Buf } from '../art/buffer.ts';
+import { gradientRamp, multiply, over, parseHex, toHex } from '../art/palette.ts';
 import { cloudTones, drawBandedSun, drawCloudBand } from '../art/sky.ts';
 import {
   circle,
@@ -92,14 +92,9 @@ interface Building {
  * Change one and you must change the other.
  */
 const TOWN: readonly Building[] = [
-  { side: -1, d: 0.2, width: 0.1, height: 0.4, falseFront: true, cols: 2, rows: 1, seed: 7 },
-  { side: 1, d: 0.25, width: 0.11, height: 0.44, falseFront: false, cols: 2, rows: 1, seed: 11 },
   { side: -1, d: 0.36, width: 0.14, height: 0.5, falseFront: true, cols: 3, rows: 2, seed: 13 },
-  { side: 1, d: 0.45, width: 0.15, height: 0.45, falseFront: false, cols: 3, rows: 2, seed: 19 },
-  { side: -1, d: 0.62, width: 0.17, height: 0.57, falseFront: true, cols: 3, rows: 2, seed: 23 },
-  { side: 1, d: 0.75, width: 0.18, height: 0.52, falseFront: false, cols: 3, rows: 2, seed: 29 },
-  { side: -1, d: 1.02, width: 0.2, height: 0.62, falseFront: true, cols: 4, rows: 2, seed: 31 },
-  { side: 1, d: 1.16, width: 0.21, height: 0.56, falseFront: false, cols: 4, rows: 2, seed: 37 },
+  { side: 1, d: 0.62, width: 0.17, height: 0.52, falseFront: false, cols: 3, rows: 2, seed: 29 },
+  { side: -1, d: 1.06, width: 0.2, height: 0.6, falseFront: true, cols: 4, rows: 2, seed: 31 },
 ];
 
 function facade(
@@ -320,6 +315,40 @@ function bird(x: number, y: number, size: number, tone: string): string {
   );
 }
 
+
+/**
+ * Convert a fraction of one tone's cells into a lighter and a darker relative.
+ *
+ * Bounded to a stage-y band: scanning the whole grid for a region occupying a third of it
+ * is the same waste `Buf.outline` was measured for and bounded away from.
+ *
+ * Writes `buf.idx` directly, so `toY` is exclusive and callers must stop short of the
+ * horizon — a speckled horizon row would break the tonal step `check:invariant` reads
+ * there, which is the failure the haze dither already caused once.
+ */
+function speckle(
+  buf: Buf,
+  from: number,
+  lit: number,
+  litDensity: number,
+  dark: number,
+  darkDensity: number,
+  fromY: number,
+  toY: number,
+): void {
+  const y0 = Math.max(0, buf.ay(fromY) + 1);
+  const y1 = Math.min(buf.h, buf.ay(toY));
+  for (let y = y0; y < y1; y++) {
+    const row = y * buf.w;
+    for (let x = 0; x < buf.w; x++) {
+      if (buf.idx[row + x] !== from) continue;
+      const t = bayer(x, y);
+      if (t < litDensity) buf.idx[row + x] = lit;
+      else if (t > 1 - darkDensity) buf.idx[row + x] = dark;
+    }
+  }
+}
+
 function build(geo: Geometry): readonly SlotArt[] {
   setPixelGrid(geo);
   const { w, h, horizon, vp, bleed } = geo;
@@ -462,23 +491,31 @@ function build(geo: Geometry): readonly SlotArt[] {
       // viewer. This is ~40% of the frame, so it is also where most of the palette depth
       // and most of the fine detail have to come from — a single flat fill contributes one
       // colour and zero detail to a very large area.
-      buf.vRamp(
-        left,
-        horizon,
-        full,
-        below + bleed,
-        gradientRamp(
-          buf.palette,
-          [
-            { at: 0, hex: tint(P.desert, P.skyHorizon, 0.5) },
-            { at: 0.22, hex: tint(P.desert, P.skyHorizon, 0.22) },
-            { at: 0.6, hex: P.desert },
-            { at: 1, hex: shade(tint(P.desert, P.desertShadow, 0.3), 0.08) },
-          ],
-          22,
-          'i-ground',
-        ),
+      const groundRamp = gradientRamp(
+        buf.palette,
+        [
+          { at: 0, hex: tint(P.desert, P.skyHorizon, 0.5) },
+          { at: 0.22, hex: tint(P.desert, P.skyHorizon, 0.22) },
+          { at: 0.6, hex: P.desert },
+          { at: 1, hex: shade(tint(P.desert, P.desertShadow, 0.3), 0.08) },
+        ],
+        22,
+        'i-ground',
       );
+      buf.vRamp(left, horizon, full, below + bleed, groundRamp);
+
+      // Grain, the way Act IV's sand is grained — but brighter, and on this act's own hue
+      // rather than IV's cold one. A smooth ramp reads as paper; the references' ground is
+      // stippled, and it is also where a large flat area earns its fine detail.
+      //
+      // Each ramp step is speckled with a lighter and a darker relative of itself, so the
+      // grain follows the aerial perspective instead of sitting on top of it as one tone.
+      for (const step of groundRamp) {
+        const base = buf.palette.at(step);
+        const lit = buf.tone(tint(toHex(base), P.skyHorizon, 0.34), 'sand lit');
+        const dark = buf.tone(shadeHue(toHex(base), 0.16), 'sand grain');
+        speckle(buf, step, lit, 0.2, dark, 0.13, horizon, h + bleed);
+      }
 
       // Base, highlight, shadow — the three steps §3 permits.
       buf.poly(
@@ -744,6 +781,58 @@ function build(geo: Geometry): readonly SlotArt[] {
     fence += line(nx, ny - below * 0.018 * ns, vp, horizon, P.midGround, 1.2, ' fill-opacity="0.5"');
   }
 
+
+  /**
+   * Telegraph poles receding to the vanishing point.
+   *
+   * Drawn in slot 2, not slot 4. Slot index counts toward the viewer, so slot 4 put the
+   * poles *behind* the houses in slots 2 and 3 and the buildings appeared to be lying on
+   * top of the wires. Poles line the road; the houses are set back from it, so the poles
+   * belong in front. VP-registered, hence the locked layer, which is never transformed.
+   */
+  const drawPoles = (buf: Buf): void => {
+      // Telegraph poles receding to the vanishing point.
+    //
+    // The single most reference-evocative element on the ground plane, and cheap: a run
+    // of verticals at diminishing scale is what tells the eye how far away the horizon
+    // is. They are VP-registered, so they live in the locked layer and converge exactly.
+    const iPole = buf.tone(tint(P.town, P.skyHorizon, 0.18), 'pole');
+    const iPoleLit = buf.tone(tint(RIM, P.sunRim, 0.5), 'pole lit');
+    const iWire = buf.tone(tint(P.desert, P.town, 0.42), 'wire');
+    const poles: { x: number; top: number; base: number; scale: number }[] = [];
+    for (const side of [-1, 1] as const) {
+      for (let i = 1; i <= 11; i++) {
+        const d = Math.pow(i / 11, 2.05) * 1.06;
+        const sc = depthScale(geo, d);
+        const gy = groundY(geo, d);
+        const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.055 * sc);
+        if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
+        const poleH = below * 0.42 * sc;
+        const poleW = Math.max(w * 0.0035 * sc, 1);
+        const top = gy - poleH;
+        buf.rect(x - poleW / 2, top, poleW, poleH, iPole);
+        // Sun is at the VP, so the road-facing edge catches the light.
+        buf.rect(x - side * poleW * 0.5, top, Math.max(poleW * 0.45, 1), poleH, iPoleLit);
+        // Two crossarms, the upper one wider.
+        const armW = w * 0.022 * sc;
+        buf.rect(x - armW / 2, top + poleH * 0.06, armW, Math.max(poleH * 0.022, 1), iPole);
+        buf.rect(x - armW * 0.35, top + poleH * 0.17, armW * 0.7, Math.max(poleH * 0.018, 1), iPole);
+        poles.push({ x, top: top + poleH * 0.06, base: gy, scale: sc });
+      }
+    }
+    // Wires between consecutive poles on the same side, sagging between them.
+    for (let i = 0; i + 1 < poles.length; i++) {
+      const a = poles[i] as { x: number; top: number };
+      const b = poles[i + 1] as { x: number; top: number };
+      // Only join neighbours on the same side of the road.
+      if (Math.sign(a.x - vp) !== Math.sign(b.x - vp)) continue;
+      const sag = Math.abs(b.top - a.top) * 0.18 + Math.abs(b.x - a.x) * 0.035;
+      const mid = { x: (a.x + b.x) / 2, y: (a.top + b.top) / 2 + sag };
+      buf.line(a.x, a.top, mid.x, mid.y, iWire, 1);
+      buf.line(mid.x, mid.y, b.x, b.top, iWire, 1);
+    }
+  };
+
   const far: SlotArt = {
     verb: 'rise',
     clipBottom: groundY(geo, 0.72),
@@ -805,46 +894,6 @@ function build(geo: Geometry): readonly SlotArt[] {
         buf.line(nx, ny - below * 0.018 * ns, vp, horizon, iRailFar, 1.2);
       }
 
-      // Telegraph poles receding to the vanishing point.
-      //
-      // The single most reference-evocative element on the ground plane, and cheap: a run
-      // of verticals at diminishing scale is what tells the eye how far away the horizon
-      // is. They are VP-registered, so they live in the locked layer and converge exactly.
-      const iPole = buf.tone(tint(P.town, P.skyHorizon, 0.18), 'pole');
-      const iPoleLit = buf.tone(tint(RIM, P.sunRim, 0.5), 'pole lit');
-      const iWire = buf.tone(tint(P.desert, P.town, 0.42), 'wire');
-      const poles: { x: number; top: number; base: number; scale: number }[] = [];
-      for (const side of [-1, 1] as const) {
-        for (let i = 1; i <= 11; i++) {
-          const d = Math.pow(i / 11, 2.05) * 1.06;
-          const sc = depthScale(geo, d);
-          const gy = groundY(geo, d);
-          const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.055 * sc);
-          if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
-          const poleH = below * 0.42 * sc;
-          const poleW = Math.max(w * 0.0035 * sc, 1);
-          const top = gy - poleH;
-          buf.rect(x - poleW / 2, top, poleW, poleH, iPole);
-          // Sun is at the VP, so the road-facing edge catches the light.
-          buf.rect(x - side * poleW * 0.5, top, Math.max(poleW * 0.45, 1), poleH, iPoleLit);
-          // Two crossarms, the upper one wider.
-          const armW = w * 0.022 * sc;
-          buf.rect(x - armW / 2, top + poleH * 0.06, armW, Math.max(poleH * 0.022, 1), iPole);
-          buf.rect(x - armW * 0.35, top + poleH * 0.17, armW * 0.7, Math.max(poleH * 0.018, 1), iPole);
-          poles.push({ x, top: top + poleH * 0.06, base: gy, scale: sc });
-        }
-      }
-      // Wires between consecutive poles on the same side, sagging between them.
-      for (let i = 0; i + 1 < poles.length; i++) {
-        const a = poles[i] as { x: number; top: number };
-        const b = poles[i + 1] as { x: number; top: number };
-        // Only join neighbours on the same side of the road.
-        if (Math.sign(a.x - vp) !== Math.sign(b.x - vp)) continue;
-        const sag = Math.abs(b.top - a.top) * 0.18 + Math.abs(b.x - a.x) * 0.035;
-        const mid = { x: (a.x + b.x) / 2, y: (a.top + b.top) / 2 + sag };
-        buf.line(a.x, a.top, mid.x, mid.y, iWire, 1);
-        buf.line(mid.x, mid.y, b.x, b.top, iWire, 1);
-      }
     },
     free: scrub,
     locked: fence,
@@ -950,6 +999,7 @@ function build(geo: Geometry): readonly SlotArt[] {
   const near: SlotArt = {
     verb: 'extrude',
     clipBottom: h + bleed,
+    drawLocked: drawPoles,
     draw: (buf) => {
       const tones = new Set<number>();
       for (const b of TOWN.filter((x) => x.d >= 0.6)) {

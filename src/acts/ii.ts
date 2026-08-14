@@ -129,6 +129,10 @@ const WALL_DEPTH = 0.5;
  * wavelength than Act III's, hemmed by the slums, and it runs into a wall before it can
  * straighten out.
  */
+/** Depth at which slums begin migrating toward the frame edges, and how far they go. */
+const SPREAD_FROM = 0.42;
+const SPREAD_MAX = 0.62;
+
 const WIND: Wind = { amplitude: 0.075, frequency: 2.4, phase: -0.5 };
 
 /** The sky ramp's stops. Shared with the SVG twin so both paths read the same. */
@@ -306,10 +310,29 @@ interface Facade {
   readonly height: number;
 }
 
+/**
+ * How far a slum is pushed outward from the road edge, as a fraction of half the frame.
+ *
+ * Zero in the distance, rising toward the viewer, so the nearest blocks sit against the
+ * left and right edges of the screen rather than crowding the middle.
+ *
+ * Client direction, and it is also better composition: the near slums were stacked around
+ * the centre with the road's reflections threading between them, which put the act's
+ * densest, busiest geometry exactly where the vanishing point and the two monoliths need
+ * the eye to go. Pushing them to the edges frames the corridor instead of contesting it,
+ * and the crowding still reads because the buildings lean over the street.
+ */
+function slumSpread(d: number): number {
+  const t = Math.min(1, Math.max(0, (d - SPREAD_FROM) / (1 - SPREAD_FROM)));
+  return t * t * SPREAD_MAX;
+}
+
 function slumFacade(geo: Geometry, s: Slum): Facade {
   const scale = depthScale(geo, s.d);
   const base = groundY(geo, s.d);
-  const inner = roadCentre(geo, s.d, WIND) + s.side * roadHalf(geo, s.d, ROAD_NEAR_HALF, 0);
+  const edge = geo.w * 0.5 * slumSpread(s.d);
+  const inner =
+    roadCentre(geo, s.d, WIND) + s.side * (roadHalf(geo, s.d, ROAD_NEAR_HALF, 0) + edge);
   const width = geo.w * s.width * scale;
   const height = (geo.h - geo.horizon) * s.height * scale;
   return { x: s.side === -1 ? inner - width : inner, width, base, height };

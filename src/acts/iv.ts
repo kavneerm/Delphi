@@ -144,14 +144,9 @@ interface Building {
  * Change one and you must change the other.
  */
 const TOWN: readonly Building[] = [
-  { side: -1, d: 0.2, width: 0.1, height: 0.4, falseFront: true, cols: 2, rows: 1, seed: 7 },
-  { side: 1, d: 0.25, width: 0.11, height: 0.44, falseFront: false, cols: 2, rows: 1, seed: 11 },
   { side: -1, d: 0.36, width: 0.14, height: 0.5, falseFront: true, cols: 3, rows: 2, seed: 13 },
-  { side: 1, d: 0.45, width: 0.15, height: 0.45, falseFront: false, cols: 3, rows: 2, seed: 19 },
-  { side: -1, d: 0.62, width: 0.17, height: 0.57, falseFront: true, cols: 3, rows: 2, seed: 23 },
-  { side: 1, d: 0.75, width: 0.18, height: 0.52, falseFront: false, cols: 3, rows: 2, seed: 29 },
-  { side: -1, d: 1.02, width: 0.2, height: 0.62, falseFront: true, cols: 4, rows: 2, seed: 31 },
-  { side: 1, d: 1.16, width: 0.21, height: 0.56, falseFront: false, cols: 4, rows: 2, seed: 37 },
+  { side: 1, d: 0.62, width: 0.17, height: 0.52, falseFront: false, cols: 3, rows: 2, seed: 29 },
+  { side: -1, d: 1.06, width: 0.2, height: 0.6, falseFront: true, cols: 4, rows: 2, seed: 31 },
 ];
 
 /** Windows lit, against Act I's 0.52-0.81. The town is barely awake (§7). */

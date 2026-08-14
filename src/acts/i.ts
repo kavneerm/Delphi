@@ -78,11 +78,28 @@ interface Building {
   readonly seed: number;
 }
 
-/** Three buildings, matching Act IV's marks so the loop reads as one place. */
+/**
+ * Eight buildings, forming a street rather than three towers in open desert.
+ *
+ * Two changes from the original three, both at the client's direction and both about
+ * matching the reference: **shorter** — heights drop from 0.82-1.10 of the ground plane to
+ * 0.40-0.62, so these read as two-storey frontier buildings rather than blocks — and
+ * **denser**, alternating sides down the road so the eye is led to the vanishing point by a
+ * continuous receding wall. Wider relative to their height, too, which is what a false-front
+ * street actually looks like.
+ *
+ * Act I and Act IV share these marks exactly, so the loop reads as one place seen twice.
+ * Change one and you must change the other.
+ */
 const TOWN: readonly Building[] = [
-  { side: -1, d: 0.34, width: 0.13, height: 0.82, falseFront: true, cols: 2, rows: 2, seed: 13 },
-  { side: 1, d: 0.62, width: 0.15, height: 0.96, falseFront: false, cols: 3, rows: 3, seed: 23 },
-  { side: -1, d: 1.04, width: 0.17, height: 1.1, falseFront: true, cols: 3, rows: 4, seed: 29 },
+  { side: -1, d: 0.2, width: 0.1, height: 0.4, falseFront: true, cols: 2, rows: 1, seed: 7 },
+  { side: 1, d: 0.25, width: 0.11, height: 0.44, falseFront: false, cols: 2, rows: 1, seed: 11 },
+  { side: -1, d: 0.36, width: 0.14, height: 0.5, falseFront: true, cols: 3, rows: 2, seed: 13 },
+  { side: 1, d: 0.45, width: 0.15, height: 0.45, falseFront: false, cols: 3, rows: 2, seed: 19 },
+  { side: -1, d: 0.62, width: 0.17, height: 0.57, falseFront: true, cols: 3, rows: 2, seed: 23 },
+  { side: 1, d: 0.75, width: 0.18, height: 0.52, falseFront: false, cols: 3, rows: 2, seed: 29 },
+  { side: -1, d: 1.02, width: 0.2, height: 0.62, falseFront: true, cols: 4, rows: 2, seed: 31 },
+  { side: 1, d: 1.16, width: 0.21, height: 0.56, falseFront: false, cols: 4, rows: 2, seed: 37 },
 ];
 
 function facade(

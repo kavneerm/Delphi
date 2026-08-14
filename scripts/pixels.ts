@@ -225,6 +225,140 @@ export function strongestNear(
   return best;
 }
 
+/**
+ * Art statistics — the metrics that make "does this match the references" a number.
+ *
+ * Three things are measured, chosen because they discriminate and are scale-fair:
+ *
+ *   runP25Frac — the 25th-percentile horizontal run of flat colour, as a FRACTION of
+ *                frame width. Lower = finer detail. Expressed as a fraction because the
+ *                references are 384-800px wide and our shots are 1440; comparing raw
+ *                pixel runs across those would be meaningless.
+ *   pal99      — distinct colours at 4 bits/channel covering 99% of the frame. The
+ *                quantisation is what makes this survive JPEG sources at all.
+ *   finePct    — % of pixels sitting in a run of <= 2px. Isolates detail density: large
+ *                flat areas (sky, silhouette) contribute nothing.
+ *
+ * Percentiles are weighted by pixels covered, not by run count. Weighting by count lets
+ * a few thousand 1px noise runs outvote the entire sky, which measures the noise floor
+ * rather than the art.
+ *
+ * CAVEAT, stated because it biases in the references' favour: the reference images are
+ * JPEG/WEBP, so compression ringing inflates their `pal99` and `finePct`. The 4-bit
+ * quantisation and the tolerance-based run detection absorb most of it, and the observed
+ * gap (43 vs 176 colours) is far too large to be an artifact — but a PNG-sourced
+ * reference would measure cleaner, and targets are taken from the *minimum* across the
+ * reference set partly to offset this.
+ */
+export interface ArtStats {
+  readonly width: number;
+  readonly height: number;
+  /** 25th-percentile flat run, in pixels. */
+  readonly runP25: number;
+  /** …and as a fraction of frame width, which is the scale-fair form. */
+  readonly runP25Frac: number;
+  readonly runP50: number;
+  readonly runP50Frac: number;
+  /** Colours covering 99% of the frame, at 4 bits/channel. */
+  readonly pal99: number;
+  /** Every distinct quantised colour present. */
+  readonly palTotal: number;
+  /** % of pixels in a run of <= 2px. */
+  readonly finePct: number;
+  /** Share of the frame in each of 8 luminance bands. */
+  readonly bands: readonly number[];
+  /** How many of those bands hold more than 2% of the frame. */
+  readonly bandsUsed: number;
+}
+
+/** 4 bits per channel. Coarse enough to absorb JPEG ringing, fine enough to keep a ramp. */
+const ART_QUANT = 16;
+/** Manhattan RGB. A run continues while the colour stays within this of the previous px. */
+const ART_RUN_TOLERANCE = 14;
+
+export function artStats(image: Image): ArtStats {
+  const { width, height } = image;
+  const total = width * height;
+  const counts = new Map<number, number>();
+  const bands = new Array<number>(8).fill(0);
+  const hist = new Array<number>(256).fill(0);
+  let finePixels = 0;
+
+  const key = (px: Rgb): number => {
+    const q = (c: number): number => Math.round(c / ART_QUANT);
+    return (q(px.r) << 16) | (q(px.g) << 8) | q(px.b);
+  };
+  const tally = (px: Rgb): void => {
+    const k = key(px);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+    const band = Math.min(7, Math.floor(luminance(px) * 8));
+    bands[band] = (bands[band] ?? 0) + 1;
+  };
+  const closeRun = (run: number): void => {
+    const bucket = Math.min(run, 255);
+    hist[bucket] = (hist[bucket] ?? 0) + 1;
+    if (run <= 2) finePixels += run;
+  };
+
+  for (let y = 0; y < height; y++) {
+    let prev = pixelAt(image, 0, y);
+    let run = 1;
+    tally(prev);
+    for (let x = 1; x < width; x++) {
+      const px = pixelAt(image, x, y);
+      tally(px);
+      const step = Math.abs(px.r - prev.r) + Math.abs(px.g - prev.g) + Math.abs(px.b - prev.b);
+      if (step <= ART_RUN_TOLERANCE) {
+        run += 1;
+      } else {
+        closeRun(run);
+        run = 1;
+      }
+      prev = px;
+    }
+    closeRun(run);
+  }
+
+  // Weighted by pixels covered — see the note above.
+  const covered = hist.reduce((sum, count, len) => sum + count * len, 0);
+  const percentile = (p: number): number => {
+    let acc = 0;
+    for (let len = 1; len < hist.length; len++) {
+      acc += (hist[len] ?? 0) * len;
+      if (acc / covered >= p) return len;
+    }
+    return hist.length - 1;
+  };
+
+  const descending = [...counts.values()].sort((a, b) => b - a);
+  let acc = 0;
+  let pal99 = descending.length;
+  for (let i = 0; i < descending.length; i++) {
+    acc += descending[i] ?? 0;
+    if (acc / total >= 0.99) {
+      pal99 = i + 1;
+      break;
+    }
+  }
+
+  const runP25 = percentile(0.25);
+  const runP50 = percentile(0.5);
+
+  return {
+    width,
+    height,
+    runP25,
+    runP25Frac: runP25 / width,
+    runP50,
+    runP50Frac: runP50 / width,
+    pal99,
+    palTotal: counts.size,
+    finePct: (finePixels / total) * 100,
+    bands: bands.map((c) => (c / total) * 100),
+    bandsUsed: bands.filter((c) => c / total > 0.02).length,
+  };
+}
+
 export interface Region {
   readonly x: number;
   readonly y: number;

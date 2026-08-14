@@ -10,9 +10,12 @@
     "preview": "vite preview --port 4173 --strictPort",
     "shots": "node scripts/shoot.ts",
     "probe": "node scripts/probe.ts",
+    "refstats": "node scripts/refstats.ts",
     "check:invariant": "node scripts/invariant.ts",
     "check:parallax": "node scripts/parallax.ts",
-    "check": "npm run typecheck && npm run check:invariant && npm run check:parallax"
+    "check:refmatch": "node scripts/refstats.ts check",
+    "check": "npm run typecheck && npm run check:invariant && npm run check:parallax",
+    "check:art": "npm run check:refmatch"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

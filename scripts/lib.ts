@@ -31,7 +31,15 @@ export interface StaticServer {
   close(): Promise<void>;
 }
 
-export async function serveDist(port = 4319): Promise<StaticServer> {
+/**
+ * Port is overridable via CHECK_PORT.
+ *
+ * The checks serve dist/ and drive a browser against it, so two runs in one directory
+ * collide on both the port and the build — which is the stale-tree failure documented in
+ * docs/review-checklist.md, where a critic reviewed artifacts older than the code. Parallel
+ * work therefore needs a separate worktree *and* a separate port; this provides the second.
+ */
+export async function serveDist(port = Number(process.env['CHECK_PORT']) || 4319): Promise<StaticServer> {
   if (!existsSync(DIST)) {
     throw new Error(`dist/ not found at ${DIST} — run "npm run build" first`);
   }

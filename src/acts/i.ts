@@ -33,6 +33,7 @@ import {
   roadHalf,
   setPixelGrid,
   shade,
+  shadeHue,
   tint,
   windowGrid,
 } from './shared.ts';
@@ -192,14 +193,24 @@ function drawBuilding(buf: Buf, geo: Geometry, b: Building): number[] {
   const { x, width, base, height } = facade(geo, b);
   const roofY = base - height;
   const body = tint(P.town, P.skyHorizon, Math.max(0, (1 - b.d) * 0.3));
+  // Hue-shifted planes: shadowed faces take colour from the sky and go violet, lit ones
+  // take colour from the sun and go gold. Multiples of one hue read as one flat colour at
+  // three brightnesses, which is most of why the palette measured shallow.
   const iBody = buf.tone(body, 'town body');
-  const iRoof = buf.tone(shade(body, 0.3), 'roof');
-  const iAwning = buf.tone(shade(body, 0.32), 'awning');
-  const iPost = buf.tone(shade(body, 0.36), 'post');
+  const iBodyLit = buf.tone(shadeHue(body, -0.28), 'town body lit');
+  const iRoof = buf.tone(shadeHue(body, 0.34), 'roof');
+  const iAwning = buf.tone(shadeHue(body, 0.46), 'awning');
+  const iPost = buf.tone(shadeHue(body, 0.6), 'post');
   const iWindow = buf.tone(P.window, 'window');
+  const iWindowWarm = buf.tone(tint(P.window, P.accent, 0.28), 'window warm');
   const iRim = buf.tone(tint(b.d < 0.6 ? RIM_FAR : RIM, P.sunRim, 0.55), 'rim');
 
   buf.rect(x, roofY, width, height, iBody);
+  // The upper part of the facade catches more sky light than the lower, feathered into it
+  // rather than banded: a hard horizontal edge across a flat wall reads as a stripe painted
+  // on the building instead of as light falling on it.
+  buf.rect(x, roofY, width, height * 0.2, iBodyLit);
+  buf.rectDither(x, roofY + height * 0.2, width, height * 0.22, iBodyLit, (t) => 1 - t);
 
   if (b.falseFront) {
     const parapet = height * 0.15;
@@ -248,7 +259,7 @@ function drawBuilding(buf: Buf, geo: Geometry, b: Building): number[] {
         gy + row * cellH + (cellH - paneH) / 2,
         paneW,
         paneH,
-        iWindow,
+        (hash >>> 7) % 3 === 0 ? iWindowWarm : iWindow,
       );
     }
   }
@@ -270,7 +281,7 @@ function drawBuilding(buf: Buf, geo: Geometry, b: Building): number[] {
     iRim,
   );
 
-  return [iBody, iRoof, iAwning, iPost, iWindow, iRim];
+  return [iBody, iBodyLit, iRoof, iAwning, iPost, iWindow, iWindowWarm, iRim];
 }
 
 function drawBird(buf: Buf, x: number, y: number, size: number, index: number): void {
@@ -427,7 +438,30 @@ function build(geo: Geometry): readonly SlotArt[] {
         buf.tone(tint(P.sunCore, P.sunRim, 0.55), 'sun band'),
         buf.tone(P.sunRim, 'sun rim'),
       );
-      buf.rect(left, horizon, full, below + bleed, buf.tone(P.desert, 'desert'));
+      // The ground as a dithered aerial-perspective ramp, not one flat fill.
+      //
+      // Distance is carried by the ground itself: sand near the horizon is washed toward
+      // the sky tone by the air between, and warms and deepens as it comes toward the
+      // viewer. This is ~40% of the frame, so it is also where most of the palette depth
+      // and most of the fine detail have to come from — a single flat fill contributes one
+      // colour and zero detail to a very large area.
+      buf.vRamp(
+        left,
+        horizon,
+        full,
+        below + bleed,
+        gradientRamp(
+          buf.palette,
+          [
+            { at: 0, hex: tint(P.desert, P.skyHorizon, 0.5) },
+            { at: 0.22, hex: tint(P.desert, P.skyHorizon, 0.22) },
+            { at: 0.6, hex: P.desert },
+            { at: 1, hex: shade(tint(P.desert, P.desertShadow, 0.3), 0.08) },
+          ],
+          22,
+          'i-ground',
+        ),
+      );
 
       // Base, highlight, shadow — the three steps §3 permits.
       buf.poly(
@@ -604,7 +638,8 @@ function build(geo: Geometry): readonly SlotArt[] {
     travelPx: h * 0.28,
     draw: (buf) => {
       const iMesa = buf.tone(P.mesa, 'mesa');
-      const iMesaShade = buf.tone(shade(P.mesa, 0.24), 'mesa shade');
+      const iMesaShade = buf.tone(shadeHue(P.mesa, 0.3), 'mesa shade');
+      const iMesaLit = buf.tone(shadeHue(tint(P.mesa, P.sunRim, 0.22), -0.22), 'mesa lit');
       for (const m of mesaSpec) {
         const cx = w * m.cx;
         const topY = horizon - h * m.top;
@@ -624,6 +659,8 @@ function build(geo: Geometry): readonly SlotArt[] {
           ],
           iMesa,
         );
+        // Sunlit cap: the top face reads warm against the cool body.
+        buf.rect(cx - halfTop * 0.92 + skew, topY, halfTop * 1.84, Math.max(h * m.top * 0.05, 2), iMesaLit);
         const away = Math.sign(cx - vp) || 1;
         buf.poly(
           [
@@ -749,6 +786,47 @@ function build(geo: Geometry): readonly SlotArt[] {
         const ny = groundY(geo, nd);
         buf.line(nx, ny - below * 0.05 * ns, vp, horizon, iRailNear, 1.2);
         buf.line(nx, ny - below * 0.018 * ns, vp, horizon, iRailFar, 1.2);
+      }
+
+      // Telegraph poles receding to the vanishing point.
+      //
+      // The single most reference-evocative element on the ground plane, and cheap: a run
+      // of verticals at diminishing scale is what tells the eye how far away the horizon
+      // is. They are VP-registered, so they live in the locked layer and converge exactly.
+      const iPole = buf.tone(tint(P.town, P.skyHorizon, 0.18), 'pole');
+      const iPoleLit = buf.tone(tint(RIM, P.sunRim, 0.5), 'pole lit');
+      const iWire = buf.tone(tint(P.desert, P.town, 0.42), 'wire');
+      const poles: { x: number; top: number; base: number; scale: number }[] = [];
+      for (const side of [-1, 1] as const) {
+        for (let i = 1; i <= 11; i++) {
+          const d = Math.pow(i / 11, 2.05) * 1.06;
+          const sc = depthScale(geo, d);
+          const gy = groundY(geo, d);
+          const x = vp + side * (roadHalf(geo, d, ROAD_NEAR_HALF, 0) + w * 0.055 * sc);
+          if (x < left || x > w + bleed || !clearsVP(geo, x)) continue;
+          const poleH = below * 0.42 * sc;
+          const poleW = Math.max(w * 0.0035 * sc, 1);
+          const top = gy - poleH;
+          buf.rect(x - poleW / 2, top, poleW, poleH, iPole);
+          // Sun is at the VP, so the road-facing edge catches the light.
+          buf.rect(x - side * poleW * 0.5, top, Math.max(poleW * 0.45, 1), poleH, iPoleLit);
+          // Two crossarms, the upper one wider.
+          const armW = w * 0.022 * sc;
+          buf.rect(x - armW / 2, top + poleH * 0.06, armW, Math.max(poleH * 0.022, 1), iPole);
+          buf.rect(x - armW * 0.35, top + poleH * 0.17, armW * 0.7, Math.max(poleH * 0.018, 1), iPole);
+          poles.push({ x, top: top + poleH * 0.06, base: gy, scale: sc });
+        }
+      }
+      // Wires between consecutive poles on the same side, sagging between them.
+      for (let i = 0; i + 1 < poles.length; i++) {
+        const a = poles[i] as { x: number; top: number };
+        const b = poles[i + 1] as { x: number; top: number };
+        // Only join neighbours on the same side of the road.
+        if (Math.sign(a.x - vp) !== Math.sign(b.x - vp)) continue;
+        const sag = Math.abs(b.top - a.top) * 0.18 + Math.abs(b.x - a.x) * 0.035;
+        const mid = { x: (a.x + b.x) / 2, y: (a.top + b.top) / 2 + sag };
+        buf.line(a.x, a.top, mid.x, mid.y, iWire, 1);
+        buf.line(mid.x, mid.y, b.x, b.top, iWire, 1);
       }
     },
     free: scrub,

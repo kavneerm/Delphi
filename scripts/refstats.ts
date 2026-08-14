@@ -44,12 +44,31 @@ const ACT_GROUP: readonly string[] = ['Act 1', 'Act 2', 'Act 2', 'Act 1'];
 interface Bound {
   /** Coarsest acceptable 25th-percentile run, as a fraction of frame width. */
   readonly maxRunP25Frac: number;
-  /** Poorest acceptable palette at 99% coverage. */
-  readonly minPal99: number;
-  /** Least acceptable share of pixels in <=2px runs. */
+  /** Reported, not gated — see the note below. */
+  readonly refPal99: number;
+  /** Least acceptable share of pixels in <=2 art-pixel runs. */
   readonly minFinePct: number;
   readonly from: readonly string[];
 }
+
+/**
+ * Palette depth is REPORTED, not gated, and this was a mistake to begin with.
+ *
+ * The references are JPEG and WEBP; our frames are clean PNG from an indexed buffer with
+ * no compression noise at all. Measured: one identical frame reads **pal99 77 as a PNG and
+ * 203 after a JPEG round-trip**. The reference target of 188 is therefore mostly ringing
+ * around the artist's real tones, not tones — and on the references' own footing our render
+ * already clears it.
+ *
+ * It was quoted as "the real distance to the target" for several turns before being
+ * checked. The honest position is that the artist's true palette count is not recoverable
+ * from a lossy source, so it cannot be a gate. It stays on every report line, next to the
+ * reference figure, so the trend is still visible.
+ *
+ * Value structure is reported for a different reason: the reference set is too varied to
+ * bound (a two-band bright-sky silhouette and a night scene with 84% of its frame in one).
+ * Any threshold tight enough to fail our Act II fails two references.
+ */
 
 /**
  * Value structure is REPORTED, not gated, and that is deliberate.
@@ -125,7 +144,7 @@ function buildEnvelope(): void {
   for (const [group, entries] of byGroup) {
     groups[group] = {
       maxRunP25Frac: Math.max(...entries.map((e) => e.stats.runP25Frac)),
-      minPal99: Math.min(...entries.map((e) => e.stats.pal99)),
+      refPal99: Math.min(...entries.map((e) => e.stats.pal99)),
       minFinePct: Math.min(...entries.map((e) => e.stats.finePct)),
       from: entries.map((e) => e.name).sort(),
     };
@@ -144,7 +163,7 @@ function buildEnvelope(): void {
   for (const [group, bound] of Object.entries(groups)) {
     console.log(
       `  ${group.padEnd(6)} runP25 <= ${(bound.maxRunP25Frac * 100).toFixed(2)}% of width, ` +
-        `pal99 >= ${bound.minPal99}, fine >= ${bound.minFinePct.toFixed(1)}%`,
+        `fine >= ${bound.minFinePct.toFixed(1)}%  (ref pal99 ${bound.refPal99}, reported only)`,
     );
   }
 }
@@ -190,17 +209,14 @@ async function check(): Promise<void> {
             `want <= ${(bound.maxRunP25Frac * 100).toFixed(2)}%`,
         );
         report.assert(
-          stats.pal99 >= bound.minPal99,
-          `${where}: palette too shallow — ${stats.pal99} colours cover 99%, want >= ${bound.minPal99}`,
-        );
-        report.assert(
           stats.finePct >= bound.minFinePct,
           `${where}: too little fine detail — ${stats.finePct.toFixed(1)}% of pixels in <=2px runs, ` +
             `want >= ${bound.minFinePct.toFixed(1)}%`,
         );
         // Reported, never asserted — see the note on Bound.
         console.log(
-          `${''.padEnd(34)}   values ${stats.bandsUsed}/8 bands  ` +
+          `${''.padEnd(34)}   palette ${stats.pal99} (ref ${bound.refPal99}, JPEG-inflated)  ` +
+            `values ${stats.bandsUsed}/8 bands  ` +
             `[${stats.bands.map((b) => b.toFixed(0).padStart(2)).join(' ')}]  ` +
             `largest ${Math.max(...stats.bands).toFixed(0)}%`,
         );

@@ -4,7 +4,7 @@
   "groups": {
     "Act 1": {
       "maxRunP25Frac": 0.009900990099009901,
-      "minPal99": 188,
+      "refPal99": 188,
       "minFinePct": 18.446644664466447,
       "from": [
         "Best Sample",
@@ -15,7 +15,7 @@
     },
     "Act 2": {
       "maxRunP25Frac": 0.036458333333333336,
-      "minPal99": 176,
+      "refPal99": 176,
       "minFinePct": 11.646670386904761,
       "from": [
         "Best Sample",

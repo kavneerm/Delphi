@@ -315,6 +315,33 @@ export function tint(a: string, b: string, amount: number): string {
   return `#${out.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/**
+ * Shade with a hue shift: darker *and* cooler, lighter *and* warmer.
+ *
+ * `shade()` multiplies toward black, which keeps the hue fixed and is why a facade drawn
+ * with it reads as one colour at three brightnesses. Real light does not work that way and
+ * neither does the reference art: a shadowed plane takes colour from the sky above it and
+ * goes blue-violet, a lit plane takes colour from the light source and goes gold.
+ *
+ * This is the lever on palette depth. Shape density cannot fix a shallow palette — measured,
+ * Act I sat at 54 distinct colours covering 99% of the frame against a 188 target — because
+ * the count is bounded by how many *tones* exist, not how many things are drawn.
+ *
+ * `amount` < 0 lightens toward `warm`, > 0 darkens toward `cool`.
+ */
+export function shadeHue(
+  hexColor: string,
+  amount: number,
+  cool = '#3A4A82',
+  warm = '#FFC489',
+): string {
+  const toward = amount >= 0 ? cool : warm;
+  const k = Math.min(1, Math.abs(amount));
+  // Darken/lighten first so the shift rides on the right brightness, then pull the hue.
+  const base = amount >= 0 ? shade(hexColor, k * 0.62) : tint(hexColor, '#FFFFFF', k * 0.3);
+  return tint(base, toward, k * 0.34);
+}
+
 /** Darken a hex colour toward black by `amount` (0..1). Used for cel shadow steps. */
 export function shade(hexColor: string, amount: number): string {
   const n = parseInt(hexColor.slice(1), 16);

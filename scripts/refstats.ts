@@ -28,6 +28,7 @@ import { VIEWPORTS } from '../src/config.ts';
 import { ACT_HOLD_P } from '../src/timeline.ts';
 import { ACTS } from '../src/acts/index.ts';
 import { Report, fmtP, gotoP, launch, openPage, serveDist } from './lib.ts';
+import { ART_SCALE } from '../src/config.ts';
 import { artStats, decodePng, type ArtStats } from './pixels.ts';
 
 const ROOT = resolve(process.cwd());
@@ -179,7 +180,8 @@ async function check(): Promise<void> {
         if (!bound) continue;
 
         await gotoP(page, p);
-        const stats = artStats(decodePng(await page.screenshot()));
+        // Our frames are ART_SCALE device pixels per art pixel; the references are 1:1.
+        const stats = artStats(decodePng(await page.screenshot()), ART_SCALE);
         console.log(line(`${vp.name} ${name}`, stats));
 
         report.assert(

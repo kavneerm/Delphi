@@ -263,7 +263,7 @@ export interface ArtStats {
   readonly pal99: number;
   /** Every distinct quantised colour present. */
   readonly palTotal: number;
-  /** % of pixels in a run of <= 2px. */
+  /** % of pixels in a run of <= 2 ART pixels (see the note in artStats). */
   readonly finePct: number;
   /** Share of the frame in each of 8 luminance bands. */
   readonly bands: readonly number[];
@@ -276,7 +276,7 @@ const ART_QUANT = 16;
 /** Manhattan RGB. A run continues while the colour stays within this of the previous px. */
 const ART_RUN_TOLERANCE = 14;
 
-export function artStats(image: Image): ArtStats {
+export function artStats(image: Image, artScale = 1): ArtStats {
   const { width, height } = image;
   const total = width * height;
   const counts = new Map<number, number>();
@@ -294,10 +294,19 @@ export function artStats(image: Image): ArtStats {
     const band = Math.min(7, Math.floor(luminance(px) * 8));
     bands[band] = (bands[band] ?? 0) + 1;
   };
+  // "Fine" means <= 2 ART pixels, not <= 2 device pixels.
+  //
+  // This was wrong on the first pass and made the metric unreachable. The reference images
+  // are native pixel art at one image pixel per art pixel; our frames render three device
+  // pixels per art pixel. Counting device pixels means even a perfect checkerboard dither
+  // produces runs of three and scores zero, so the target could not be hit by any art at
+  // any quality. runP25 was normalised by frame width from the start; this is the same
+  // correction applied to the metric that needed it more.
+  const fineLimit = 2 * artScale;
   const closeRun = (run: number): void => {
     const bucket = Math.min(run, 255);
     hist[bucket] = (hist[bucket] ?? 0) + 1;
-    if (run <= 2) finePixels += run;
+    if (run <= fineLimit) finePixels += run;
   };
 
   for (let y = 0; y < height; y++) {

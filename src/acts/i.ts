@@ -20,6 +20,7 @@
 import type { ActDefinition, Geometry, SlotArt } from './types.ts';
 import type { Buf } from '../art/buffer.ts';
 import { gradientRamp, multiply, over, parseHex } from '../art/palette.ts';
+import { cloudTones, drawBandedSun, drawCloudBand } from '../art/sky.ts';
 import {
   circle,
   clearsVP,
@@ -55,6 +56,9 @@ const P = {
   window: '#FFE8B0',
   accent: '#FF5E3A',
   castShadow: '#4A5B8C',
+  /** Cloud bodies. Salmon over the blue upper sky, warming toward the horizon. */
+  cloud: '#C98A86',
+  cloudWarm: '#E0A07A',
 } as const;
 
 const TOWN_LINE = shade(P.town, 0.2);
@@ -342,6 +346,68 @@ function build(geo: Geometry): readonly SlotArt[] {
         'i-sky',
       );
       buf.vRamp(left, -bleed, full, horizon + bleed, steps);
+
+      // Three cloud bands at different altitudes, scales and densities. Reading upward:
+      // high thin streaks, a heavy mid deck catching the sun, and a low band compressed
+      // into the haze near the horizon. All three are lit from the vanishing point, which
+      // is where the sun is, so the frame reads as lit from one place.
+      const sun = { x: vp, y: horizon };
+      for (const spec of [
+        {
+          top: -bleed,
+          bottom: horizon * 0.42,
+          scale: 26,
+          squash: 3.4,
+          coverage: 0.34,
+          seed: 1201,
+          // Mauve against the blue zenith. Against `skyUpper` — the tone actually behind
+          // it — a cloud drawn in `skyUpper` is invisible however correctly it is drawn.
+          base: '#7E6E9C',
+          sky: P.skyUpper,
+          lit: P.skyLower,
+          coverageOverride: 0.58,
+        },
+        {
+          top: horizon * 0.3,
+          bottom: horizon * 0.78,
+          scale: 17,
+          squash: 4.2,
+          coverage: 0.46,
+          seed: 907,
+          base: P.cloud,
+          sky: P.skyMid,
+          lit: P.sunCore,
+          coverageOverride: 0.72,
+        },
+        {
+          top: horizon * 0.72,
+          bottom: horizon * 0.99,
+          scale: 11,
+          squash: 6.5,
+          coverage: 0.4,
+          seed: 613,
+          // Darker than the horizon glow it sits on, so the low deck silhouettes rather
+          // than washing out — which is what the reference does with its lowest band.
+          base: '#A8706A',
+          sky: P.skyLower,
+          lit: P.sunCore,
+          coverageOverride: 0.62,
+        },
+      ]) {
+        drawCloudBand(
+          buf,
+          {
+            top: spec.top,
+            bottom: spec.bottom,
+            scale: spec.scale,
+            squash: spec.squash,
+            coverage: spec.coverageOverride,
+            seed: spec.seed,
+            ...cloudTones(buf.palette, spec.base, spec.sky, spec.lit),
+          },
+          sun,
+        );
+      }
     },
     /**
      * Everything registered to an anchor, in paint order: the sun rises *behind* the
@@ -352,8 +418,15 @@ function build(geo: Geometry): readonly SlotArt[] {
      * the palette stays countable.
      */
     drawLocked: (buf) => {
-      buf.disc(vp, horizon, sunR * 1.13, buf.tone(P.sunRim, 'sun rim'));
-      buf.disc(vp, horizon, sunR, buf.tone(P.sunCore, 'sun core'));
+      drawBandedSun(
+        buf,
+        vp,
+        horizon,
+        sunR,
+        buf.tone(P.sunCore, 'sun core'),
+        buf.tone(tint(P.sunCore, P.sunRim, 0.55), 'sun band'),
+        buf.tone(P.sunRim, 'sun rim'),
+      );
       buf.rect(left, horizon, full, below + bleed, buf.tone(P.desert, 'desert'));
 
       // Base, highlight, shadow — the three steps §3 permits.

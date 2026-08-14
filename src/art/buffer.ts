@@ -41,6 +41,11 @@ const BAYER = [
 const BAYER_N = 8;
 const BAYER_LEVELS = 64;
 
+/** Ordered-dither threshold at a cell, 0..1. Shared so every dither uses one matrix. */
+export function bayer(x: number, y: number): number {
+  return (((BAYER[(y % BAYER_N) * BAYER_N + (x % BAYER_N)] ?? 0) + 0.5) / BAYER_LEVELS);
+}
+
 export class Buf {
   /** Dimensions in art pixels. */
   readonly w: number;

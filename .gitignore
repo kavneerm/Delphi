@@ -6,3 +6,13 @@ shots/
 .claude/agent-memory/
 .claude/worktrees/
 scratch/
+
+# Terraform: state contains resource metadata and must never be committed; tfvars may
+# contain account-specific values. The lock file IS committed, deliberately — it pins
+# provider versions so two machines resolve the same ones.
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log

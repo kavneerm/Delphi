@@ -15,8 +15,9 @@
     "check:parallax": "node scripts/parallax.ts",
     "check:refmatch": "node scripts/refstats.ts check",
     "check": "npm run typecheck && npm run check:invariant && npm run check:parallax",
-    "check:art": "npm run check:refmatch && npm run check:register",
-    "check:register": "node scripts/register.ts"
+    "check:art": "npm run check:refmatch && npm run check:register && npm run check:perf",
+    "check:register": "node scripts/register.ts",
+    "check:perf": "node scripts/perf.ts"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

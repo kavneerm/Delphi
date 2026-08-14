@@ -13,7 +13,7 @@ import {
 } from './config.ts';
 import type { ActDefinition, DrawFn, Geometry, SlotArt } from './acts/types.ts';
 import { Buf, bufferSize } from './art/buffer.ts';
-import { canvasFor } from './art/compose.ts';
+import { canvasFor, rasterOf, type Raster } from './art/compose.ts';
 import { GRAIN_TILE_PX, grainTile } from './art/grain.ts';
 import { Palette } from './art/palette.ts';
 import { bufferOriginFor, horizonPx as horizonPxOf, vpPx as vpPxOf } from './config.ts';
@@ -370,8 +370,10 @@ export class Stage {
     // what keeps the effect compositor-only, and it is why the channel split stays in the
     // DOM rather than moving into the buffer: the offset is velocity-driven, so an
     // in-buffer split would re-raster the slot on every frame.
+    // Raster the free layer at most once, however many DOM copies of it are needed.
+    const freeRaster = art.draw ? this.rasterOnce(act, art.draw) : null;
     const paintFree = (): Node =>
-      art.draw ? this.raster(act, art.draw, art.alpha) : this.svg(art.free ?? '');
+      freeRaster ? this.canvas(freeRaster, art.alpha) : this.svg(art.free ?? '');
 
     // An aberrating slot is drawn *only* as its two channel plates — screened together
     // they reconstruct the original exactly. Keeping a full base copy underneath would
@@ -415,7 +417,11 @@ export class Stage {
       const el = document.createElement('div');
       el.className = 'part';
       el.dataset['part'] = String(part.rate);
-      el.appendChild(part.draw ? this.raster(act, part.draw) : this.svg(part.markup ?? ''));
+      el.appendChild(
+        part.draw
+          ? this.canvas(this.rasterOnce(act, part.draw))
+          : this.svg(part.markup ?? ''),
+      );
       travel.appendChild(el);
       parts.push({ el, rate: part.rate });
     }
@@ -434,7 +440,9 @@ export class Stage {
       locked.dataset['vpLocked'] = 'true';
       locked.dataset['act'] = String(act);
       locked.appendChild(
-        art.drawLocked ? this.raster(act, art.drawLocked) : this.svg(art.locked ?? ''),
+        art.drawLocked
+          ? this.canvas(this.rasterOnce(act, art.drawLocked))
+          : this.svg(art.locked ?? ''),
       );
       els.root.appendChild(locked);
     }
@@ -449,7 +457,7 @@ export class Stage {
    * ceiling is per act, which is the right unit: it is what stops one act's ramps from
    * quietly consuming another's budget, and it is what a per-act palette check can assert.
    */
-  private raster(act: ActIndex, draw: DrawFn, alpha?: number): HTMLCanvasElement {
+  private rasterOnce(act: ActIndex, draw: DrawFn): Raster {
     const { w, h } = this.geo;
     const ox = bufferOriginFor(vpPxOf(w));
     const oy = bufferOriginFor(horizonPxOf(h));
@@ -465,7 +473,12 @@ export class Stage {
     // The horizon row must stay a clean tonal step for check:invariant to read it.
     buf.protectRow(this.geo.horizon);
     draw(buf, this.geo);
-    const canvas = canvasFor(buf, palette.toRgba());
+    return rasterOf(buf, palette.toRgba());
+  }
+
+  /** One canvas showing a raster, with the layer's constant opacity if it declares one. */
+  private canvas(raster: Raster, alpha?: number): HTMLCanvasElement {
+    const canvas = canvasFor(raster);
     // Set on the canvas, not the layer, so the transition crossfade written to `.drift`
     // multiplies with it rather than overwriting it.
     if (alpha !== undefined && alpha < 1) canvas.style.opacity = String(alpha);

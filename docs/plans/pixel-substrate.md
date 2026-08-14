@@ -354,11 +354,34 @@ reach 0.
 `check:register` sits in `npm run check:art` alongside `check:refmatch` until it reaches 0,
 then moves into `npm run check`.
 
-### P3 — Perf gate
-- [ ] `npm run check:perf`: `?perf=1`, drive all 15 checkpoints, assert write-pass
-      **p99 < 4ms and max < 16ms**.
-- **Exit:** green. `docs/review-checklist.md` §9 quotes p50 = 0.10ms — **the p50 will keep
-  looking fine while p99 explodes**, so p50 is not the gate.
+### P3 — Perf gate ✅ *(built; blocked on unported acts, not on the substrate)*
+- [x] `scripts/perf.ts`: `?perf=1`, all 15 checkpoints in both directions, asserting
+      write-pass **p99 ≤ 4ms and max ≤ 16ms**. Act entry is included deliberately — `goto`
+      teleports, so every act change rasters every layer at once.
+
+**The p50 warning was right.** First run: **p50 0.00ms, p99 5.30ms, max 17.50ms.** A p50
+gate would have read green through a 17ms frame.
+
+**The substrate is faster than the SVG it replaces.** Measured per act group:
+
+| | Act I (canvas) | Acts II–IV (SVG) |
+| --- | --- | --- |
+| 1440×900 p99 | **2.20ms** | 4.10ms |
+| 390×844 p99 | **0.80ms** | 5.90ms |
+
+At 390 the SVG path is 7× slower. **R3 is refuted for the ported act** — rastering does not
+blow the budget; the remaining failures are entirely acts that have not moved yet, and they
+resolve in P5 rather than needing an architectural fix. The OffscreenCanvas/ImageBitmap
+worker and the lookahead pre-raster in §5 stay unbuilt until something needs them.
+
+Two real optimisations came out of it, both found by measuring rather than guessing:
+- **`outline` scanned the whole 524×344 buffer** through a closure, for a slot holding two
+  buildings: 2.7ms, the largest single item in the frame. Now bounded to the drawn extent.
+  Max fell 18.0 → 9.8ms.
+- Aberration plates now share one raster instead of rastering per plate. (Worth doing, but
+  honestly: it moved p99 by nothing measurable — the cost was never there.)
+
+`check:perf` sits in `npm run check:art` with the other migration gates until P5.
 
 ### P4 — Act I to reference fidelity, single author, no parallelism
 - [ ] Palette expanded to the §2 target; sky/cloud renderer; dithered ramps — **never across

@@ -107,6 +107,7 @@ export class Buf {
 
   set(x: number, y: number, index: number): void {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    this.markDrawn(x, y, x + 1, y + 1);
     this.idx[y * this.w + x] = index;
   }
 
@@ -121,9 +122,30 @@ export class Buf {
     const hi = Math.min(this.w, Math.max(x0, x1));
     const top = Math.max(0, Math.min(y0, y1));
     const bottom = Math.min(this.h, Math.max(y0, y1));
+    if (hi <= lo || bottom <= top) return;
+    this.markDrawn(lo, top, hi, bottom);
     for (let y = top; y < bottom; y++) {
       this.idx.fill(index, y * this.w + lo, y * this.w + hi);
     }
+  }
+
+  /**
+   * Extent of everything drawn so far.
+   *
+   * Kept so whole-buffer passes can scan what was painted rather than the whole grid.
+   * `outline` over a full 524x344 buffer cost 2.7ms for a slot holding two buildings —
+   * the largest single item in the frame budget, for work that was 80% empty space.
+   */
+  private dx0 = Infinity;
+  private dy0 = Infinity;
+  private dx1 = -Infinity;
+  private dy1 = -Infinity;
+
+  private markDrawn(x0: number, y0: number, x1: number, y1: number): void {
+    if (x0 < this.dx0) this.dx0 = x0;
+    if (y0 < this.dy0) this.dy0 = y0;
+    if (x1 > this.dx1) this.dx1 = x1;
+    if (y1 > this.dy1) this.dy1 = y1;
   }
 
   /**
@@ -174,6 +196,7 @@ export class Buf {
       const loIndex = steps[low] ?? TRANSPARENT;
       const hiIndex = steps[high] ?? loIndex;
 
+      this.markDrawn(x0, cy, x1, cy + 1);
       if (!dither || low === high || frac === 0 || this.noDither.has(cy)) {
         this.idx.fill(loIndex, cy * this.w + x0, cy * this.w + x1);
         continue;
@@ -238,6 +261,7 @@ export class Buf {
       // cell low. The old 30%-opacity wash could not do that — it tinted both sides
       // equally and left the step intact.
       if (this.noDither.has(cy)) continue;
+      this.markDrawn(x0, cy, x1, cy + 1);
       const rowBase = (cy % BAYER_N) * BAYER_N;
       for (let cx = x0; cx < x1; cx++) {
         const threshold = ((BAYER[rowBase + (cx % BAYER_N)] ?? 0) + 0.5) / BAYER_LEVELS;
@@ -310,6 +334,7 @@ export class Buf {
       for (let k = 0; k + 1 < crossings.length; k += 2) {
         const from = Math.max(0, Math.round(crossings[k] as number));
         const to = Math.min(this.w, Math.round(crossings[k + 1] as number));
+        if (to > from) this.markDrawn(from, y, to, y + 1);
         for (let x = from; x < to; x++) visit(x, y);
       }
     }
@@ -368,14 +393,24 @@ export class Buf {
   outline(inside: number | Iterable<number>, strokeIndex: number, options: { bottom?: boolean } = {}): void {
     const bottom = options.bottom ?? true;
     const set = typeof inside === 'number' ? new Set([inside]) : new Set(inside);
+    // Scan only what has been drawn. Over the whole buffer this was the single largest
+    // item in the frame budget (2.7ms for a slot holding two buildings); the drawn box is
+    // typically a fifth of the grid.
+    const x0 = Math.max(0, this.dx0);
+    const y0 = Math.max(0, this.dy0);
+    const x1 = Math.min(this.w, this.dx1);
+    const y1 = Math.min(this.h, this.dy1);
+    if (x1 <= x0 || y1 <= y0) return;
+
+    const membership = new Uint8Array(256);
+    for (const value of set) membership[value] = 1;
     const source = this.idx.slice();
-    const isInside = (x: number, y: number): boolean => {
-      if (x < 0 || y < 0 || x >= this.w || y >= this.h) return false;
-      return set.has(source[y * this.w + x] ?? TRANSPARENT);
-    };
-    for (let y = 0; y < this.h; y++) {
-      for (let x = 0; x < this.w; x++) {
-        if (!isInside(x, y)) continue;
+    const isInside = (x: number, y: number): boolean =>
+      x >= 0 && y >= 0 && x < this.w && y < this.h && membership[source[y * this.w + x] as number] === 1;
+
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        if (membership[source[y * this.w + x] as number] !== 1) continue;
         // Passing the whole group's tones means the outline follows the silhouette and
         // does not trace every internal tone change — which is the bug `outlined()` had:
         // it stroked every rect it wrapped, including each row of a stacked disc, and the

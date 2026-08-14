@@ -14,8 +14,8 @@
     "check:invariant": "node scripts/invariant.ts",
     "check:parallax": "node scripts/parallax.ts",
     "check:refmatch": "node scripts/refstats.ts check",
-    "check": "npm run typecheck && npm run check:invariant && npm run check:parallax",
-    "check:art": "npm run check:refmatch && npm run check:register && npm run check:perf",
+    "check": "npm run typecheck && npm run check:invariant && npm run check:parallax && npm run check:register",
+    "check:art": "npm run check:refmatch && npm run check:perf",
     "check:register": "node scripts/register.ts",
     "check:perf": "node scripts/perf.ts"
   },

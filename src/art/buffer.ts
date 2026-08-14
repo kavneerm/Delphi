@@ -317,6 +317,31 @@ export class Buf {
     if (points.length < 3) return;
     const xs = points.map((p) => this.ax(p[0]));
     const ys = points.map((p) => this.ay(p[1]));
+
+    // A polygon thinner than one art cell still exists — it becomes one cell.
+    //
+    // Without this the scanline finds no row centre inside it and paints nothing at all.
+    // `rect` and `disc` already round up; `poly` did not, and it silently deleted Act I's
+    // twelve foreground stones at 390x844 (1.2-2.9 CSS px tall against a 3px cell) while
+    // rendering them correctly at 1440. That is the sub-resolution culling of
+    // docs/review-checklist.md §6, which killed Act III's music motes the same way and is
+    // worst at the smallest viewport, where nothing else is looking.
+    const loX = Math.min(...xs);
+    const hiX = Math.max(...xs);
+    const loY = Math.min(...ys);
+    const hiY = Math.max(...ys);
+    if (hiX - loX < 1 || hiY - loY < 1) {
+      const x0 = Math.max(0, loX);
+      const y0 = Math.max(0, loY);
+      const x1 = Math.min(this.w, Math.max(loX + 1, hiX));
+      const y1 = Math.min(this.h, Math.max(loY + 1, hiY));
+      if (x1 <= x0 || y1 <= y0) return;
+      this.markDrawn(x0, y0, x1, y1);
+      // Through `visit`, so `poly` writes its index and `polyBlend` still blends.
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) visit(x, y);
+      return;
+    }
+
     const top = Math.max(0, Math.min(...ys));
     const bottom = Math.min(this.h, Math.max(...ys) + 1);
     const crossings: number[] = [];

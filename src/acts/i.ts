@@ -18,6 +18,7 @@
  */
 
 import type { ActDefinition, Geometry, SlotArt } from './types.ts';
+import { gradientRamp, multiply, over, parseHex } from '../art/palette.ts';
 import {
   circle,
   clearsVP,
@@ -157,22 +158,23 @@ function buildingMarkup(geo: Geometry, b: Building): string {
 }
 
 /** The shadow a building throws toward the viewer, the sun being at the vanishing point. */
-function castShadow(geo: Geometry, b: Building): string {
+function castShadowPoints(geo: Geometry, b: Building): (readonly [number, number])[] {
   const { x, width, base } = facade(geo, b);
   const scale = depthScale(geo, b.d);
   // Long, and mostly toward the viewer: the sun is low and directly at the VP, so the
   // lateral component is small. A wide splay reads as a grey slab beside the building.
   const length = (geo.h - geo.horizon) * 1.15 * scale;
   const spread = ((x + width / 2 - geo.vp) / geo.w) * length * 0.75;
-  return poly(
-    [
-      [x, base],
-      [x + width, base],
-      [x + width + spread, base + length],
-      [x + spread, base + length],
-    ],
-    P.castShadow,
-  );
+  return [
+    [x, base],
+    [x + width, base],
+    [x + width + spread, base + length],
+    [x + spread, base + length],
+  ];
+}
+
+function castShadow(geo: Geometry, b: Building): string {
+  return poly(castShadowPoints(geo, b), P.castShadow);
 }
 
 /** A bird: chunk staircases, never a curve. §3 forbids curves and sub-chunk detail alike. */
@@ -217,6 +219,93 @@ function build(geo: Geometry): readonly SlotArt[] {
 
   const sky: SlotArt = {
     verb: 'crossfade',
+    /**
+     * The sky, as a banded ramp rather than a smooth gradient.
+     *
+     * §3 permits one smooth vertical gradient here and nowhere else, and on the SVG
+     * substrate that is what this was. An indexed buffer cannot hold it: a true gradient
+     * over 174 art rows costs ~174 palette entries, two thirds of the whole budget, for
+     * one layer of one act. 32 dithered steps cost 32 and are what the reference skies
+     * are actually made of — see docs/plans/pixel-substrate.md.
+     */
+    draw: (buf) => {
+      const steps = gradientRamp(
+        buf.palette,
+        [
+          { at: 0, hex: P.skyZenith },
+          { at: 0.32, hex: P.skyUpper },
+          { at: 0.64, hex: P.skyMid },
+          { at: 0.84, hex: P.skyLower },
+          { at: 1, hex: P.skyHorizon },
+        ],
+        32,
+        'i-sky',
+      );
+      buf.vRamp(left, -bleed, full, horizon + bleed, steps);
+    },
+    /**
+     * Everything registered to an anchor, in paint order: the sun rises *behind* the
+     * ground plane, so the plane follows it.
+     *
+     * Translucent fills are resolved to the tone they produce rather than composited —
+     * `tint(background, ink, alpha)` — because the buffer has no alpha. Same result, and
+     * the palette stays countable.
+     */
+    drawLocked: (buf) => {
+      buf.disc(vp, horizon, sunR * 1.13, buf.tone(P.sunRim, 'sun rim'));
+      buf.disc(vp, horizon, sunR, buf.tone(P.sunCore, 'sun core'));
+      buf.rect(left, horizon, full, below + bleed, buf.tone(P.desert, 'desert'));
+
+      // Base, highlight, shadow — the three steps §3 permits.
+      buf.poly(
+        [
+          [left, horizon],
+          [w + bleed, horizon],
+          [w + bleed, horizon + below * 0.1],
+          [left, horizon + below * 0.16],
+        ],
+        buf.tone(P.desertHigh, 'desert high'),
+      );
+      const duneShadow = buf.tone(tint(P.desert, P.desertShadow, 0.34), 'dune shadow');
+      buf.poly(
+        [
+          [left, horizon + below * 0.52],
+          [w * 0.36, horizon + below * 0.42],
+          [w * 0.48, horizon + below * 0.74],
+          [left, horizon + below * 0.92],
+        ],
+        duneShadow,
+      );
+      buf.poly(
+        [
+          [w * 0.68, horizon + below * 0.46],
+          [w + bleed, horizon + below * 0.36],
+          [w + bleed, horizon + below * 0.8],
+          [w * 0.6, horizon + below * 0.66],
+        ],
+        duneShadow,
+      );
+
+      buf.poly(roadPoints, buf.tone(P.road, 'road'));
+      const rutTone = buf.tone(tint(P.road, P.rut, 0.45), 'rut');
+      for (const k of [-0.62, -0.2, 0.2, 0.62] as const) {
+        buf.line(
+          vp + roadHalf(geo, 1.0, ROAD_NEAR_HALF, 0) * k,
+          h + bleed,
+          vp,
+          horizon,
+          rutTone,
+          2,
+        );
+      }
+
+      // Cast shadows multiply into whatever they cross — desert, dune highlight, road —
+      // rather than being one flat tone laid over all three.
+      const cast = parseHex(P.castShadow);
+      for (const b of TOWN) {
+        buf.polyBlend(castShadowPoints(geo, b), (dst) => over(multiply(cast, dst), dst, 0.4));
+      }
+    },
     // The only smooth gradient in the build (§3).
     free:
       `<defs><linearGradient id="i-sky" x1="0" y1="0" x2="0" y2="${horizon}" gradientUnits="userSpaceOnUse">` +

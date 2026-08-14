@@ -17,6 +17,10 @@ export interface FrontierTestHooks {
   /** Per-slot layer transforms, as computed styles. */
   metrics(): unknown;
   anchors(): AnchorReport;
+  /** Phase of the art grid in viewport px, for check:register. */
+  gridOrigin(): { x: number; y: number };
+  /** True when ?frozen=1 zeroed every transform. */
+  frozen: boolean;
   ready: true;
 }
 

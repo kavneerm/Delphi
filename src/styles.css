@@ -451,7 +451,17 @@ a:focus-visible {
   pointer-events: none;
 }
 
-/* Paper grain over the whole stage — the last thing that says "printed". */
+/* Paper grain over the whole stage — the last thing that says "printed".
+ *
+ * Tiled ON the art grid: the tile is raster, 40x40, scaled to 120x120 with
+ * `image-rendering: pixelated`, so one speck is one art pixel rather than one device pixel.
+ * --grain-image / --grain-tile / --grain-phase-* are published by src/stage.ts so the tile
+ * shares the art buffer's phase.
+ *
+ * See src/art/grain.ts: this is an art-direction choice. The previous SVG feTurbulence
+ * grain measured identically on check:register (0.00% either way) — its excursion is below
+ * the threshold at which a cell counts as broken.
+ */
 #stage::after {
   content: '';
   position: absolute;
@@ -460,5 +470,8 @@ a:focus-visible {
   pointer-events: none;
   mix-blend-mode: overlay;
   opacity: 0.055;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  image-rendering: pixelated;
+  background-size: var(--grain-tile, 120px) var(--grain-tile, 120px);
+  background-position: var(--grain-phase-x, 0px) var(--grain-phase-y, 0px);
+  background-image: var(--grain-image, none);
 }

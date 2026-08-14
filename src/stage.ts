@@ -9,8 +9,14 @@ import {
   horizonPx,
   roundToDevicePx,
   vpPx,
+  ART_SCALE,
 } from './config.ts';
-import type { ActDefinition, Geometry, SlotArt } from './acts/types.ts';
+import type { ActDefinition, DrawFn, Geometry, SlotArt } from './acts/types.ts';
+import { Buf, bufferSize } from './art/buffer.ts';
+import { canvasFor } from './art/compose.ts';
+import { GRAIN_TILE_PX, grainTile } from './art/grain.ts';
+import { Palette } from './art/palette.ts';
+import { bufferOriginFor, horizonPx as horizonPxOf, vpPx as vpPxOf } from './config.ts';
 import { progress, residentActs, type Frame } from './progress.ts';
 import { slotEase, slotProgress, type ActIndex } from './timeline.ts';
 import { aberrates, aberrationOffset, halftoneOverlay, postDefs } from './post/index.ts';
@@ -50,8 +56,19 @@ export class Stage {
    * returns markup strings and unaffordable the moment each call rasterises.
    */
   private readonly builtArt = new Map<ActIndex, readonly SlotArt[]>();
+  /** One indexed palette per act — see `raster`. */
+  private readonly palettes = new Map<ActIndex, Palette>();
   /** Cached so the write pass does not touch `window` eight times a frame. */
   private dpr: number;
+  /**
+   * ?frozen=1 — every transform written as identity.
+   *
+   * Only check:register uses this. Each slot drifts by a different amount, so in normal
+   * operation the slots' art grids sit at different phases and a whole-frame scan for
+   * uniform cells has no single grid to scan against. Freezing puts them all on the same
+   * phase; it is a measurement fixture, not a rendering mode.
+   */
+  private frozen = false;
 
   constructor(host: HTMLElement, acts: readonly ActDefinition[]) {
     this.host = host;
@@ -83,11 +100,39 @@ export class Stage {
     return this.geo;
   }
 
+  get isFrozen(): boolean {
+    return this.frozen;
+  }
+
+  freeze(): void {
+    this.frozen = true;
+  }
+
+  /**
+   * Phase of the art grid in viewport pixels: cell boundaries sit at `phase + k*ART_SCALE`.
+   *
+   * The grid is anchored to the vanishing point and the horizon, never to the frame
+   * origin. A scan rooted at 0,0 would be half a cell out wherever an anchor is not itself
+   * a multiple of ART_SCALE, and would report every cell broken while the art was
+   * perfectly registered — the same class of mistake as measuring the horizon by looking
+   * for the strongest edge in the image.
+   */
+  gridOrigin(): { x: number; y: number } {
+    const mod = (value: number): number => ((value % ART_SCALE) + ART_SCALE) % ART_SCALE;
+    return {
+      x: mod(-bufferOriginFor(vpPxOf(this.geo.w))),
+      y: mod(-bufferOriginFor(horizonPxOf(this.geo.h))),
+    };
+  }
+
   /** Rebuild every resident layer against a new stage box. Resize only, never per frame. */
   remeasure(): void {
     this.dpr = window.devicePixelRatio || 1;
     this.geo = measure(this.host);
     this.builtArt.clear();
+    // Palettes are rebuilt with the art. A ramp's step count depends on the stage box, so
+    // carrying entries across a resize would leak dead colours into the next budget.
+    this.palettes.clear();
     this.writeAnchors();
     for (const slot of this.slots) {
       for (const act of [...slot.layers.keys()]) this.dropLayer(slot, act);
@@ -108,6 +153,13 @@ export class Stage {
   private writeAnchors(): void {
     this.host.style.setProperty('--horizon-px', `${horizonPx(this.geo.h)}px`);
     this.host.style.setProperty('--vp-px', `${vpPx(this.geo.w)}px`);
+    // The grain tile has to sit on the same grid as the art, or its specks straddle cell
+    // boundaries and the whole frame stops being cell-uniform.
+    const phase = this.gridOrigin();
+    this.host.style.setProperty('--grain-phase-x', `${phase.x}px`);
+    this.host.style.setProperty('--grain-phase-y', `${phase.y}px`);
+    this.host.style.setProperty('--grain-tile', `${GRAIN_TILE_PX}px`);
+    this.host.style.setProperty('--grain-image', `url(${grainTile()})`);
   }
 
   /**
@@ -133,7 +185,9 @@ export class Stage {
       // Whole device pixels. A fractional translate resamples the layer under the
       // compositor, which softens every edge on every moving slot — the failure that
       // reads as "the art is a bit mushy" and gets misfiled as an art problem.
-      const driftX = roundToDevicePx((frame.c - 0.5) * rate * amplitude, this.dpr);
+      const driftX = this.frozen
+        ? 0
+        : roundToDevicePx((frame.c - 0.5) * rate * amplitude, this.dpr);
       // Vertical drift is zero for every slot at every scroll position (build.md A1).
       const driftTransform = `translate3d(${driftX}px,0,0)`;
 
@@ -151,16 +205,18 @@ export class Stage {
         if (layer.plates) {
           // Whole pixels: a fractional translate resamples the plate and gives every edge
           // a blend column, which is the anti-aliasing §3 forbids.
-          const off = Math.round(
-            aberrationOffset(slot, frame.velocity, Math.max(2, Math.round(this.geo.w / 200))),
-          );
+          const off = this.frozen
+            ? 0
+            : Math.round(aberrationOffset(slot, frame.velocity, ART_SCALE));
           layer.plates.red.style.transform = `translate3d(${off}px,0,0)`;
           layer.plates.cyan.style.transform = `translate3d(${-off}px,0,0)`;
         }
 
         // Prop self-motion, scroll-driven so it is deterministic and never a timer.
         for (const part of layer.parts) {
-          const x = roundToDevicePx(frame.c * part.rate * this.geo.w, this.dpr);
+          const x = this.frozen
+            ? 0
+            : roundToDevicePx(frame.c * part.rate * this.geo.w, this.dpr);
           part.el.style.transform = `translate3d(${x}px,0,0)`;
         }
 
@@ -309,10 +365,18 @@ export class Stage {
     const travel = document.createElement('div');
     travel.className = 'travel';
     travel.dataset['travel'] = art.verb;
+    // One paint of the free layer, however many copies of it the DOM needs. The aberration
+    // plates are two *copies of the same raster*, not two rasters — that distinction is
+    // what keeps the effect compositor-only, and it is why the channel split stays in the
+    // DOM rather than moving into the buffer: the offset is velocity-driven, so an
+    // in-buffer split would re-raster the slot on every frame.
+    const paintFree = (): Node =>
+      art.draw ? this.raster(act, art.draw) : this.svg(art.free ?? '');
+
     // An aberrating slot is drawn *only* as its two channel plates — screened together
     // they reconstruct the original exactly. Keeping a full base copy underneath would
     // double the image and wash out the fringe.
-    if (!aberrates(slot)) travel.appendChild(this.svg(art.free));
+    if (!aberrates(slot)) travel.appendChild(paintFree());
 
     let plates: { red: HTMLElement; cyan: HTMLElement } | null = null;
     if (aberrates(slot)) {
@@ -323,10 +387,10 @@ export class Stage {
       holder.className = 'plates';
       const red = document.createElement('div');
       red.className = 'plate plate-red';
-      red.appendChild(this.svg(art.free));
+      red.appendChild(paintFree());
       const cyan = document.createElement('div');
       cyan.className = 'plate plate-cyan';
-      cyan.appendChild(this.svg(art.free));
+      cyan.appendChild(paintFree());
       holder.appendChild(cyan);
       holder.appendChild(red);
       travel.appendChild(holder);
@@ -349,17 +413,49 @@ export class Stage {
     drift.appendChild(travel);
     els.root.appendChild(drift);
 
+    // `.locked` stays a separate element from `.drift`, never composited into one buffer.
+    // check:invariant asserts an identity transform on every [data-vp-locked] layer and
+    // fails outright if none exists — "the invariant has no witness". Merging them would
+    // delete the structural guarantee and the check that proves it in one move.
     let locked: HTMLElement | null = null;
-    if (art.locked) {
+    if (art.drawLocked || art.locked) {
       locked = document.createElement('div');
       locked.className = 'layer locked';
       locked.dataset['vpLocked'] = 'true';
       locked.dataset['act'] = String(act);
-      locked.appendChild(this.svg(art.locked));
+      locked.appendChild(
+        art.drawLocked ? this.raster(act, art.drawLocked) : this.svg(art.locked ?? ''),
+      );
       els.root.appendChild(locked);
     }
 
     els.layers.set(act, { art, drift, travel, locked, parts, plates });
+  }
+
+  /**
+   * Raster one draw callback into a fresh canvas.
+   *
+   * Each act keeps its own palette, built on demand as the act draws. The 255-entry
+   * ceiling is per act, which is the right unit: it is what stops one act's ramps from
+   * quietly consuming another's budget, and it is what a per-act palette check can assert.
+   */
+  private raster(act: ActIndex, draw: DrawFn): HTMLCanvasElement {
+    const { w, h } = this.geo;
+    const ox = bufferOriginFor(vpPxOf(w));
+    const oy = bufferOriginFor(horizonPxOf(h));
+    const size = bufferSize(w, h, ox, oy);
+
+    let palette = this.palettes.get(act);
+    if (!palette) {
+      palette = new Palette();
+      this.palettes.set(act, palette);
+    }
+
+    const buf = new Buf(palette, size.w, size.h, ox, oy);
+    // The horizon row must stay a clean tonal step for check:invariant to read it.
+    buf.protectRow(this.geo.horizon);
+    draw(buf, this.geo);
+    return canvasFor(buf, palette.toRgba());
   }
 
   private svg(markup: string): SVGSVGElement {

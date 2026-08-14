@@ -29,6 +29,8 @@ if (prefersReduced) {
     state: () => progress.frame,
     metrics: () => ({ mode: 'reduced' }),
     anchors: () => readAnchors(),
+    gridOrigin: () => ({ x: 0, y: 0 }),
+    frozen: false,
     ready: true,
   };
 } else {
@@ -43,7 +45,11 @@ function boot(): void {
   scroll.style.setProperty('--scroll-height', `${SCROLL_VH}vh`);
 
   const stage = new Stage(host, ACTS);
-  document.getElementById('stage-critical')?.remove();
+
+  // ?frozen=1 zeroes every transform, so all slots' art grids share one phase and
+  // check:register has a single grid to scan. Set before the first render, or the frame
+  // it measures is the one written with live transforms.
+  if (params.get('frozen') === '1') stage.freeze();
 
   // ?nocopy=1 hides the copy layer so the prober can measure the *backdrop* behind the
   // text. Measuring a shot that still contains the glyphs just reports #F5F0E8 against
@@ -83,6 +89,7 @@ function boot(): void {
   // One rAF loop for the whole page: gsap's ticker drives Lenis, then the single write
   // pass. Nothing else is allowed to schedule a frame.
   let lastTime = 0;
+  let painted = false;
   gsap.ticker.add((time: number) => {
     const ms = time * 1000;
     lenis.raf(ms);
@@ -96,6 +103,14 @@ function boot(): void {
     const t0 = measure ? performance.now() : 0;
     progress.tick(delta);
     stage.render(progress.frame, delta);
+    // Only once the first frame is actually painted. Removing it at construction was
+    // fine when a layer was an innerHTML assignment; with a canvas substrate the first
+    // frame costs a raster, and dropping the placeholder before it lands shows the bare
+    // page background for however long that takes.
+    if (!painted) {
+      painted = true;
+      document.getElementById('stage-critical')?.remove();
+    }
     updateCopy?.(progress.frame);
     if (measure) {
       const samples = (window as unknown as { __writePass: number[] }).__writePass;
@@ -127,6 +142,8 @@ function boot(): void {
     state: () => progress.frame,
     metrics: () => stage.metrics(),
     anchors: () => readAnchors(),
+    gridOrigin: () => stage.gridOrigin(),
+    frozen: stage.isFrozen,
     ready: true,
   };
 }

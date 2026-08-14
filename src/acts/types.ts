@@ -13,6 +13,8 @@
  * `horizon` and `vp` are exact at every viewport.
  */
 
+import type { Buf } from '../art/buffer.ts';
+
 export interface Geometry {
   /** Stage box in CSS pixels. */
   readonly w: number;
@@ -49,8 +51,23 @@ export interface SlotPart {
   readonly rate: number;
 }
 
+/**
+ * How a slot paints itself into the art buffer.
+ *
+ * This is the substrate migration path. An act supplies either `free` (SVG markup, the
+ * original contract) or `draw` (paints palette indices into a fixed-resolution buffer).
+ * Both are honoured, so acts port one at a time rather than all four in one change —
+ * which matters because the composition in each act is the part worth keeping and the
+ * part easiest to break by accident.
+ */
+export type DrawFn = (buf: Buf, geo: Geometry) => void;
+
 export interface SlotArt {
   readonly verb: TransitionVerb;
+  /** Paints the drifting layer. Takes precedence over `free` when present. */
+  readonly draw?: DrawFn;
+  /** Paints the VP-locked layer. Takes precedence over `locked` when present. */
+  readonly drawLocked?: DrawFn;
   /**
    * Content below this y is clipped away, in stage pixels. For `rise` this is the
    * horizon; for `extrude` it is the structure's own base line.
@@ -58,8 +75,8 @@ export interface SlotArt {
   readonly clipBottom?: number;
   /** Travel distance in px for `rise`. Defaults to the slot's own drawn height. */
   readonly travelPx?: number;
-  /** Markup for the drifting layer. */
-  readonly free: string;
+  /** Markup for the drifting layer. Supply this **or** `draw`, not both. */
+  readonly free?: string;
   /** Markup for the VP-locked layer. Omit if the slot has no VP-registered geometry. */
   readonly locked?: string;
   /** Sub-layers that move at their own rates, in addition to the slot's drift. */

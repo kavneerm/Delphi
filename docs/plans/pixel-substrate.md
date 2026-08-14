@@ -302,6 +302,40 @@ the critical path, which is what that block exists to avoid.
   `check:invariant`, `check:parallax`, and `refstats` within 5% of P1. **Prove it changed
   nothing before changing everything.**
 
+**P2 progress (in flight).** Substrate built and proven; Act I slot 7 ported; remaining
+slots and acts still SVG.
+- [x] `src/art/{palette,buffer,compose,grain}.ts`. Indexed `Uint8Array` buffer, 255-entry
+      ceiling, scanline `poly`, stepped `disc`, `vRamp` with 4×4 Bayer dithering,
+      `polyBlend` for multiply shadows, `outline` on finished pixels.
+- [x] `SlotArt` gains `draw` / `drawLocked`; `free` / `locked` still honoured, so acts port
+      one at a time instead of all four in one change.
+- [x] D5 plates share one raster; D12 explicit integer canvas sizing; `#stage-critical`
+      removal moved to after the first painted frame.
+- [x] `scripts/register.ts` + `?frozen=1`.
+- [ ] Act I slots 0–6; then Acts II–IV (P5).
+
+**Measured.** With `?frozen=1`, the canvas region is **0.00% non-uniform across 4,800 sky
+cells** — the substrate is pixel-exact. Whole-frame register is 11.5–43.3% broken, entirely
+from the SVG slots that have not ported; every reported first-failure is a hard edge
+between two solid fills landing mid-cell. That number is the migration burn-down and must
+reach 0.
+
+**Two corrections to the record, both mine.**
+
+1. **`npm run shots` does not pass `?frozen=1`.** Ad-hoc measurements taken from `shots/`
+   read slot 7's live drift (−1px at p=0.06) as a grid-phase error, and reported the art
+   grid as being at phase 2 when it is at phase 0. The check itself was written with
+   `?frozen=1` and its header says exactly why; the mistake was measuring around it. Any
+   register measurement not taken through `check:register` is unreliable for this reason.
+2. **The old SVG grain was not a register violation.** D7 asserted it "visibly breaks the
+   register". Measured frozen, old and new grain both report **0.00%** of sky cells broken —
+   the grain's excursion after `overlay` at 0.055 is under the threshold. The raster grain
+   is kept, but as an art-direction choice (one speck = one art pixel, deterministic, drops
+   a `feTurbulence` dependency), **not** as a measured fix. D7's premise is withdrawn.
+
+`check:register` sits in `npm run check:art` alongside `check:refmatch` until it reaches 0,
+then moves into `npm run check`.
+
 ### P3 — Perf gate
 - [ ] `npm run check:perf`: `?perf=1`, drive all 15 checkpoints, assert write-pass
       **p99 < 4ms and max < 16ms**.

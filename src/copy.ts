@@ -92,13 +92,6 @@ export const BLOCKS: readonly CopyBlock[] = [
       'of development and sophistication.</p>',
   },
   {
-    id: 'act2-eyebrow',
-    act: 1,
-    column: 'right',
-    reveal: { at: 0.22, over: 0.02, out: 0.41, outOver: 0.05 },
-    html: '<p class="eyebrow">One</p>',
-  },
-  {
     id: 'act2-h2',
     act: 1,
     column: 'right',
@@ -115,13 +108,6 @@ export const BLOCKS: readonly CopyBlock[] = [
       '<p>If technological power becomes concentrated within a small number of corporations ' +
       'and government institutions, progress could instead produce dependency, regulatory ' +
       'capture, and permanent barriers to competition.</p>',
-  },
-  {
-    id: 'act3-eyebrow',
-    act: 2,
-    column: 'left',
-    reveal: { at: 0.5, over: 0.02, out: 0.69, outOver: 0.05 },
-    html: '<p class="eyebrow">Two</p>',
   },
   {
     id: 'act3-h2',

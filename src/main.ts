@@ -65,7 +65,9 @@ function boot(): void {
   const copyHost = document.getElementById('copy');
   const updateCopy = copyHost ? mountCopy(copyHost) : null;
 
-  const showDebug = params.get('debug') === '1' || (import.meta.env.DEV && params.get('debug') !== '0');
+  // Opt-in only. It used to default on in dev, which meant the telemetry panel sat over
+  // the artwork for anyone looking at the dev server.
+  const showDebug = params.get('debug') === '1';
   const updateDebug = showDebug ? mountDebug(document.body, () => stage.geometry.w) : null;
 
   const lenis = new Lenis({

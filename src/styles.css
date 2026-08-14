@@ -197,6 +197,15 @@ html.lenis body {
   max-width: min(60ch, 76vw);
 }
 
+/*
+   Act I's opening sits low enough to almost touch the sun, which rises at the vanishing
+   point on the horizon at 58%. Scoped to act 0: `.col-centre` is shared with Act IV's
+   statement, CTA and footer, which need the height they have.
+*/
+.col-centre[data-act='0'] {
+  top: 30vh;
+}
+
 @media (max-width: 820px) {
   .copy-col {
     left: 5vw;

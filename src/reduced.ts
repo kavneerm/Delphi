@@ -7,8 +7,11 @@
  * argument to be present and readable in this mode.
  */
 
-import { SLOT_COUNT, horizonPx, vpPx } from './config.ts';
-import type { ActDefinition } from './acts/types.ts';
+import { BLEED_PX, SLOT_COUNT, bufferOriginFor, horizonPx, vpPx } from './config.ts';
+import type { ActDefinition, DrawFn, Geometry } from './acts/types.ts';
+import { Buf, bufferSize } from './art/buffer.ts';
+import { canvasFor, rasterOf } from './art/compose.ts';
+import { Palette } from './art/palette.ts';
 import { BLOCKS } from './copy.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -72,8 +75,34 @@ export function renderReduced(acts: readonly ActDefinition[]): void {
       // `parts` were previously omitted entirely, so Act I's tumbleweeds and every other
       // independently-moving prop simply did not exist in reduced motion. brief §8 makes
       // this a first-class path, not a fallback that loses content.
-      const pieces = [piece.free, ...(piece.parts ?? []).map((p) => p.markup), piece.locked];
-      for (const markup of pieces) {
+      //
+      // Draw callbacks are rendered here too, and that matters more than it looks.
+      // docs/plans/pixel-substrate.md claimed this path already rendered them — "one code
+      // path, not two" — and that was simply false: it rendered markup only. The cost of
+      // the gap was that every ported act had to keep a whole second SVG composition
+      // alive purely for this path, and the two drifted, exactly as duplicated
+      // descriptions of one thing always do.
+      const painters: (DrawFn | undefined)[] = [
+        piece.draw,
+        ...(piece.parts ?? []).map((p) => p.draw),
+        piece.drawLocked,
+      ];
+      const markups = [piece.free, ...(piece.parts ?? []).map((p) => p.markup), piece.locked];
+
+      for (const [i, draw] of painters.entries()) {
+        if (!draw) continue;
+        const holder = document.createElement('div');
+        holder.className = 'layer locked';
+        // Same inset as the scroll path's `.layer`: canvasFor positions the canvas at
+        // `BLEED_PX - ox` relative to its holder, so a holder at inset 0 would place the
+        // art a full bleed out.
+        holder.style.inset = `${-BLEED_PX}px`;
+        holder.appendChild(rasterFor(draw, geo));
+        scene.appendChild(holder);
+        markups[i] = undefined; // painted; do not also emit its SVG
+      }
+
+      for (const markup of markups) {
         if (!markup) continue;
         const holder = document.createElement('div');
         holder.className = 'layer locked';
@@ -88,6 +117,18 @@ export function renderReduced(acts: readonly ActDefinition[]): void {
     horizon.dataset['anchor'] = 'horizon';
     scene.appendChild(horizon);
   });
+}
+
+/** Raster one draw callback into a canvas sized to this static scene. */
+function rasterFor(draw: DrawFn, geo: Geometry): HTMLCanvasElement {
+  const ox = bufferOriginFor(vpPx(geo.w));
+  const oy = bufferOriginFor(horizonPx(geo.h));
+  const size = bufferSize(geo.w, geo.h, ox, oy);
+  const palette = new Palette();
+  const buf = new Buf(palette, size.w, size.h, ox, oy);
+  buf.protectRow(geo.horizon);
+  draw(buf, geo);
+  return canvasFor(rasterOf(buf, palette.toRgba()));
 }
 
 function svgFor(

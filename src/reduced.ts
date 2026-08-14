@@ -7,7 +7,7 @@
  * argument to be present and readable in this mode.
  */
 
-import { HORIZON_FRAC, SLOT_COUNT, VP_FRAC } from './config.ts';
+import { SLOT_COUNT, horizonPx, vpPx } from './config.ts';
 import type { ActDefinition } from './acts/types.ts';
 import { BLOCKS } from './copy.ts';
 
@@ -56,8 +56,9 @@ export function renderReduced(acts: readonly ActDefinition[]): void {
     const geo = {
       w: rect.width,
       h: rect.height,
-      horizon: rect.height * HORIZON_FRAC,
-      vp: rect.width * VP_FRAC,
+      // Same whole-pixel anchors as the scroll path, so both render one geometry.
+      horizon: horizonPx(rect.height),
+      vp: vpPx(rect.width),
       bleed: 0,
     };
 
@@ -65,7 +66,14 @@ export function renderReduced(acts: readonly ActDefinition[]): void {
     for (let slot = SLOT_COUNT - 1; slot >= 0; slot--) {
       const piece = art[slot];
       if (!piece) continue;
-      for (const markup of [piece.free, piece.locked]) {
+      // free, then parts, then locked — the same paint order as the scroll path, where
+      // `parts` live inside `.travel` (above `free`) and `.locked` is a later sibling.
+      //
+      // `parts` were previously omitted entirely, so Act I's tumbleweeds and every other
+      // independently-moving prop simply did not exist in reduced motion. brief §8 makes
+      // this a first-class path, not a fallback that loses content.
+      const pieces = [piece.free, ...(piece.parts ?? []).map((p) => p.markup), piece.locked];
+      for (const markup of pieces) {
         if (!markup) continue;
         const holder = document.createElement('div');
         holder.className = 'layer locked';

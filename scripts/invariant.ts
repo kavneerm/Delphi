@@ -13,7 +13,7 @@
  * anchor rather than merely that the anchor exists.
  */
 
-import { CHECKPOINTS, HORIZON_FRAC, VIEWPORTS, VP_FRAC } from '../src/config.ts';
+import { CHECKPOINTS, HORIZON_FRAC, VIEWPORTS, VP_FRAC, horizonPx, vpPx } from '../src/config.ts';
 import { Report, fmtP, gotoP, launch, openPage, serveDist } from './lib.ts';
 import { decodePng, edgeCoverage, strongestNear } from './pixels.ts';
 
@@ -44,9 +44,25 @@ async function main(): Promise<void> {
   try {
     for (const vp of VIEWPORTS) {
       const { page } = await openPage(browser, server.url, vp);
-      const expectedHorizon = vp.height * HORIZON_FRAC;
+      const expectedHorizon = horizonPx(vp.height);
+      const expectedVp = vpPx(vp.width);
       let firstTop: number | null = null;
       let firstLeft: number | null = null;
+
+      // The anchors are whole pixels, so `58%` is now expressed as "the pixel nearest to
+      // 58%". That is a substantive claim and gets its own assertion rather than being
+      // absorbed into a widened tolerance on the one below — the tolerance there stays at
+      // the browser's layout quantum, exactly as it was.
+      report.assert(
+        Math.abs(expectedHorizon / vp.height - HORIZON_FRAC) <= 0.5 / vp.height,
+        `${vp.name}: horizon pixel ${expectedHorizon} is ${(expectedHorizon / vp.height * 100).toFixed(4)}% ` +
+          `of ${vp.height}, more than half a pixel from 58%`,
+      );
+      report.assert(
+        Math.abs(expectedVp / vp.width - VP_FRAC) <= 0.5 / vp.width,
+        `${vp.name}: VP pixel ${expectedVp} is ${(expectedVp / vp.width * 100).toFixed(4)}% ` +
+          `of ${vp.width}, more than half a pixel from 50%`,
+      );
 
       for (const p of CHECKPOINTS) {
         const where = `${vp.name} p=${fmtP(p)}`;
@@ -63,8 +79,8 @@ async function main(): Promise<void> {
           `${where}: horizon at ${a.horizon.top.toFixed(5)}px (${(a.horizon.fraction * 100).toFixed(4)}%), want ${expectedHorizon.toFixed(5)}px (58%)`,
         );
         report.assert(
-          Math.abs(a.vp.left - vp.width * VP_FRAC) <= LAYOUT_QUANTUM,
-          `${where}: VP at ${a.vp.left.toFixed(5)}px (${(a.vp.fraction * 100).toFixed(4)}%), want ${(vp.width * VP_FRAC).toFixed(5)}px (50%)`,
+          Math.abs(a.vp.left - expectedVp) <= LAYOUT_QUANTUM,
+          `${where}: VP at ${a.vp.left.toFixed(5)}px (${(a.vp.fraction * 100).toFixed(4)}%), want ${expectedVp.toFixed(5)}px (50%)`,
         );
 
         // 1b. identical across every checkpoint — this is the invariant proper, and here

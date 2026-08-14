@@ -12,7 +12,7 @@
  * looks like it moved.
  */
 
-import { CHECKPOINTS, SLOT_RATES, VIEWPORTS, driftAmplitude } from '../src/config.ts';
+import { CHECKPOINTS, SLOT_RATES, VIEWPORTS, driftAmplitude, roundToDevicePx } from '../src/config.ts';
 import { cam } from '../src/timeline.ts';
 import { Report, fmtP, gotoP, launch, openPage, serveDist, translation } from './lib.ts';
 
@@ -27,7 +27,14 @@ interface LayerMetric {
 
 interface Metrics {
   geometry: { w: number; h: number; horizon: number; vp: number };
-  slots: { slot: number; rate: number | null; layers: LayerMetric[] }[];
+  dpr: number;
+  slots: {
+    slot: number;
+    rate: number | null;
+    /** Displacement before device-pixel rounding — the rate contract is about this. */
+    driftIntent: number;
+    layers: LayerMetric[];
+  }[];
 }
 
 interface State {
@@ -62,12 +69,20 @@ async function main(): Promise<void> {
           `${where}: ${metrics.slots.length} slots present, want ${SLOT_RATES.length}`,
         );
 
-        const observed: (number | null)[] = [];
+        const intents: (number | null)[] = [];
 
         for (const slot of metrics.slots) {
           const rate = SLOT_RATES[slot.slot] ?? 0;
-          const expectedX = (state.c - 0.5) * rate * amplitude;
-          let slotX: number | null = null;
+          const intent = (state.c - 0.5) * rate * amplitude;
+          // What the engine must actually have written. Transforms are snapped to a whole
+          // device pixel so the rastered layer shifts without resampling; the check shares
+          // the engine's rounding function so the two can never disagree by construction.
+          const expectedX = roundToDevicePx(intent, metrics.dpr);
+
+          report.assert(
+            Math.abs(slot.driftIntent - intent) < 1e-9,
+            `${where}: slot ${slot.slot} reports driftIntent ${slot.driftIntent}, computed ${intent}`,
+          );
 
           report.assert(
             slot.layers.length > 0,
@@ -84,12 +99,13 @@ async function main(): Promise<void> {
               `${where}: slot ${slot.slot} act ${layer.act} drift has Y=${drift.y.toFixed(3)}px, want 0`,
             );
 
-            // 3. absolute amplitude
+            // 3. absolute amplitude — now exact, where it used to allow 0.6px of slop.
+            // Rounding removed the reason for the slop, so the assertion tightens rather
+            // than loosens: any deviation at all is a bug in the write pass.
             report.assert(
-              Math.abs(drift.x - expectedX) < 0.6,
-              `${where}: slot ${slot.slot} act ${layer.act} driftX=${drift.x.toFixed(3)}px, want ${expectedX.toFixed(3)}px`,
+              Math.abs(drift.x - expectedX) < 1 / 512,
+              `${where}: slot ${slot.slot} act ${layer.act} driftX=${drift.x.toFixed(4)}px, want exactly ${expectedX.toFixed(4)}px (intent ${intent.toFixed(4)})`,
             );
-            slotX = drift.x;
 
             // 4. travel only moves during a transition
             if (state.phase === 'hold') {
@@ -111,16 +127,23 @@ async function main(): Promise<void> {
             }
           }
 
-          observed.push(slotX);
+          intents.push(slot.driftIntent);
         }
 
-        // 2. relative rates. Skip where the camera sits at the midpoint and every
-        // displacement is legitimately zero.
-        const reference = observed[3];
+        // 2. relative rates, asserted against the *unrounded* intent.
+        //
+        // Rounding to a device pixel makes the written values unusable for this: slot 7's
+        // entire sweep across the page is 3px at 1440 and 0.8px at 390, so at most
+        // checkpoints its written displacement is one of two or three integers and its
+        // ratio to slot 3 is dominated by the rounding. The rate table is a statement
+        // about intent; assert it there, and let assertion 3 above prove the written value
+        // is exactly the correctly-rounded form of that intent. Together the two are
+        // strictly stronger than the old single tolerance-based check.
+        const reference = intents[3];
         const referenceRate = SLOT_RATES[3] ?? 1;
         if (reference !== null && reference !== undefined && Math.abs(reference) > 0.5) {
-          for (let slot = 0; slot < observed.length; slot++) {
-            const value = observed[slot];
+          for (let slot = 0; slot < intents.length; slot++) {
+            const value = intents[slot];
             const rate = SLOT_RATES[slot] ?? 0;
             if (value === null || value === undefined) continue;
             const wantRatio = rate / referenceRate;

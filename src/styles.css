@@ -111,11 +111,18 @@ html.lenis body {
    The invariant, as measurable DOM. Never transformed, never written to by the
    render pass. scripts/invariant.ts reads these.
    --------------------------------------------------------------------------- */
+/*
+   Positioned in whole pixels, not `calc(58%)`. A percentage resolves to 489.52px at
+   390x844 and there is no pixel boundary there, so the art could only ever be registered
+   to the anchor approximately. --horizon-px / --vp-px are published by src/stage.ts from
+   the same horizonPx() / vpPx() the art is drawn against, so the two agree exactly.
+   The --*-frac properties are retained as the fallback before Stage has measured.
+*/
 #anchor-horizon {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(var(--horizon-frac) * 100%);
+  top: var(--horizon-px, calc(var(--horizon-frac) * 100%));
   height: 0;
   z-index: 900;
   pointer-events: none;
@@ -123,8 +130,8 @@ html.lenis body {
 
 #anchor-vp {
   position: absolute;
-  left: calc(var(--vp-frac) * 100%);
-  top: calc(var(--horizon-frac) * 100%);
+  left: var(--vp-px, calc(var(--vp-frac) * 100%));
+  top: var(--horizon-px, calc(var(--horizon-frac) * 100%));
   width: 0;
   height: 0;
   z-index: 900;

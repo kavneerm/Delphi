@@ -239,19 +239,55 @@ number because it catches the frame you already know is wrong is `review-checkli
 tolerance-fitting run backwards. Act II's `[82 14 3 0 0 1 0 0], largest 82%` prints on every
 run and is an art requirement in P5, graded by a critic.
 
-### P1 — Anchor + transform correctness, still SVG
+### P1 — Anchor + transform correctness, still SVG ✅
 Deliberately before the substrate, so the two changes never confound each other.
-- [ ] `horizonPx` / `vpPx` / `bleedFor` / `roundToDevicePx` exported from `src/config.ts`;
-      `#anchor-horizon` / `#anchor-vp` driven from px, not `calc(58%)` (`src/styles.css:118`);
-      `index.html:44-46` emits `horizonPx` rather than a hardcoded `58%` / `58.01%`, or first
-      paint disagrees with the art by 1px.
-- [ ] D8 build caching, D11 transform rounding, `clipBottom` snapped to the art grid.
-- [ ] Rewrite `scripts/parallax.ts`: assert `drift.x === roundToDevicePx(expectedX)`
-      **exactly** — tighter than today's 0.6px slop (`:89`) — and assert the ratio of the
-      *unrounded intent*, newly exposed via `metrics()`. Today's ratio assertion (`:129`,
-      within 1%) fails at any rounding whenever the reference value is small.
-- **Exit:** `npm run check` green with the 1/64px tolerance **unchanged**, and `refstats`
-  unmoved. Print both.
+- [x] `ART_SCALE` / `horizonPx` / `vpPx` / `bufferOriginFor` / `roundToDevicePx` in
+      `src/config.ts`; `BLEED_PX` 64 → 66; anchors driven from `--horizon-px` / `--vp-px`.
+- [x] D8 build caching, D11 transform rounding, `clipBottom` rounded, `remeasure()` now
+      runs a write pass so rebuilt layers are positioned on the same frame.
+- [x] `scripts/parallax.ts` rewritten; `scripts/invariant.ts` asserts against
+      `horizonPx`/`vpPx` **with the 1/64px tolerance unchanged**, plus a new independent
+      assertion that each anchor is within half a pixel of its true fraction.
+- [x] `src/reduced.ts` uses the same anchors, and its dropped-`parts` bug is fixed.
+
+**Measured.** Anchors land at 522 (58.000%), 594 (58.008%), 490 (58.057%) — max error
+0.48px, and `bufferOriginFor` puts all six anchor/axis pairs on exact art-cell boundaries
+(origins 66/66/66/66/68/66). `npm run check` green; both gates got *stronger*:
+
+| check | before | after |
+| --- | --- | --- |
+| `check:invariant` | 491 assertions | **497** |
+| `check:parallax` | 2081 assertions, drift within 0.6px | **2441**, drift **exact** |
+
+**Exit criterion was wrong, and is restated.** It said "`refstats` unmoved". That assumed
+the port was visually neutral; D11 is not — it deliberately stops the compositor resampling
+every layer. What actually happened:
+
+| 1440×900 | pre-P1 | post-P1 |
+| --- | --- | --- |
+| Act I fine% / pal99 | 1.8% / 58 | 1.8% / 56 |
+| Act II fine% / pal99 | 1.6% / 33 | **0.7% / 29** |
+| Act III fine% / pal99 | 2.3% / 91 | **0.4% / 70** |
+| Act IV runP25 | 3.13% of w | **1.46%** |
+
+A frame diff shows why: **98.1% (Act I) and 99.8% (Act III) of all changed runs are 1–2px
+wide**, widest 14px and 7px, with 0.02%/0.11% of pixels strongly changed. Thin seams only;
+no region moved. So the composition is unchanged, and the metric drop is the *removal of
+anti-aliasing* — the P0 baseline was partly measuring resampling artifacts rather than art.
+
+**Two consequences.**
+
+1. **The gap to the references is larger than P0 reported.** Act II now sits at pal99 29
+   against a 176 target (6×), and Act III at 0.4% fine against 11.6% (29×).
+2. **This resolves the open finding in `build.md` §D2 R2** — "widespread 1px blends across
+   every slot, including non-aberrated street level". An earlier critic attributed it to the
+   paper-grain layer and declined to call it a finding. The cause was fractional layer
+   transforms; it is now gone. R2 can drop that item.
+
+**Deliberately not done:** `index.html`'s critical-paint gradient still hardcodes `58%`. It
+is a placeholder removed once the stage renders, and its worst disagreement with the art is
+0.48px at 390×844 — invisible, and for well under a second. Making it exact would need JS in
+the critical path, which is what that block exists to avoid.
 
 ### P2 — Canvas substrate, Act I only, composition unchanged
 - [ ] `src/art/{palette,buffer,draw,compose}.ts`; `SlotArt` takes draw callbacks; D12 sizing;

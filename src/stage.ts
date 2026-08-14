@@ -6,6 +6,9 @@ import {
   TWOS_MS,
   VP_FRAC,
   driftAmplitude,
+  horizonPx,
+  roundToDevicePx,
+  vpPx,
 } from './config.ts';
 import type { ActDefinition, Geometry, SlotArt } from './acts/types.ts';
 import { progress, residentActs, type Frame } from './progress.ts';
@@ -39,14 +42,26 @@ export class Stage {
   private readonly acts: readonly ActDefinition[];
   private geo: Geometry;
   private twosAccumulator = 0;
+  /**
+   * One `build()` per act, not one per slot.
+   *
+   * `buildLayer` used to call `definition.build(this.geo)[slot]`, running the whole act
+   * and discarding seven eighths of it, eight times over. That is invisible while an act
+   * returns markup strings and unaffordable the moment each call rasterises.
+   */
+  private readonly builtArt = new Map<ActIndex, readonly SlotArt[]>();
+  /** Cached so the write pass does not touch `window` eight times a frame. */
+  private dpr: number;
 
   constructor(host: HTMLElement, acts: readonly ActDefinition[]) {
     this.host = host;
     this.acts = acts;
+    this.dpr = window.devicePixelRatio || 1;
     this.geo = measure(host);
     host.style.setProperty('--horizon-frac', String(HORIZON_FRAC));
     host.style.setProperty('--vp-frac', String(VP_FRAC));
     host.style.setProperty('--bleed', `${BLEED_PX}px`);
+    this.writeAnchors();
 
     for (let slot = 0; slot < SLOT_COUNT; slot++) {
       const root = document.createElement('div');
@@ -70,11 +85,29 @@ export class Stage {
 
   /** Rebuild every resident layer against a new stage box. Resize only, never per frame. */
   remeasure(): void {
+    this.dpr = window.devicePixelRatio || 1;
     this.geo = measure(this.host);
+    this.builtArt.clear();
+    this.writeAnchors();
     for (const slot of this.slots) {
       for (const act of [...slot.layers.keys()]) this.dropLayer(slot, act);
     }
     this.sync(progress.frame);
+    // sync() only builds; it does not position. Without a write pass here every rebuilt
+    // layer sits at identity until the next frame, which is a visible jump on resize.
+    this.render(progress.frame, 0);
+  }
+
+  /**
+   * The anchors, in whole pixels rather than `calc(58% )`.
+   *
+   * A percentage resolves to 489.52px at 390x844, and no pixel boundary exists there — so
+   * the art can only ever be registered to the anchor approximately. Publishing the
+   * rounded value and drawing the art at the same number makes the two agree exactly.
+   */
+  private writeAnchors(): void {
+    this.host.style.setProperty('--horizon-px', `${horizonPx(this.geo.h)}px`);
+    this.host.style.setProperty('--vp-px', `${vpPx(this.geo.w)}px`);
   }
 
   /**
@@ -97,9 +130,12 @@ export class Stage {
       const els = this.slots[slot];
       if (!els) continue;
       const rate = SLOT_RATES[slot] ?? 1;
-      const driftX = (frame.c - 0.5) * rate * amplitude;
+      // Whole device pixels. A fractional translate resamples the layer under the
+      // compositor, which softens every edge on every moving slot — the failure that
+      // reads as "the art is a bit mushy" and gets misfiled as an art problem.
+      const driftX = roundToDevicePx((frame.c - 0.5) * rate * amplitude, this.dpr);
       // Vertical drift is zero for every slot at every scroll position (build.md A1).
-      const driftTransform = `translate3d(${driftX.toFixed(3)}px,0,0)`;
+      const driftTransform = `translate3d(${driftX}px,0,0)`;
 
       // Slot 0 runs on twos: it is skipped entirely on non-tick frames, so it updates at
       // 12fps while everything else runs at display rate. A throttled tick, not a CSS
@@ -124,8 +160,8 @@ export class Stage {
 
         // Prop self-motion, scroll-driven so it is deterministic and never a timer.
         for (const part of layer.parts) {
-          const x = frame.c * part.rate * this.geo.w;
-          part.el.style.transform = `translate3d(${x.toFixed(2)}px,0,0)`;
+          const x = roundToDevicePx(frame.c * part.rate * this.geo.w, this.dpr);
+          part.el.style.transform = `translate3d(${x}px,0,0)`;
         }
 
         if (segment.kind === 'hold') {
@@ -158,9 +194,12 @@ export class Stage {
             // Must clear the frame from any authored x, so it is the full stage width
             // plus the bleed — not a fraction of it. A fractional offset only parks art
             // off-canvas if it started on the far side to begin with.
-            const off = (this.geo.w + this.geo.bleed) * local * (incoming ? 1 : -1);
+            const off = roundToDevicePx(
+              (this.geo.w + this.geo.bleed) * local * (incoming ? 1 : -1),
+              this.dpr,
+            );
             layer.drift.style.opacity = '1';
-            layer.travel.style.transform = `translate3d(${off.toFixed(2)}px,0,0)`;
+            layer.travel.style.transform = `translate3d(${off}px,0,0)`;
             break;
           }
           // `rise` and `extrude` are the same transform. They differ only in where the
@@ -168,8 +207,9 @@ export class Stage {
           case 'rise':
           case 'extrude': {
             const distance = layer.art.travelPx ?? this.defaultTravel(slot, layer.art);
+            const y = roundToDevicePx(distance * local, this.dpr);
             layer.drift.style.opacity = '1';
-            layer.travel.style.transform = `translate3d(0,${(distance * local).toFixed(2)}px,0)`;
+            layer.travel.style.transform = `translate3d(0,${y}px,0)`;
             break;
           }
         }
@@ -179,11 +219,19 @@ export class Stage {
 
   /** Per-slot DOM + transform state, for the verification scripts. */
   metrics(): unknown {
+    const amplitude = driftAmplitude(this.geo.w);
+    const c = progress.frame.c;
     return {
       geometry: this.geo,
+      dpr: this.dpr,
       slots: this.slots.map((slot, index) => ({
         slot: index,
         rate: SLOT_RATES[index] ?? null,
+        // The displacement *before* rounding. check:parallax needs this: once every
+        // transform is snapped to a device pixel, the ratios between slots no longer hold
+        // on the written values — slot 7's whole sweep is 3px, so rounding dominates it.
+        // The rate contract is a statement about intent, and this is the intent.
+        driftIntent: (c - 0.5) * (SLOT_RATES[index] ?? 1) * amplitude,
         layers: [...slot.layers.entries()].map(([act, layer]) => ({
           act,
           verb: layer.art.verb,
@@ -228,10 +276,19 @@ export class Stage {
     els.layers.delete(act);
   }
 
-  private buildLayer(els: SlotEls, slot: number, act: ActIndex): void {
+  /** One `build()` per act per geometry — see `builtArt`. */
+  private artFor(act: ActIndex): readonly SlotArt[] | null {
+    const cached = this.builtArt.get(act);
+    if (cached) return cached;
     const definition = this.acts[act];
-    if (!definition) return;
-    const art = definition.build(this.geo)[slot];
+    if (!definition) return null;
+    const art = definition.build(this.geo);
+    this.builtArt.set(act, art);
+    return art;
+  }
+
+  private buildLayer(els: SlotEls, slot: number, act: ActIndex): void {
+    const art = this.artFor(act)?.[slot];
     if (!art) return;
 
     const drift = document.createElement('div');
@@ -239,8 +296,14 @@ export class Stage {
     drift.dataset['drift'] = 'free';
     drift.dataset['act'] = String(act);
     if (art.clipBottom !== undefined) {
-      const fromBottom = this.geo.h + this.geo.bleed - art.clipBottom;
-      drift.style.clipPath = `inset(0px 0px ${fromBottom.toFixed(2)}px 0px)`;
+      // Whole device pixels, for the same reason as the transforms: a clip edge landing
+      // mid-pixel is antialiased by the compositor, which puts a soft seam along the one
+      // line the composition is registered to.
+      const fromBottom = roundToDevicePx(
+        this.geo.h + this.geo.bleed - art.clipBottom,
+        this.dpr,
+      );
+      drift.style.clipPath = `inset(0px 0px ${fromBottom}px 0px)`;
     }
 
     const travel = document.createElement('div');
@@ -332,8 +395,10 @@ function measure(host: HTMLElement): Geometry {
   return {
     w,
     h,
-    horizon: h * HORIZON_FRAC,
-    vp: w * VP_FRAC,
+    // Whole pixels, and the same numbers the anchors are published at — so the art is
+    // registered to the anchor exactly rather than to within a rounding error.
+    horizon: horizonPx(h),
+    vp: vpPx(w),
     bleed: BLEED_PX,
   };
 }

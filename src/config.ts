@@ -7,6 +7,63 @@
 export const HORIZON_FRAC = 0.58;
 export const VP_FRAC = 0.5;
 
+/**
+ * Art-pixel scale: one art pixel is this many CSS pixels.
+ *
+ * 3 divides all three test viewports exactly (1440→480, 768→256, 390→130), which matters
+ * because a non-integer upscale resamples, and softness is the one thing pixel art cannot
+ * survive. It is also what makes `image-rendering: pixelated` produce *even* cells — a
+ * fractional scale hard-edges but leaves art pixels alternately 3 and 4 device px wide,
+ * which reads as a wobbling grid.
+ */
+export const ART_SCALE = 3;
+
+/**
+ * The anchors, in whole CSS pixels.
+ *
+ * Rounding to a whole pixel is what lets the art register to the anchor exactly: at
+ * 390x844 the ideal horizon is 489.52, and no pixel boundary exists there. The deviation
+ * is at most half a pixel, and `check:invariant` asserts that separately — see the note
+ * on the invariant below.
+ */
+export function horizonPx(h: number): number {
+  return Math.round(h * HORIZON_FRAC);
+}
+
+export function vpPx(w: number): number {
+  return Math.round(w * VP_FRAC);
+}
+
+/**
+ * Where an art buffer's origin sits on one axis, so the anchor lands exactly on a cell
+ * boundary rather than mid-cell.
+ *
+ * Returns the smallest overdraw >= BLEED_PX for which `(anchor + origin)` divides by
+ * ART_SCALE. Only the buffer sees this; `Geometry.bleed` stays a single scalar and acts
+ * are never asked to reason about it. The alternative — quantising the anchor itself to a
+ * multiple of ART_SCALE — costs up to 1.5px of anchor error, three times worse.
+ */
+export function bufferOriginFor(anchorPx: number): number {
+  const remainder = (((anchorPx + BLEED_PX) % ART_SCALE) + ART_SCALE) % ART_SCALE;
+  return BLEED_PX + ((ART_SCALE - remainder) % ART_SCALE);
+}
+
+/**
+ * Snap a transform to a whole *device* pixel.
+ *
+ * Device, not art, pixel. An integer-device-px translate shifts a rastered layer without
+ * resampling it, so edges stay hard. Snapping to ART_SCALE instead would be destructive:
+ * slot 7's entire drift sweep across the page is 3.0px at 1440 and 0.8px at 390, so a 3px
+ * quantum turns it into a single jump, or deletes it outright.
+ *
+ * `dpr` is passed rather than read from `window`, because the verification scripts import
+ * this module under node and must compute the identical value.
+ */
+export function roundToDevicePx(value: number, dpr: number): number {
+  const scale = dpr > 0 ? dpr : 1;
+  return Math.round(value * scale) / scale;
+}
+
 /** Depth slots, index 0 = nearest the viewer. */
 export const SLOT_COUNT = 8;
 
@@ -31,8 +88,14 @@ export const SLOT_NAMES = [
 export const DRIFT_BASE_PX = 30;
 export const DRIFT_REFERENCE_WIDTH = 1440;
 
-/** Overdraw on every layer so a drifting layer never exposes a stage edge. */
-export const BLEED_PX = 64;
+/**
+ * Overdraw on every layer so a drifting layer never exposes a stage edge.
+ *
+ * 66 rather than 64: it must clear the widest drift (slot 0 sweeps 48px, so ±24px) and be
+ * a multiple of ART_SCALE, so that in the common case `bufferOriginFor` returns exactly
+ * this and the buffer needs no extra margin at all.
+ */
+export const BLEED_PX = 66;
 
 /** Slot 0 runs on twos: 12fps from its own accumulator. */
 export const TWOS_FPS = 12;

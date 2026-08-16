@@ -81,7 +81,7 @@ Copy column returns **left**, its Act I position.
 
 **Statement** (`p` 0.84, display size, centered, the largest type on the page)
 
-> Our goal is to ensure that the frontier remains open.
+> Our goal is to ensure the frontier remains open.
 
 **CTA** (`p` 0.92)
 
@@ -139,11 +139,18 @@ makes the three-part structure explicit. Four words longer; not one word otherwi
 This is the only edit that alters length enough to affect layout, so it is the one to watch
 if the Act III column ever reflows.
 
-**Act IV statement — "ensure the frontier remains" → "ensure that the frontier remains".**
-Without `that`, `ensure the frontier` parses as a complete object before `remains` forces a
-re-read. It is a mild stumble in body text and a conspicuous one in the largest type on the
-page. Restoring `that` also sets the site's title phrase — *the frontier remains open* —
-apart as a unit, which is how it is meant to land.
+**Act IV statement — proposed, then withdrawn. The line is unchanged.**
+I proposed "ensure **that** the frontier remains open", on the grounds that without `that`,
+`ensure the frontier` parses as a complete object before `remains` forces a re-read.
+The client declined it, and the line stands as originally written:
+
+> Our goal is to ensure the frontier remains open.
+
+Recorded rather than deleted so the same edit is not proposed again. Omitting `that` after
+`ensure` is standard English, not an error — the argument for it was a preference, and on
+the largest line on the page the client's ear is the one that counts. The measurement taken
+at the time still holds and is worth keeping: both versions set to three lines at the same
+block height at 1440x900 and 390x844, so nothing typographic rides on this either way.
 
 **Not changed:** both H2s, the H1, the CTA, and the transition line. They are clean and any
 edit would have been preference, not correction.

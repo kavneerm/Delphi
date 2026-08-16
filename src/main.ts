@@ -108,11 +108,16 @@ function boot(): void {
     const t0 = measure ? performance.now() : 0;
     progress.tick(delta);
     stage.render(progress.frame, delta);
-    // Only once the first frame is actually painted. Removing it at construction was
+    // Only once the opening act is actually on screen. Removing it at construction was
     // fine when a layer was an innerHTML assignment; with a canvas substrate the first
     // frame costs a raster, and dropping the placeholder before it lands shows the bare
     // page background for however long that takes.
-    if (!painted) {
+    //
+    // `stage.settled` rather than "the first frame ran", because the raster is now
+    // amortised across frames (Stage.sync) and that first frame holds one slot out of
+    // eight. Dropping the placeholder there would trade a transition hitch for an opening
+    // flash of a half-built scene, which is a worse bargain.
+    if (!painted && stage.settled) {
       painted = true;
       document.getElementById('stage-critical')?.remove();
     }

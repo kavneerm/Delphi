@@ -3,6 +3,7 @@ import {
   HORIZON_FRAC,
   SLOT_COUNT,
   SLOT_RATES,
+  STAGGER_ORDER,
   TWOS_MS,
   VP_FRAC,
   driftAmplitude,
@@ -20,6 +21,17 @@ import { bufferOriginFor, horizonPx as horizonPxOf, vpPx as vpPxOf } from './con
 import { progress, residentActs, type Frame } from './progress.ts';
 import { slotEase, slotProgress, type ActIndex } from './timeline.ts';
 import { aberrates, aberrationOffset, halftoneOverlay, postDefs } from './post/index.ts';
+
+/**
+ * How long one frame may spend rastering newly-resident layers, in ms.
+ *
+ * 6 rather than something closer to a full 16ms frame: the write pass is not the only thing
+ * in a frame, and the whole point is to leave the compositor room. It is a floor as well as
+ * a ceiling — `sync` always builds at least one slot per frame, so a single slot costing
+ * more than the budget on its own (slot 7 at 1440x900 is ~6.6ms) still makes progress
+ * rather than deadlocking.
+ */
+const BUILD_BUDGET_MS = 6;
 
 interface ActLayer {
   readonly art: SlotArt;
@@ -48,6 +60,7 @@ export class Stage {
   private readonly acts: readonly ActDefinition[];
   private geo: Geometry;
   private twosAccumulator = 0;
+  private buildsPending = false;
   /**
    * One `build()` per act, not one per slot.
    *
@@ -137,7 +150,10 @@ export class Stage {
     for (const slot of this.slots) {
       for (const act of [...slot.layers.keys()]) this.dropLayer(slot, act);
     }
-    this.sync(progress.frame);
+    // `immediate`: every layer was just dropped, so amortising here would show a stage
+    // with one slot in it for several frames. A resize is rare and already costs a full
+    // relayout; one long frame is the right trade, and the alternative is a visible flash.
+    this.sync(progress.frame, true);
     // sync() only builds; it does not position. Without a write pass here every rebuilt
     // layer sits at identity until the next frame, which is a visible jump on resize.
     this.render(progress.frame, 0);
@@ -303,25 +319,97 @@ export class Stage {
   /**
    * Build layers for resident acts, drop the rest (build.md B5). Returns true if anything
    * was built, so the caller can guarantee the new layer is positioned on this same frame.
+   *
+   * **Amortised.** Building all eight slots of an incoming act in one frame is what every
+   * over-budget frame in this build was: measured under real wheel scrolling at 1440x900,
+   * 5 frames of 204 exceeded 16ms, peaking at 33ms, and every one of them was a transition
+   * boundary. Steady state is 0.10ms, so the cost is entirely here.
+   *
+   * The saving grace is that at the instant an act becomes resident, **none of its layers
+   * are visible yet**: `crossfade` enters at `opacity: eased(0) = 0`, `rise`/`extrude` enter
+   * translated fully below their clip line, and `drift` enters off-canvas. A slot only needs
+   * to exist by the time its own staggered window opens, which for the last slot is 42% of
+   * the way through the transition. So the work can be spread over frames rather than
+   * crammed into the one where the segment changed.
+   *
+   * Slots are built in `STAGGER_ORDER` — the order they become visible — so the first thing
+   * built is the first thing needed. `BUILD_BUDGET_MS` bounds a frame's work, and at least
+   * one slot is always built so progress is guaranteed even if a single slot exceeds the
+   * budget on its own. Nothing here is a timer: a fast scroll simply builds more per frame
+   * because the budget refills every frame.
    */
-  private sync(frame: Readonly<Frame>): boolean {
+  private sync(frame: Readonly<Frame>, immediate = false): boolean {
     const resident = residentActs(frame);
-    let built = false;
+
+    // Dropping is cheap — DOM removal, no raster — so it stays eager and complete.
     for (let slot = 0; slot < SLOT_COUNT; slot++) {
       const els = this.slots[slot];
       if (!els) continue;
       for (const act of [...els.layers.keys()]) {
         if (!resident.includes(act)) this.dropLayer(els, act);
       }
-      // Append in transition order so the incoming act paints over the outgoing one.
-      for (const act of resident) {
-        if (!els.layers.has(act)) {
-          this.buildLayer(els, slot, act);
-          built = true;
+    }
+
+    // `build()` gets a frame to itself. It is the second-largest item after the slot 7
+    // raster — 6.49ms for Act III at 1440x900 — and pairing the two in one frame is what
+    // keeps a transition frame over budget even with the raster amortised. Returning here
+    // costs one extra frame per act, during which nothing of that act is visible yet.
+    //
+    // Most of that cost is waste: all four acts emit nine slots carrying *both* a `draw`
+    // callback and SVG markup, and `draw` wins everywhere it is present, so 59-289KB of
+    // markup is built per act and dropped. Deleting it is the real fix and is a change to
+    // the acts, not to the engine.
+    // `immediate` skips the yield: remeasure() has just dropped every layer, so returning
+    // here would leave the stage empty for a frame rather than merely unbuilt-but-hidden.
+    for (const act of resident) {
+      if (!this.builtArt.has(act)) {
+        this.artFor(act);
+        if (!immediate) {
+          this.buildsPending = true;
+          return false;
         }
       }
     }
+
+    let built = false;
+    let pending = false;
+    const start = performance.now();
+
+    // Act order first, so the incoming act paints over the outgoing one; slot order within
+    // it is visibility order, not index order. Slots are separate containers, so ordering
+    // between slots is structural and unaffected — only the order of acts *within* one slot
+    // decides what paints over what, and that stays `resident` order across frames.
+    outer: for (const act of resident) {
+      for (const slot of STAGGER_ORDER) {
+        const els = this.slots[slot];
+        if (!els || els.layers.has(act)) continue;
+
+        // Checked before building, and only once something has been built, so the
+        // "at least one per frame" floor holds however expensive that one slot is.
+        if (!immediate && built && performance.now() - start >= BUILD_BUDGET_MS) {
+          pending = true;
+          break outer;
+        }
+
+        this.buildLayer(els, slot, act);
+        built = true;
+      }
+    }
+
+    this.buildsPending = pending;
     return built;
+  }
+
+  /**
+   * True once every resident act's layers exist.
+   *
+   * `main.ts` holds the first-paint placeholder until this goes true. Removing it on the
+   * first painted frame was correct when that frame built the whole act; with the raster
+   * amortised, the first frame holds one slot out of eight, and dropping the placeholder
+   * there would expose a half-built scene — trading a hitch for a flash.
+   */
+  get settled(): boolean {
+    return !this.buildsPending;
   }
 
   private dropLayer(els: SlotEls, act: ActIndex): void {

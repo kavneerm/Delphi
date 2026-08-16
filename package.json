@@ -21,6 +21,7 @@
     "check:pace": "node scripts/pace.ts",
     "check:travel": "node scripts/travel.ts",
     "check:deck": "node scripts/deck.ts",
+    "check:browsers": "node scripts/browsers.ts",
     "deploy": "npm run build && node scripts/deploy.ts"
   },
   "devDependencies": {

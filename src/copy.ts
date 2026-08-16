@@ -158,7 +158,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     column: 'centre',
     reveal: { at: 0.84, over: 0.025 },
     byWord: true,
-    html: '<h2 class="statement">Our goal is to ensure that the frontier remains open.</h2>',
+    html: '<h2 class="statement">Our goal is to ensure the frontier remains open.</h2>',
   },
   {
     id: 'act4-cta',

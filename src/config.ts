@@ -101,8 +101,33 @@ export const BLEED_PX = 66;
 export const TWOS_FPS = 12;
 export const TWOS_MS = 1000 / TWOS_FPS;
 
-/** Scroll container height, in viewport heights. */
-export const SCROLL_VH = 700;
+/**
+ * Scroll container height, in viewport heights — how much scrolling the whole piece costs.
+ *
+ * Note the container is not the travel. The stage is `position: sticky` at `100vh`, so the
+ * distance a reader's wheel actually covers is `(SCROLL_VH/100 - 1) x h`, one viewport
+ * height less than the container. At 1440x900 that is **2880px**, roughly 29 wheel ticks
+ * for the four acts, and each act transition (Δp = 0.13 / 0.13 / 0.12) gets 374 / 374 /
+ * 346px — about 41vh apiece. `check:pace` reads the travel off `scrollHeight` rather than
+ * trusting this comment.
+ *
+ * Getting that distinction wrong overstates every derived figure by 4.2/3.2, and it is easy
+ * to do: the container height is the number written into CSS, and the travel is the number
+ * the reader feels.
+ *
+ * This is the *only* knob for traversal distance. Lenis' `wheelMultiplier` changes the same
+ * quantity — progress per tick — and turning both compounds into a number neither of them
+ * describes, so it stays at its default. See docs/plans/pacing.md §1.
+ */
+export const SCROLL_VH = 420;
+
+/**
+ * Lenis smoothing time constant, seconds — how long the view takes to catch up to input.
+ *
+ * Orthogonal to SCROLL_VH: that one sets how far you must scroll, this one sets how much
+ * lag you feel while doing it. Lenis' own default is 1.2, which reads as sluggish here.
+ */
+export const SCROLL_SMOOTH_S = 0.65;
 
 /** Per-slot stagger through a transition, as a fraction of *normalized* transition
  *  progress (build.md B4). 8 slots x 0.06 = 0.48, leaving 0.52 for each slot to travel. */

@@ -63,21 +63,26 @@ export function mountCopy(host: HTMLElement): (frame: Readonly<Frame>) => void {
 
       if (m.words.length > 0) {
         // Per word, with a stagger across the line.
+        //
+        // The spread is 0.35 rather than 0.55, and each word's own window 0.65 rather than
+        // 0.45: the last word starts a third of the way in instead of past halfway, so the
+        // sweep still reads left-to-right but the line lands sooner. The two must sum to 1
+        // or the last word finishes early (sum < 1) or off the end (sum > 1).
         const n = m.words.length;
         for (let i = 0; i < n; i++) {
           const word = m.words[i];
           if (!word) continue;
-          const start = (i / n) * 0.55;
-          const wt = Math.min(Math.max((t - start) / 0.45, 0), 1);
+          const start = (i / n) * 0.35;
+          const wt = Math.min(Math.max((t - start) / 0.65, 0), 1);
           word.style.opacity = wt.toFixed(3);
-          word.style.transform = `translate3d(0,${((1 - wt) * 0.42).toFixed(3)}em,0)`;
+          word.style.transform = `translate3d(0,${((1 - wt) * 0.3).toFixed(3)}em,0)`;
         }
         // The scrim must arrive with the first word, not before it — otherwise an empty
         // box floats over the scene for the whole run-up to the reveal.
         m.el.style.opacity = (Math.min(entered * 5, 1) * (1 - left)).toFixed(3);
       } else {
         m.el.style.opacity = t.toFixed(3);
-        m.el.style.transform = `translate3d(0,${((1 - t) * 14).toFixed(2)}px,0)`;
+        m.el.style.transform = `translate3d(0,${((1 - t) * 10).toFixed(2)}px,0)`;
       }
 
       // Fully faded blocks stop taking pointer events so they cannot trap a click on

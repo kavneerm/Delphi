@@ -15,9 +15,19 @@
  * scrim defect twice before the cause was pinned. Keeping the checkpoints out of the
  * windows makes every checkpoint measure the fully-revealed state, which is the state the
  * §9 floor is actually about.
+ *
+ * That constraint is why the windows were shortened by holding every `at` and `out` fixed
+ * and shrinking only `over` and `outOver`: the new window is then a subset of the old one,
+ * which already contained no checkpoint, so no amount of tightening can introduce the
+ * failure. `check:pace` asserts it mechanically rather than trusting the argument.
  */
 
-export type Column = 'left' | 'right' | 'centre';
+/**
+ * `cue` is the scroll affordance's own bottom-centre position. It is a column rather than a
+ * block inside `centre` because in flow it would land under a paragraph that is ~600px tall
+ * at 390x844, which is not where a scroll cue goes.
+ */
+export type Column = 'left' | 'right' | 'centre' | 'cue';
 
 export interface Reveal {
   /** Master progress at which this block starts revealing. */
@@ -77,15 +87,29 @@ export const BLOCKS: readonly CopyBlock[] = [
     // ones the reader genuinely scrolls into. This headline is the page's entry point and
     // has to be on screen when they arrive. Flagged to the client; it is the only timing
     // in docs/copy-deck.md that has been changed.
-    reveal: { at: -0.05, over: 0.05, out: 0.13, outOver: 0.05 },
+    reveal: { at: -0.05, over: 0.05, out: 0.13, outOver: 0.03 },
     byWord: true,
     html: '<h1>AI is the inevitable frontier.</h1>',
+  },
+  {
+    id: 'act1-scroll-cue',
+    act: 0,
+    column: 'cue',
+    // Complete at p=0, for the same reason the headline is: an affordance that fades in
+    // after the reader has already decided what to do is not an affordance. It leaves as
+    // soon as scrolling starts, because by then it has done its job — fully gone by 0.06,
+    // which is a checkpoint, so it lands exactly on the end of the window and never
+    // measures mid-fade.
+    reveal: { at: -0.02, over: 0.02, out: 0.015, outOver: 0.045 },
+    html:
+      '<p class="scroll-hint">Keep scrolling' +
+      '<span class="scroll-cue" aria-hidden="true"></span></p>',
   },
   {
     id: 'act1-body',
     act: 0,
     column: 'centre',
-    reveal: { at: 0.065, over: 0.045, out: 0.13, outOver: 0.04 },
+    reveal: { at: 0.065, over: 0.03, out: 0.13, outOver: 0.03 },
     html:
       '<p>Abundance is guaranteed. Competition is not. Emerging technologies could make ' +
       'intelligence, knowledge, medicine, energy, and productive capacity reach new levels ' +
@@ -95,7 +119,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     id: 'act2-h2',
     act: 1,
     column: 'right',
-    reveal: { at: 0.26, over: 0.02, out: 0.41, outOver: 0.04 },
+    reveal: { at: 0.26, over: 0.02, out: 0.41, outOver: 0.03 },
     byWord: true,
     html: '<h2>Closed Frontier</h2>',
   },
@@ -103,7 +127,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     id: 'act2-body',
     act: 1,
     column: 'right',
-    reveal: { at: 0.265, over: 0.045, out: 0.405, outOver: 0.04 },
+    reveal: { at: 0.265, over: 0.03, out: 0.405, outOver: 0.03 },
     html:
       '<p>If technological power becomes concentrated within a small number of corporations ' +
       'and government institutions, progress could instead produce dependency, regulatory ' +
@@ -113,7 +137,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     id: 'act3-h2',
     act: 2,
     column: 'left',
-    reveal: { at: 0.54, over: 0.02, out: 0.69, outOver: 0.04 },
+    reveal: { at: 0.54, over: 0.02, out: 0.69, outOver: 0.03 },
     byWord: true,
     html: '<h2>Open Frontier</h2>',
   },
@@ -121,7 +145,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     id: 'act3-body',
     act: 2,
     column: 'left',
-    reveal: { at: 0.545, over: 0.05, out: 0.695, outOver: 0.04 },
+    reveal: { at: 0.545, over: 0.03, out: 0.695, outOver: 0.03 },
     html:
       '<p>A society in which technological progress remains open to new entrants, ' +
       'independent researchers, and widespread experimentation; genuine risks are governed ' +
@@ -132,7 +156,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     id: 'act4-statement',
     act: 3,
     column: 'centre',
-    reveal: { at: 0.84, over: 0.04 },
+    reveal: { at: 0.84, over: 0.025 },
     byWord: true,
     html: '<h2 class="statement">Our goal is to ensure the frontier remains open.</h2>',
   },
@@ -140,7 +164,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     id: 'act4-cta',
     act: 3,
     column: 'centre',
-    reveal: { at: 0.92, over: 0.03 },
+    reveal: { at: 0.92, over: 0.025 },
     // TODO: CTA destinations are unspecified in docs/copy-deck.md. Left as TODO rather
     // than inventing a link target.
     html:

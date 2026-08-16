@@ -1271,10 +1271,25 @@ function build(geo: Geometry): readonly SlotArt[] {
   // The monoliths flank the VP at 38vw and 62vw, rising past the top of the frame — no
   // visible tops. They are the only saturated structures on screen and they own all the
   // colour. The skyline stands behind them, three tiers deep and hazing back.
+  /**
+   * No `travelPx` override — `Stage.defaultTravel` gives `clipBottom + bleed`, the distance
+   * that actually clears the clip line.
+   *
+   * The override this replaces was `h * 0.3`, the same constant Act III carried until it
+   * was found to be 2.2x short there. The monoliths are drawn from `top = -bleed` down to
+   * the horizon, so their extent above the clip is `horizon + bleed` — 588px at 1440x900,
+   * against a budget of 270px. `rise` holds `opacity: 1` throughout (`src/stage.ts`), so
+   * the shortfall does not fade: at the start of the transition both towers stood at full
+   * opacity with a hard flat top edge about a quarter of the way down the frame, then slid
+   * up. They read as popping into the middle of the screen rather than rising out of the
+   * ground, which is exactly review-checklist §7's first travel bug.
+   *
+   * `check:travel` now asserts this for every rise/extrude slot in all four acts, so the
+   * next copy of this constant fails a check instead of shipping.
+   */
   const ridge: SlotArt = {
     verb: 'rise',
     clipBottom: horizon,
-    travelPx: h * 0.3,
     draw: (buf) => {
       for (let tier = 0; tier < 3; tier++) drawSkyline(buf, geo, tier);
       for (const m of MONOLITHS) drawMonolith(buf, geo, m);

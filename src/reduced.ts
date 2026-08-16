@@ -46,7 +46,10 @@ export function renderReduced(acts: readonly ActDefinition[]): void {
       if (block.act !== index) continue;
       const holder = document.createElement('div');
       holder.innerHTML = block.html;
-      // The scroll cue means nothing without scroll-driven reveals.
+      // The scroll cue means nothing without scroll-driven reveals — and in this mode
+      // there is no pin, so "keep scrolling" is not even an instruction, just noise above
+      // the copy. The whole hint goes, not only its chevron.
+      holder.querySelector('.scroll-hint')?.remove();
       holder.querySelector('.scroll-cue')?.remove();
       while (holder.firstChild) copy.appendChild(holder.firstChild);
     }

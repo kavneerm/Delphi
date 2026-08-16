@@ -154,6 +154,24 @@ export class Buf {
   }
 
   /**
+   * Bounding box of everything drawn, in **stage px**, or null for an empty buffer.
+   *
+   * Exposed for `check:travel`, which needs the real extent of a slot's art above its clip
+   * line to know whether the slot's `rise` travel actually clears it. That number was
+   * previously hand-guessed per act, and being wrong is silent — `rise` holds opacity 1,
+   * so art that fails to clear the line just stands there (review-checklist §7).
+   */
+  drawnBox(): { x0: number; y0: number; x1: number; y1: number } | null {
+    if (this.dx1 <= this.dx0 || this.dy1 <= this.dy0) return null;
+    return {
+      x0: this.sx(this.dx0),
+      y0: this.sy(this.dy0),
+      x1: this.sx(this.dx1),
+      y1: this.sy(this.dy1),
+    };
+  }
+
+  /**
    * Fill a rectangle given in stage px.
    *
    * A shape narrower than one art pixel still exists — it becomes one art pixel. Culling

@@ -4,7 +4,7 @@ import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 
-import { SCROLL_VH } from './config.ts';
+import { SCROLL_SMOOTH_S, SCROLL_VH } from './config.ts';
 import { ACTS } from './acts/index.ts';
 import { progress } from './progress.ts';
 import { Stage } from './stage.ts';
@@ -70,8 +70,11 @@ function boot(): void {
   const showDebug = params.get('debug') === '1';
   const updateDebug = showDebug ? mountDebug(document.body, () => stage.geometry.w) : null;
 
+  // `wheelMultiplier` is deliberately left at its default. It changes progress-per-tick,
+  // which is what SCROLL_VH already controls; turning both compounds. One knob for
+  // distance, one for latency (docs/plans/pacing.md §1).
   const lenis = new Lenis({
-    duration: 1.05,
+    duration: SCROLL_SMOOTH_S,
     smoothWheel: true,
     syncTouch: false,
   });

@@ -111,8 +111,8 @@ export const BLOCKS: readonly CopyBlock[] = [
     column: 'centre',
     reveal: { at: 0.065, over: 0.03, out: 0.13, outOver: 0.03 },
     html:
-      '<p>Abundance is guaranteed. Competition is not. Emerging technologies could make ' +
-      'intelligence, knowledge, medicine, energy, and productive capacity reach new levels ' +
+      '<p>Abundance is guaranteed. Competition is not. Emerging technologies could bring ' +
+      'intelligence, knowledge, medicine, energy, and productive capacity to new levels ' +
       'of development and sophistication.</p>',
   },
   {
@@ -129,7 +129,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     column: 'right',
     reveal: { at: 0.265, over: 0.03, out: 0.405, outOver: 0.03 },
     html:
-      '<p>If technological power becomes concentrated within a small number of corporations ' +
+      '<p>If technological power becomes concentrated in a small number of corporations ' +
       'and government institutions, progress could instead produce dependency, regulatory ' +
       'capture, and permanent barriers to competition.</p>',
   },
@@ -148,9 +148,9 @@ export const BLOCKS: readonly CopyBlock[] = [
     reveal: { at: 0.545, over: 0.03, out: 0.695, outOver: 0.03 },
     html:
       '<p>A society in which technological progress remains open to new entrants, ' +
-      'independent researchers, and widespread experimentation; genuine risks are governed ' +
-      'without creating monopolies; and the state is limited in scope, capable in execution, ' +
-      'and constrained by individual rights.</p>',
+      'independent researchers, and widespread experimentation; in which genuine risks are ' +
+      'governed without creating monopolies; and in which the state is limited in scope, ' +
+      'capable in execution, and constrained by individual rights.</p>',
   },
   {
     id: 'act4-statement',
@@ -158,7 +158,7 @@ export const BLOCKS: readonly CopyBlock[] = [
     column: 'centre',
     reveal: { at: 0.84, over: 0.025 },
     byWord: true,
-    html: '<h2 class="statement">Our goal is to ensure the frontier remains open.</h2>',
+    html: '<h2 class="statement">Our goal is to ensure that the frontier remains open.</h2>',
   },
   {
     id: 'act4-cta',

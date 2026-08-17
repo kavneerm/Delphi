@@ -22,6 +22,7 @@
     "check:travel": "node scripts/travel.ts",
     "check:deck": "node scripts/deck.ts",
     "check:browsers": "node scripts/browsers.ts",
+    "check:seams": "node scripts/seams.ts",
     "deploy": "npm run build && node scripts/deploy.ts"
   },
   "devDependencies": {

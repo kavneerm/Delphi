@@ -18,7 +18,7 @@ import { canvasFor, rasterOf, type Raster } from './art/compose.ts';
 import { GRAIN_TILE_PX, grainTile } from './art/grain.ts';
 import { Palette } from './art/palette.ts';
 import { bufferOriginFor, horizonPx as horizonPxOf, vpPx as vpPxOf } from './config.ts';
-import { progress, residentActs, type Frame } from './progress.ts';
+import { progress, prewarmActs, residentActs, type Frame } from './progress.ts';
 import { slotEase, slotProgress, type ActIndex } from './timeline.ts';
 import { aberrates, aberrationOffset, halftoneOverlay, postDefs } from './post/index.ts';
 
@@ -36,6 +36,29 @@ import { aberrates, aberrationOffset, halftoneOverlay, postDefs } from './post/i
  * per frame" the normal case instead of the lucky one.
  */
 const BUILD_BUDGET_MS = 3;
+
+/**
+ * The budget while the reader is moving fast, in ms.
+ *
+ * Completeness beats frame time during a flick, and the trade is not close. A 10ms frame
+ * inside a fast scroll is invisible — the view is already moving further per frame than any
+ * one frame's detail survives. A *missing building* is not invisible: it fades up after the
+ * ground it stands on, and that is the seam a reader actually notices.
+ *
+ * Applied when an act that is **visible right now** still has unbuilt layers — that is, when
+ * prewarming lost the race and the reader is looking at a hole. Prewarm work, which nobody
+ * can see yet, keeps the small budget.
+ *
+ * That distinction is the whole design. Deciding it from scroll velocity does not work: a
+ * flick peaks at 0.263 smoothed velocity while a sustained scroll approaches 1, so velocity
+ * widens the budget for the reader who needs it least. "Is something missing from the frame
+ * on screen" is the question actually being asked, so it is the one that is asked.
+ *
+ * Stays under the 16ms frame gate with room.
+ */
+const URGENT_BUDGET_MS = 10;
+
+
 
 interface ActLayer {
   readonly art: SlotArt;
@@ -218,6 +241,10 @@ export class Stage {
 
     const amplitude = driftAmplitude(this.geo.w);
     const segment = frame.segment;
+    // Which acts may be *seen* this frame. `sync` builds a longer list than this — the next
+    // act is rastered ahead during a hold so a fast scroll never outruns the raster — and a
+    // prewarmed act must stay invisible until its segment actually arrives.
+    const visible = residentActs(frame);
 
     for (let slot = 0; slot < SLOT_COUNT; slot++) {
       const els = this.slots[slot];
@@ -238,6 +265,15 @@ export class Stage {
       if (slot === 0 && !twosTick) continue;
 
       for (const [act, layer] of els.layers) {
+        // Prewarmed but not yet on stage: positioned exactly as if it were, then forced to
+        // opacity 0 at each exit below.
+        //
+        // Positioned, not skipped. Leaving a prewarmed layer at identity and only writing
+        // its transform once it becomes visible means it *jumps* into place on that first
+        // visible frame — a seam of exactly the kind prewarming exists to remove, and one
+        // that check:parallax catches as `driftX=0, want -24px`.
+        const shown = visible.includes(act);
+
         layer.drift.style.transform = driftTransform;
 
         // Channel separation scales with scroll velocity (§3: 0px at rest to 6px at
@@ -263,8 +299,8 @@ export class Stage {
 
         if (segment.kind === 'hold') {
           layer.travel.style.transform = 'translate3d(0,0,0)';
-          layer.drift.style.opacity = '1';
-          if (layer.locked) layer.locked.style.opacity = '1';
+          layer.drift.style.opacity = shown ? '1' : '0';
+          if (layer.locked) layer.locked.style.opacity = shown ? '1' : '0';
           continue;
         }
 
@@ -309,6 +345,13 @@ export class Stage {
             layer.travel.style.transform = `translate3d(0,${y}px,0)`;
             break;
           }
+        }
+
+        // Last word, after every verb: a prewarmed act is never visible, whatever its verb
+        // would otherwise have written.
+        if (!shown) {
+          layer.drift.style.opacity = '0';
+          if (layer.locked) layer.locked.style.opacity = '0';
         }
       }
     }
@@ -364,7 +407,10 @@ export class Stage {
    * because the budget refills every frame.
    */
   private sync(frame: Readonly<Frame>, immediate = false): boolean {
-    const resident = residentActs(frame);
+    // Build the prewarm set, keep the prewarm set — but `render` only *shows* the resident
+    // set. An act built ahead of time is present in the DOM at opacity 0 until its segment
+    // arrives.
+    const resident = prewarmActs(frame);
 
     // Dropping is cheap — DOM removal, no raster — so it stays eager and complete.
     for (let slot = 0; slot < SLOT_COUNT; slot++) {
@@ -399,6 +445,17 @@ export class Stage {
     let built = false;
     let pending = false;
     const start = performance.now();
+    // Urgent if anything the reader can see right now is still missing.
+    const visibleNow = residentActs(frame);
+    let urgent = false;
+    for (const act of visibleNow) {
+      for (let slot = 0; slot < SLOT_COUNT && !urgent; slot++) {
+        if (!this.slots[slot]?.layers.has(act)) urgent = true;
+      }
+      if (urgent) break;
+    }
+    if (!urgent && this.pendingLocked.some((j) => visibleNow.includes(j.act))) urgent = true;
+    const budget = urgent ? URGENT_BUDGET_MS : BUILD_BUDGET_MS;
 
     // Act order first, so the incoming act paints over the outgoing one; slot order within
     // it is visibility order, not index order. Slots are separate containers, so ordering
@@ -411,7 +468,7 @@ export class Stage {
 
         // Checked before building, and only once something has been built, so the
         // "at least one per frame" floor holds however expensive that one slot is.
-        if (!immediate && built && performance.now() - start >= BUILD_BUDGET_MS) {
+        if (!immediate && built && performance.now() - start >= budget) {
           pending = true;
           break outer;
         }
@@ -425,7 +482,7 @@ export class Stage {
     // after them: a slot's free layer is what becomes visible first, so it is what should
     // exist first.
     while (this.pendingLocked.length > 0) {
-      if (!immediate && built && performance.now() - start >= BUILD_BUDGET_MS) {
+      if (!immediate && built && performance.now() - start >= budget) {
         pending = true;
         break;
       }

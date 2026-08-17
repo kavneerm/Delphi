@@ -42,7 +42,12 @@ async function snapshot(page: Page): Promise<Snapshot> {
   return page.evaluate(() => {
     let painted = 0;
     for (const layer of document.querySelectorAll<HTMLElement>('.layer')) {
-      if (Number(getComputedStyle(layer).opacity) < 0.01) continue;
+      const cs = getComputedStyle(layer);
+      // `display: none` is how a prewarmed act is kept out of the composite, and such a
+      // layer still reports `opacity: 1` — counting it would report a complete scene while
+      // the reader looks at a hole, which is the exact failure this check exists to catch.
+      if (cs.display === 'none') continue;
+      if (Number(cs.opacity) < 0.01) continue;
       painted += layer.querySelectorAll('canvas, svg').length;
     }
     return {

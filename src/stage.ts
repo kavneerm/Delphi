@@ -130,12 +130,27 @@ export class Stage {
    * phase; it is a measurement fixture, not a rendering mode.
    */
   private frozen = false;
+  /**
+   * Whether to build chromatic-aberration plates.
+   *
+   * Off on small high-density screens. A plate is a second full-viewport canvas, and five of
+   * the eight slots aberrate, so the plates are roughly a third of the composited memory —
+   * which is the resource a phone actually runs out of. Measured at 390x844 dpr 3, a
+   * transition composites ~33 canvases for ~580MB, and that is what kills a tab.
+   *
+   * The effect costs almost nothing visually here: the separation peaks at a few CSS pixels
+   * (`aberrationOffset`), and at dpr 3 over art whose pixels are already 3 CSS px wide, a
+   * 1-2px channel split is at the edge of visible. Trading it for the page not dying is not
+   * a close call.
+   */
+  private plates = true;
 
   constructor(host: HTMLElement, acts: readonly ActDefinition[]) {
     this.host = host;
     this.acts = acts;
     this.dpr = window.devicePixelRatio || 1;
     this.geo = measure(host);
+    this.plates = usePlates(this.geo.w, this.dpr);
     host.style.setProperty('--horizon-frac', String(HORIZON_FRAC));
     host.style.setProperty('--vp-frac', String(VP_FRAC));
     host.style.setProperty('--bleed', `${BLEED_PX}px`);
@@ -190,6 +205,7 @@ export class Stage {
   remeasure(): void {
     this.dpr = window.devicePixelRatio || 1;
     this.geo = measure(this.host);
+    this.plates = usePlates(this.geo.w, this.dpr);
     this.builtArt.clear();
     // Palettes are rebuilt with the art. A ramp's step count depends on the stage box, so
     // carrying entries across a resize would leak dead colours into the next budget.
@@ -265,16 +281,33 @@ export class Stage {
       if (slot === 0 && !twosTick) continue;
 
       for (const [act, layer] of els.layers) {
-        // Prewarmed but not yet on stage: positioned exactly as if it were, then forced to
-        // opacity 0 at each exit below.
+        // Prewarmed but not yet on stage: positioned exactly as if it were, then taken out
+        // of the composite entirely.
         //
         // Positioned, not skipped. Leaving a prewarmed layer at identity and only writing
         // its transform once it becomes visible means it *jumps* into place on that first
         // visible frame — a seam of exactly the kind prewarming exists to remove, and one
         // that check:parallax catches as `driftX=0, want -24px`.
+        //
+        // `display: none`, not `opacity: 0`. This is the difference between a prewarmed act
+        // costing nothing and costing the same as a visible one. A canvas is 174x326 in its
+        // backing store at 390x844, but it is *displayed* at full viewport width, so the
+        // compositor texture is device-resolution: ~11.8MB per layer at dpr 3. Measured on a
+        // mobile profile, holding three acts at opacity 0 came to **49 canvases and ~861MB**
+        // of worst-case compositor memory, which is how a phone tab gets killed. An
+        // `opacity: 0` layer is still composited; a `display: none` subtree is not rastered
+        // at all. The transform is still written, so nothing jumps when it is shown.
         const shown = visible.includes(act);
-
+        const wantDisplay = shown ? '' : 'none';
+        if (layer.drift.style.display !== wantDisplay) {
+          layer.drift.style.display = wantDisplay;
+          if (layer.locked) layer.locked.style.display = wantDisplay;
+        }
+        // Written before the early-out, always. A prewarmed layer that is not positioned
+        // jumps into place on the frame it is shown, which check:parallax reports as
+        // `driftX=0, want -24px`. `display: none` does not stop a transform being recorded.
         layer.drift.style.transform = driftTransform;
+        if (!shown) continue;
 
         // Channel separation scales with scroll velocity (§3: 0px at rest to 6px at
         // peak). It is a transform, so it never re-rasterises and the response is
@@ -299,8 +332,8 @@ export class Stage {
 
         if (segment.kind === 'hold') {
           layer.travel.style.transform = 'translate3d(0,0,0)';
-          layer.drift.style.opacity = shown ? '1' : '0';
-          if (layer.locked) layer.locked.style.opacity = shown ? '1' : '0';
+          layer.drift.style.opacity = '1';
+          if (layer.locked) layer.locked.style.opacity = '1';
           continue;
         }
 
@@ -347,12 +380,6 @@ export class Stage {
           }
         }
 
-        // Last word, after every verb: a prewarmed act is never visible, whatever its verb
-        // would otherwise have written.
-        if (!shown) {
-          layer.drift.style.opacity = '0';
-          if (layer.locked) layer.locked.style.opacity = '0';
-        }
       }
     }
   }
@@ -372,7 +399,14 @@ export class Stage {
         // on the written values — slot 7's whole sweep is 3px, so rounding dominates it.
         // The rate contract is a statement about intent, and this is the intent.
         driftIntent: (c - 0.5) * (SLOT_RATES[index] ?? 1) * amplitude,
-        layers: [...slot.layers.entries()].map(([act, layer]) => ({
+        // Prewarmed acts are `display: none` and are not part of the rendered composition.
+        // They are excluded here rather than reported with a zero transform, because
+        // getComputedStyle does not resolve transforms on an element outside the render
+        // tree — reporting them would have check:parallax assert against a value the
+        // browser declines to compute, not against anything the build did wrong.
+        layers: [...slot.layers.entries()]
+          .filter(([, layer]) => getComputedStyle(layer.drift).display !== 'none')
+          .map(([act, layer]) => ({
           act,
           verb: layer.art.verb,
           drift: getComputedStyle(layer.drift).transform,
@@ -605,10 +639,11 @@ export class Stage {
     // An aberrating slot is drawn *only* as its two channel plates — screened together
     // they reconstruct the original exactly. Keeping a full base copy underneath would
     // double the image and wash out the fringe.
-    if (!aberrates(slot)) travel.appendChild(paintFree());
+    const aberrating = aberrates(slot) && this.plates;
+    if (!aberrating) travel.appendChild(paintFree());
 
     let plates: { red: HTMLElement; cyan: HTMLElement } | null = null;
-    if (aberrates(slot)) {
+    if (aberrating) {
       // The two plates must screen against *each other* on transparent black, then
       // composite normally onto the scene. Without an isolation boundary they screen
       // against whatever is behind the slot and brighten the whole backdrop.
@@ -737,6 +772,14 @@ export class Stage {
   private defaultTravel(_slot: number, art: SlotArt): number {
     return (art.clipBottom ?? this.geo.horizon) + this.geo.bleed;
   }
+}
+
+/**
+ * Aberration plates double the canvas count on five of eight slots. Skipped where the
+ * device cannot afford the compositor memory — a narrow viewport at 2x or more.
+ */
+function usePlates(width: number, dpr: number): boolean {
+  return !(width <= 820 && dpr >= 2);
 }
 
 function measure(host: HTMLElement): Geometry {

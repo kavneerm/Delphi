@@ -27,7 +27,6 @@ import {
   depthScale,
   groundY,
   line,
-  outlined,
   poly,
   rect,
   roadHalf,
@@ -35,7 +34,6 @@ import {
   shade,
   shadeHue,
   tint,
-  windowGrid,
 } from './shared.ts';
 
 const P = {
@@ -113,71 +111,6 @@ function facade(
   return { x: b.side === -1 ? inner - width : inner, width, base, height };
 }
 
-function buildingMarkup(geo: Geometry, b: Building): string {
-  const { x, width, base, height } = facade(geo, b);
-  const roofY = base - height;
-  // Aerial perspective: the further the facade, the more haze between it and the viewer.
-  const body = tint(P.town, P.skyHorizon, Math.max(0, (1 - b.d) * 0.3));
-  let out = rect(x, roofY, width, height, body);
-
-  if (b.falseFront) {
-    const parapet = height * 0.15;
-    out += rect(x - width * 0.03, roofY - parapet, width * 1.06, parapet, body);
-    out += rect(x - width * 0.03, roofY - parapet, width * 1.06, parapet * 0.24, shade(body, 0.3));
-  } else {
-    const pitch = height * 0.13;
-    out += poly(
-      [
-        [x - width * 0.05, roofY],
-        [x + width / 2, roofY - pitch],
-        [x + width * 1.05, roofY],
-      ],
-      shade(body, 0.3),
-    );
-  }
-
-  // Porch awning on the road side, and the post holding it up.
-  const awning = width * 0.24;
-  const awningX = b.side === -1 ? x + width - awning : x;
-  const awningY = base - height * 0.3;
-  out += rect(awningX, awningY, awning, height * 0.045, shade(body, 0.32));
-  out += rect(
-    b.side === -1 ? awningX : awningX + awning - width * 0.02,
-    awningY,
-    width * 0.02,
-    height * 0.3,
-    shade(body, 0.36),
-  );
-
-  out += windowGrid({
-    x: x + width * 0.12,
-    y: roofY + height * 0.2,
-    w: width * 0.76,
-    h: height * 0.44,
-    cols: b.cols,
-    rows: b.rows,
-    fill: P.window,
-    density: 0.52 + ((b.seed * 37) % 30) / 100,
-    seed: b.seed,
-  });
-
-  // Roof furniture, so the skyline is not a row of flat-topped boxes. Deterministic.
-  const roofSeed = b.seed * 2654435761;
-  if (roofSeed % 3 !== 0) {
-    const cw = width * 0.09;
-    const cx = x + width * (0.2 + ((roofSeed >>> 7) % 50) / 100);
-    out += rect(cx, roofY - height * 0.13, cw, height * 0.13, body);
-    out += rect(cx - cw * 0.2, roofY - height * 0.15, cw * 1.4, height * 0.025, shade(body, 0.3));
-  }
-
-  // Rim light: the sun is at the VP, so the road-facing vertical edge catches it. The
-  // third of §3's three tonal steps, flat, no gradient.
-  const rimW = Math.max(width * 0.018, 2.5);
-  const rimTone = tint(b.d < 0.6 ? RIM_FAR : RIM, P.sunRim, 0.55);
-  out += rect(b.side === -1 ? x + width - rimW : x, roofY, rimW, height, rimTone);
-
-  return out;
-}
 
 /** The shadow a building throws toward the viewer, the sun being at the vanishing point. */
 function castShadowPoints(geo: Geometry, b: Building): (readonly [number, number])[] {
@@ -195,9 +128,6 @@ function castShadowPoints(geo: Geometry, b: Building): (readonly [number, number
   ];
 }
 
-function castShadow(geo: Geometry, b: Building): string {
-  return poly(castShadowPoints(geo, b), P.castShadow);
-}
 
 /**
  * Buffer version of `buildingMarkup`. Same composition, painted as pixels.
@@ -572,57 +502,9 @@ function build(geo: Geometry): readonly SlotArt[] {
       }
     },
     // The only smooth gradient in the build (§3).
-    free:
-      `<defs><linearGradient id="i-sky" x1="0" y1="0" x2="0" y2="${horizon}" gradientUnits="userSpaceOnUse">` +
-      `<stop offset="0%" stop-color="${P.skyZenith}"/>` +
-      `<stop offset="32%" stop-color="${P.skyUpper}"/>` +
-      `<stop offset="64%" stop-color="${P.skyMid}"/>` +
-      `<stop offset="84%" stop-color="${P.skyLower}"/>` +
-      `<stop offset="100%" stop-color="${P.skyHorizon}"/>` +
-      `</linearGradient></defs>` +
-      rect(left, -bleed, full, horizon + bleed, 'url(#i-sky)'),
     // Everything registered to an anchor, in paint order: the sun rises *behind* the
     // ground plane, so the plane follows it. All of it is horizon- or VP-registered and
     // therefore never transformed.
-    locked:
-      circle(vp, horizon, sunR * 1.13, P.sunRim) +
-      circle(vp, horizon, sunR, P.sunCore) +
-      rect(left, horizon, full, below + bleed, P.desert) +
-      // Base, highlight, shadow — the three steps §3 permits.
-      poly(
-        [
-          [left, horizon],
-          [w + bleed, horizon],
-          [w + bleed, horizon + below * 0.1],
-          [left, horizon + below * 0.16],
-        ],
-        P.desertHigh,
-      ) +
-      poly(
-        [
-          [left, horizon + below * 0.52],
-          [w * 0.36, horizon + below * 0.42],
-          [w * 0.48, horizon + below * 0.74],
-          [left, horizon + below * 0.92],
-        ],
-        P.desertShadow,
-        ' fill-opacity="0.34"',
-      ) +
-      poly(
-        [
-          [w * 0.68, horizon + below * 0.46],
-          [w + bleed, horizon + below * 0.36],
-          [w + bleed, horizon + below * 0.8],
-          [w * 0.6, horizon + below * 0.66],
-        ],
-        P.desertShadow,
-        ' fill-opacity="0.34"',
-      ) +
-      poly(roadPoints, P.road) +
-      ruts +
-      `<g style="mix-blend-mode:multiply" opacity="0.4">` +
-      TOWN.map((b) => castShadow(geo, b)).join('') +
-      `</g>`,
   };
 
   // ---- slot 6 — haze -------------------------------------------------------
@@ -912,8 +794,6 @@ function build(geo: Geometry): readonly SlotArt[] {
   const lampX = lampFacade ? lampFacade.x + lampFacade.width * 0.86 : 0;
   const lampY = lampFacade ? lampFacade.base - lampFacade.height * 0.34 : 0;
   const lampR = Math.max(w * 0.0055, 3.2);
-  const lamp = !lampFacade ? '' :
-    line(lampX, lampY - lampR * 2.6, lampX, lampY - lampR, P.town, Math.max(lampR * 0.5, 1.5)) +
     circle(lampX, lampY, lampR, P.accent) +
     circle(lampX, lampY, lampR * 0.5, P.window);
 
@@ -939,14 +819,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       buf.disc(lampX, lampY, lampR, buf.tone(P.accent, 'lamp glow'));
       buf.disc(lampX, lampY, lampR * 0.5, buf.tone(P.window, 'lamp core'));
     },
-    free:
-      outlined(
-        TOWN.filter((b) => b.d >= 0.6)
-          .map((b) => buildingMarkup(geo, b))
-          .join(''),
-        TOWN_LINE,
-        2.5,
-      ) + lamp,
   };
 
   // ---- slot 1 — only things genuinely nearer than the buildings -------------
@@ -989,25 +861,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     draw: () => {},
   };
 
-  // ---- slot 0 — tumbleweeds, motes, birds ----------------------------------
-  const tumbleweed = (cx: number, cy: number, rad: number, spin: number): string => {
-    const x = w * cx;
-    const y = h * cy;
-    const rr = h * rad;
-    let out = circle(x, y, rr * 0.55, P.desertShadow);
-    for (let i = 0; i < 11; i++) {
-      const a = (i / 11) * Math.PI * 2 + spin;
-      out += line(
-        x + Math.cos(a) * rr * 0.2,
-        y + Math.sin(a) * rr * 0.2,
-        x + Math.cos(a * 1.7 + spin) * rr,
-        y + Math.sin(a * 1.7 + spin) * rr,
-        P.desertShadow,
-        Math.max(rr * 0.14, 2),
-      );
-    }
-    return out;
-  };
 
   let props = '';
   // Dust motes. Dim — anything brighter reads as a flare over a facade, and the look is
@@ -1069,8 +922,8 @@ function build(geo: Geometry): readonly SlotArt[] {
       // Two tumbleweeds crossing at different speeds (§4 slot 0). Two shapes in one markup
       // string share one transform and cannot differ.
       parts: [
-        { draw: drawTumbleweed(0.36, 0.93, 0.042, 0), markup: tumbleweed(0.36, 0.93, 0.042, 0), rate: 0.5 },
-        { draw: drawTumbleweed(0.6, 0.82, 0.024, 1.1), markup: tumbleweed(0.6, 0.82, 0.024, 1.1), rate: 0.28 },
+        { draw: drawTumbleweed(0.36, 0.93, 0.042, 0), rate: 0.5 },
+        { draw: drawTumbleweed(0.6, 0.82, 0.024, 1.1), rate: 0.28 },
       ],
     },
     ground,

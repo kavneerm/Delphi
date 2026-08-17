@@ -38,16 +38,13 @@ import {
   depthScale,
   groundY,
   line,
-  outlined,
   poly,
-  r,
   rect,
   roadHalf,
   setPixelGrid,
   shade,
   shadeHue,
   tint,
-  windowGrid,
 } from './shared.ts';
 
 /**
@@ -197,59 +194,6 @@ function spanAt(
   return hi >= lo ? [lo, hi] : null;
 }
 
-function buildingMarkup(geo: Geometry, b: Building): string {
-  const { x, width, base, height } = facade(geo, b);
-  const roofY = base - height;
-  const body = tint(P.town, P.skyHorizon, Math.max(0, (1 - b.d) * 0.26));
-  let out = rect(x, roofY, width, height, body);
-
-  if (b.falseFront) {
-    const parapet = height * 0.15;
-    out += rect(x - width * 0.03, roofY - parapet, width * 1.06, parapet, body);
-    out += rect(x - width * 0.03, roofY - parapet, width * 1.06, parapet * 0.24, shade(body, 0.3));
-  } else {
-    const pitch = height * 0.13;
-    out += poly(
-      [
-        [x - width * 0.05, roofY],
-        [x + width / 2, roofY - pitch],
-        [x + width * 1.05, roofY],
-      ],
-      shade(body, 0.3),
-    );
-  }
-
-  const awning = width * 0.24;
-  const awningX = b.side === -1 ? x + width - awning : x;
-  out += rect(awningX, base - height * 0.3, awning, height * 0.045, shade(body, 0.32));
-
-  // Fewer windows lit than Act I — it is earlier, and the town is barely awake.
-  out += windowGrid({
-    x: x + width * 0.12,
-    y: roofY + height * 0.2,
-    w: width * 0.76,
-    h: height * 0.44,
-    cols: b.cols,
-    rows: b.rows,
-    fill: P.window,
-    density: WINDOW_LIT,
-    seed: b.seed,
-  });
-
-  const roofSeed = b.seed * 2654435761;
-  if (roofSeed % 3 !== 0) {
-    const cw = width * 0.09;
-    const cx = x + width * (0.2 + ((roofSeed >>> 7) % 50) / 100);
-    out += rect(cx, roofY - height * 0.13, cw, height * 0.13, body);
-  }
-
-  // Rim light, but from a glow rather than a disc — dimmer and cooler than Act I's.
-  const rimW = Math.max(width * 0.018, 2.5);
-  const rimX = b.side === -1 ? x + width - rimW : x;
-  out += rect(rimX, roofY, rimW, height, tint(RIM, P.glow, 0.32));
-
-  return out;
-}
 
 /**
  * Buffer version of `buildingMarkup`. Same composition, painted as pixels.
@@ -388,9 +332,6 @@ function castShadowPoints(geo: Geometry, b: Building): (readonly [number, number
   ];
 }
 
-function castShadow(geo: Geometry, b: Building): string {
-  return poly(castShadowPoints(geo, b), P.castShadow);
-}
 
 function drawBird(buf: Buf, x: number, y: number, size: number, index: number): void {
   const t = Math.max(size * 0.22, 2);
@@ -505,13 +446,6 @@ function build(geo: Geometry): readonly SlotArt[] {
   const full = w + bleed * 2;
   const below = h - horizon;
 
-  // ---- slot 7 — sky, ground, road, glow (no sun disc) ----------------------
-  const roadPoints: (readonly [number, number])[] = [
-    [vp - roadHalf(geo, 1.0, ROAD_NEAR_HALF, 0), h + bleed],
-    [vp, horizon],
-    [vp, horizon],
-    [vp + roadHalf(geo, 1.0, ROAD_NEAR_HALF, 0), h + bleed],
-  ];
 
   let ruts = '';
   for (const k of [-0.6, -0.2, 0.2, 0.6] as const) {
@@ -880,50 +814,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       drawGroundPlane(buf);
     },
     // The only smooth gradient in the build (§3). Reduced-motion path only.
-    free:
-      `<defs><linearGradient id="iv-sky" x1="0" y1="0" x2="0" y2="${r(horizon)}" gradientUnits="userSpaceOnUse">` +
-      `<stop offset="0%" stop-color="${P.skyZenith}"/>` +
-      `<stop offset="34%" stop-color="${P.skyUpper}"/>` +
-      `<stop offset="62%" stop-color="${P.skyViolet}"/>` +
-      `<stop offset="82%" stop-color="${P.skyMid}"/>` +
-      `<stop offset="93%" stop-color="${P.skyLower}"/>` +
-      `<stop offset="100%" stop-color="${P.skyHorizon}"/>` +
-      `</linearGradient>` +
-      `</defs>` +
-      rect(left, -bleed, full, horizon + bleed, 'url(#iv-sky)'),
-    locked:
-      // The glow where the sun will rise: concentric stepped bands, not a radial
-      // gradient. Only the sky ramp is smooth (§3, amended).
-      [0.28, 0.52, 0.78, 1.05, 1.4]
-        .map((k, i) =>
-          rect(
-            vp - glowR * k * 1.7,
-            horizon - glowR * k,
-            glowR * k * 3.4,
-            glowR * k,
-            P.glow,
-            ` fill-opacity="${(0.4 - i * 0.07).toFixed(2)}"`,
-          ),
-        )
-        .reverse()
-        .join('') +
-      rect(left, horizon, full, below + bleed, P.desert) +
-      poly(
-        [
-          [left, horizon],
-          [w + bleed, horizon],
-          [w + bleed, horizon + below * 0.1],
-          [left, horizon + below * 0.16],
-        ],
-        tint(P.desert, P.skyHorizon, 0.14),
-      ) +
-      poly(dunes[0] as (readonly [number, number])[], P.desertShadow, ' fill-opacity="0.34"') +
-      poly(dunes[1] as (readonly [number, number])[], P.desertShadow, ' fill-opacity="0.34"') +
-      poly(roadPoints, shade(P.desert, 0.1)) +
-      ruts +
-      `<g style="mix-blend-mode:multiply" opacity="0.34">` +
-      TOWN.map((b) => castShadow(geo, b)).join('') +
-      `</g>`,
   };
 
   // ---- slot 6 — haze --------------------------------------------------------
@@ -1201,8 +1091,6 @@ function build(geo: Geometry): readonly SlotArt[] {
   const lampX = lampFacade ? lampFacade.x + lampFacade.width * 0.86 : 0;
   const lampY = lampFacade ? lampFacade.base - lampFacade.height * 0.34 : 0;
   const lampR = Math.max(w * 0.0055, 3.2);
-  const lamp =
-    line(lampX, lampY - lampR * 2.6, lampX, lampY - lampR, P.town, Math.max(lampR * 0.5, 1.5)) +
     circle(lampX, lampY, lampR, P.accent) +
     circle(lampX, lampY, lampR * 0.5, P.window);
 
@@ -1228,14 +1116,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       buf.disc(lampX, lampY, lampR, buf.tone(P.accent, 'lamp glow'));
       buf.disc(lampX, lampY, lampR * 0.5, buf.tone(P.window, 'lamp core'));
     },
-    free:
-      outlined(
-        TOWN.filter((b) => b.d >= 0.6)
-          .map((b) => buildingMarkup(geo, b))
-          .join(''),
-        TOWN_LINE,
-        2.5,
-      ) + lamp,
   };
 
   // ---- slot 1 — only things genuinely nearer than the buildings -------------

@@ -52,13 +52,10 @@ import { bayer } from '../art/buffer.ts';
 import { gradientRamp } from '../art/palette.ts';
 import { cloudTones, drawCloudBand } from '../art/sky.ts';
 import {
-  circle,
   clearsVP,
   depthScale,
   groundY,
-  outlined,
   poly,
-  r,
   rect,
   roadCentre,
   roadHalf,
@@ -338,72 +335,6 @@ function slumFacade(geo: Geometry, s: Slum): Facade {
   return { x: s.side === -1 ? inner - width : inner, width, base, height };
 }
 
-/** SVG twin of `drawSlum`, for the reduced-motion path only. */
-function slumMarkup(geo: Geometry, s: Slum): string {
-  const { x, width, base, height } = slumFacade(geo, s);
-  const fade = slumFade(s.d);
-  const sink = slumSink(s.d);
-  const tones = [P.slumA, P.slumB, P.slumC].map((t) =>
-    shadeHue(tint(t, P.skyMid, fade), sink, COOL, P.skyGlow),
-  );
-  let out = '';
-  const next = lcg(s.seed);
-
-  // Stacked improvised floors, each offset and each leaning further over the road. Six
-  // to nine of them, no two the same width — the silhouette has to read as accretion.
-  const floors = 6 + Math.floor(next() * 4);
-  let y = base;
-  for (let i = 0; i < floors; i++) {
-    const fh = (height / floors) * (0.72 + next() * 0.6);
-    const grow = i / floors;
-    const overhang = width * s.lean * grow * (0.5 + next() * 0.5);
-    const fx = s.side === -1 ? x - overhang * 0 : x - overhang;
-    const fw = width + overhang;
-    const tone = tones[Math.floor(next() * tones.length)] ?? P.slumA;
-    out += rect(fx, y - fh, fw, fh, tone);
-    out += rect(fx, y - fh, fw, Math.max(fh * 0.06, 1), shade(tone, 0.3));
-
-    // Dim windows. Never saturated — that is the whole argument.
-    const cols = 2 + Math.floor(next() * 2);
-    for (let c = 0; c < cols; c++) {
-      if (next() > 0.62) continue;
-      const ww = fw * 0.15;
-      const wh = fh * 0.3;
-      out += rect(fx + fw * (0.12 + c * 0.3), y - fh * 0.7, ww, wh, P.slumWindow);
-    }
-
-    // Tarps and awnings jutting into the street.
-    if (next() > 0.55) {
-      const tw = width * (0.2 + next() * 0.24);
-      const tx = s.side === -1 ? fx + fw : fx - tw;
-      out += poly(
-        [
-          [tx, y - fh * 0.9],
-          [tx + tw, y - fh * 0.74],
-          [tx + tw, y - fh * 0.64],
-          [tx, y - fh * 0.78],
-        ],
-        shade(tone, 0.42),
-      );
-    }
-    y -= fh;
-  }
-
-  // Antennas and pipework on the roof.
-  const masts = 1 + Math.floor(next() * 3);
-  for (let i = 0; i < masts; i++) {
-    const mx = x + width * next();
-    const mh = height * (0.06 + next() * 0.14);
-    out += rect(mx, y - mh, Math.max(width * 0.012, 1), mh, P.slumC);
-    if (next() > 0.6) {
-      out += rect(mx - width * 0.03, y - mh, width * 0.07, Math.max(mh * 0.06, 1), P.slumC);
-    }
-  }
-  const pipeX = s.side === -1 ? x + width * 0.88 : x + width * 0.06;
-  out += rect(pipeX, y, Math.max(width * 0.03, 1.5), base - y, shade(P.slumC, 0.25));
-
-  return out;
-}
 
 /**
  * Paint one slum into the buffer, and return every tone it used.
@@ -1184,17 +1115,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       }
     },
     // The only smooth gradient in the SVG twin (§3), and it exists for reduced motion only.
-    free:
-      `<defs><linearGradient id="ii-sky" x1="0" y1="0" x2="0" y2="${r(horizon)}" gradientUnits="userSpaceOnUse">` +
-      SKY_STOPS.map((s) => `<stop offset="${(s.at * 100).toFixed(0)}%" stop-color="${s.hex}"/>`).join('') +
-      `</linearGradient></defs>` +
-      rect(left, -bleed, full, horizon + bleed, 'url(#ii-sky)'),
-    locked:
-      circle(vp, horizon, sunR * 1.25, tint(P.skyHorizon, '#FFFFFF', 0.08), ' fill-opacity="0.5"') +
-      circle(vp, horizon, sunR, P.sunCore) +
-      rect(left, horizon, full, below + bleed, P.ground) +
-      poly(roadPoints, P.road) +
-      reflections,
   };
 
   // ---- slot 6 — particulate haze, denser than Act I -------------------------
@@ -1369,9 +1289,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       buf.outline(tones, buf.tone(slumLine(behindWall), 'slum line'));
       drawWall(buf);
     },
-    free:
-      outlined(behindWall.map((sl) => slumMarkup(geo, sl)).join(''), slumLine(behindWall), 1.5) +
-      wall,
   };
 
   // ---- slots 3 and 2 — the slums -------------------------------------------

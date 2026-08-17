@@ -36,9 +36,6 @@ import {
   groundY,
   line,
   meander,
-  poly,
-  r,
-  rect,
   roadCentre,
   roadHalf,
   setPixelGrid,
@@ -793,103 +790,9 @@ function drawFigure(buf: Buf, f: Figure, tones: FigureTones): void {
 // SVG emitters — the reduced-motion path only. Same specs, no dithering.
 // ---------------------------------------------------------------------------
 
-function windowsMarkup(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  cols: number,
-  rows: number,
-  seed: number,
-  haze: number,
-): string {
-  if (width <= 0 || height <= 0) return '';
-  const cellW = width / cols;
-  const cellH = height / rows;
-  let out = '';
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const roll = unit(seed, row, col);
-      if (roll > 0.74) continue;
-      const base = roll < 0.1 ? P.cyan : roll < 0.2 ? P.magenta : roll < 0.31 ? shade(P.tower, -0.2) : P.warm;
-      out += rect(
-        x + col * cellW + cellW * 0.27,
-        y + row * cellH + cellH * 0.3,
-        cellW * 0.46,
-        cellH * 0.4,
-        tint(base, P.skyHorizon, haze * 0.6),
-      );
-    }
-  }
-  return out;
-}
 
-function towerMarkup(geo: Geometry, t: Tower): string {
-  const below = geo.h - geo.horizon;
-  const haze = TOWER_HAZE[t.rank] ?? 0.2;
-  const body = tint(P.tower, P.skyHorizon, haze);
-  const x = t.cx - t.halfW;
-  const width = t.halfW * 2;
-  const top = t.base - t.height;
-  const towardVP = t.cx < geo.vp ? 1 : -1;
-  const edge = Math.max(width * 0.16, 1);
-  let out = rect(x, top, width, t.height + geo.bleed, body);
-  out += rect(towardVP === 1 ? x + width - edge : x, top, edge, t.height + geo.bleed, hue(body, -0.34));
-  let capY = top;
-  let capHalf = t.halfW;
-  if (t.setback > 0) {
-    const sbH = t.height * t.setback;
-    capHalf = t.halfW * 0.62;
-    capY = top - sbH;
-    out += rect(t.cx - capHalf, capY, capHalf * 2, sbH, body);
-  }
-  if (t.garden) {
-    out += rect(
-      t.cx - capHalf * 1.1,
-      capY - below * 0.012,
-      capHalf * 2.2,
-      below * 0.012,
-      tint(P.green, P.skyHorizon, haze),
-    );
-  }
-  out += windowsMarkup(
-    x + width * 0.12,
-    top + t.height * 0.06,
-    width * 0.76,
-    t.height * 0.86,
-    t.cols,
-    t.rows,
-    t.seed,
-    haze,
-  );
-  return out;
-}
 
-function treeMarkup(x: number, base: number, height: number, width: number, haze: number): string {
-  const trunkW = Math.max(width * 0.16, 1);
-  const cy = base - height * 0.68;
-  const rad = Math.max(width * 0.52, height * 0.3);
-  return (
-    rect(x - trunkW / 2, base - height * 0.46, trunkW, height * 0.46, tint(hue(P.greenShadow, 0.5), P.skyHorizon, haze)) +
-    circle(x, cy, rad, tint(P.green, P.skyHorizon, haze)) +
-    circle(x - rad * 0.5, cy - rad * 0.3, rad * 0.6, tint(P.greenLight, P.skyHorizon, haze))
-  );
-}
 
-function figureMarkup(f: Figure): string {
-  const ph = f.height;
-  const pw = Math.max(ph * 0.3, 1);
-  const tone = hue(P.tower, 0.1);
-  let out = rect(f.x - pw / 2, f.base - ph * 0.74, pw, ph * 0.48, tone);
-  out += circle(f.x, f.base - ph * 0.84, pw * 0.4, tone);
-  out += rect(f.x - pw * 0.44, f.base - ph * 0.3, pw * 0.3, ph * 0.3, tone);
-  out += rect(f.x + pw * 0.14, f.base - ph * 0.3, pw * 0.3, ph * 0.3, tone);
-  if (f.carry !== 'none') {
-    const lit = f.carry === 'cyan' ? P.cyan : f.carry === 'magenta' ? P.magenta : P.warm;
-    out += rect(f.x + pw * 0.5, f.base - ph * 0.5, pw * 0.34, ph * 0.14, lit);
-  }
-  return out;
-}
 
 /** A bird: chunk staircases, never a curve. §3 forbids curves and sub-chunk detail alike. */
 function bird(x: number, y: number, size: number, tone: string): string {
@@ -1214,32 +1117,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       }
     },
     // The one smooth gradient in the build (§3) — reduced-motion path only.
-    free:
-      `<defs><linearGradient id="iii-sky" x1="0" y1="0" x2="0" y2="${r(horizon)}" gradientUnits="userSpaceOnUse">` +
-      `<stop offset="0%" stop-color="${P.skyZenith}"/>` +
-      `<stop offset="22%" stop-color="${P.skyUpper}"/>` +
-      `<stop offset="46%" stop-color="${P.skyMid}"/>` +
-      `<stop offset="72%" stop-color="${P.skyLower}"/>` +
-      `<stop offset="100%" stop-color="${P.skyHorizon}"/>` +
-      `</linearGradient></defs>` +
-      rect(left, -bleed, full, horizon + bleed, 'url(#iii-sky)'),
-    locked:
-      circle(vp, horizon, sunR * 1.14, tint(P.skyLower, P.skyHorizon, 0.5)) +
-      circle(vp, horizon, sunR, '#FFEFCC') +
-      rect(left, horizon, full, below + bleed, tint(P.green, P.skyHorizon, 0.24)) +
-      poly(parkLeft, hue(P.greenShadow, 0.2)) +
-      poly(parkRight, hue(P.greenShadow, 0.2)) +
-      poly(
-        [
-          [left, paveLeftY],
-          [w + bleed, paveRightY],
-          [w + bleed, h + bleed],
-          [left, h + bleed],
-        ],
-        P.road,
-      ) +
-      poly(marginPoints, tint(P.green, P.skyHorizon, 0.16)) +
-      poly(roadPoints, P.road),
   };
 
   // ---- slot 6 — clean warm haze, no particulate ----------------------------
@@ -1319,20 +1196,6 @@ function build(geo: Geometry): readonly SlotArt[] {
         }
       }
     },
-    free:
-      LOWRISE.map(
-        (b) =>
-          rect(b.x, horizon - b.height, b.width, b.height + bleed, tint(P.tower, P.skyHorizon, 0.68)) +
-          (b.lit
-            ? rect(
-                b.x + b.width * 0.3,
-                horizon - b.height * 0.6,
-                b.width * 0.22,
-                b.height * 0.16,
-                tint(P.warm, P.skyHorizon, 0.62),
-              )
-            : ''),
-      ).join('') + TOWERS.map((t) => towerMarkup(geo, t)).join(''),
   };
 
   // ---- slot 4 — no wall. Mid-rise, terraced, planted. ----------------------
@@ -1400,25 +1263,6 @@ function build(geo: Geometry): readonly SlotArt[] {
         drawTree(buf, geo, t.x, t.base, t.height, t.width, t.seed, t.far ? parkFar : parkNear);
       }
     },
-    free:
-      MIDRISE.map((b) => {
-        const hazeK = MID_HAZE[Math.min(MID_HAZE.length - 1, b.band)] ?? 0.2;
-        const body = tint(P.tower, P.skyHorizon, hazeK);
-        let out = '';
-        for (let s = 0; s < b.terraces; s++) {
-          const halfW = b.halfW * (1 - s * 0.18);
-          const stepH = b.height / b.terraces;
-          const y = b.base - stepH * (s + 1);
-          out += rect(b.cx - halfW, y, halfW * 2, stepH, body);
-          out += rect(b.cx - halfW, y, halfW * 2, Math.max(stepH * 0.14, 1), tint(P.green, P.skyHorizon, hazeK));
-          out += windowsMarkup(b.cx - halfW * 0.78, y + stepH * 0.28, halfW * 1.56, stepH * 0.6, 2, 2, b.seed + s * 5, hazeK);
-        }
-        return out;
-      }).join('') +
-      HEDGES.map((g) =>
-        rect(g.x, g.base - g.thickness, g.width, g.thickness, tint(hue(P.greenShadow, 0.18), P.skyHorizon, 0.42)),
-      ).join('') +
-      PARK.map((t) => treeMarkup(t.x, t.base, t.height, t.width, t.far ? 0.42 : 0.2)).join(''),
   };
 
   // ---- slots 3 and 2 — street level ----------------------------------------
@@ -1769,24 +1613,6 @@ function build(geo: Geometry): readonly SlotArt[] {
         }
       }
     },
-    free:
-      NEAR_FIGURES.map((f) => figureMarkup(f)).join('') +
-      (() => {
-        let out = '';
-        for (let i = 0; i < 46; i++) {
-          const d = 0.62 + unit(313, i, 1) * 0.46;
-          const sc = depthScale(geo, d);
-          const side = i % 2 === 0 ? -1 : 1;
-          const x =
-            roadCentre(geo, d, WIND) +
-            side * roadHalf(geo, d, ROAD_NEAR_HALF, 0) * (1.02 + unit(313, i, 2) * 0.55);
-          if (x < left || x > w + bleed) continue;
-          const gy = groundY(geo, d);
-          const th = below * 0.026 * sc;
-          out += rect(x - th * 0.2, gy - th, th * 0.4, th, hue(P.green, 0.12));
-        }
-        return out;
-      })(),
   };
 
   // ---- slot 0 — music motes, leaves, birds ---------------------------------
@@ -1855,16 +1681,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     }
   };
 
-  const leavesMarkup = (seed: number, count: number, band: number): string => {
-    let out = '';
-    for (let i = 0; i < count; i++) {
-      const x = left + full * unit(seed, i, 1);
-      const y = horizon + below * (band + unit(seed, i, 2) * 0.5);
-      const s = Math.max(h * 0.006, 1);
-      out += rect(x, y, s * 1.7, s * 0.7, i % 2 === 0 ? P.greenLight : hue(P.green, -0.2));
-    }
-    return out;
-  };
 
   let motesMarkup = '';
   for (let s = 0; s < MOTE_SOURCES.length; s++) {
@@ -1898,8 +1714,8 @@ function build(geo: Geometry): readonly SlotArt[] {
         drawBirds(buf);
       },
       parts: [
-        { draw: drawLeaves(521, 14, 0.05), markup: leavesMarkup(521, 14, 0.05), rate: 0.42 },
-        { draw: drawLeaves(929, 11, 0.42), markup: leavesMarkup(929, 11, 0.42), rate: 0.22 },
+        { draw: drawLeaves(521, 14, 0.05), rate: 0.42 },
+        { draw: drawLeaves(929, 11, 0.42), rate: 0.22 },
       ],
     },
     ground,

@@ -21,6 +21,16 @@ export interface FrontierTestHooks {
   gridOrigin(): { x: number; y: number };
   /** True when ?frozen=1 zeroed every transform. */
   frozen: boolean;
+  /**
+   * True once every resident act's layers exist.
+   *
+   * The raster is amortised across frames, so "three frames have passed" no longer implies
+   * "the scene is complete". A measurement taken before this goes true sees fewer layers
+   * than the build actually has — which does not make a check fail, it makes assertions
+   * silently not run. `check:parallax` lost 12 per-layer assertions that way before `gotoP`
+   * learned to wait on it.
+   */
+  settled: () => boolean;
   ready: true;
 }
 

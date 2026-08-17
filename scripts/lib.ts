@@ -122,6 +122,17 @@ export async function openPage(
 export async function gotoP(page: Page, p: number): Promise<void> {
   await page.evaluate((value) => window.__frontier?.goto(value), p);
   await page.waitForTimeout(220);
+  // …and then until the stage has actually finished building.
+  //
+  // The raster is amortised across frames, so a fixed wait no longer guarantees a complete
+  // scene. This does not show up as a failing assertion — it shows up as assertions that
+  // never run, because a layer that does not exist yet contributes nothing to iterate over.
+  // check:parallax quietly dropped from 2378 to 2366 that way. Timeout rather than throw:
+  // a stage that never settles is a real defect, but it is one for the per-check assertions
+  // to report, not for the navigation helper to crash on.
+  await page
+    .waitForFunction(() => window.__frontier?.settled?.() !== false, null, { timeout: 5_000 })
+    .catch(() => undefined);
 }
 
 export async function launch(): Promise<Browser> {

@@ -31,6 +31,8 @@ if (prefersReduced) {
     anchors: () => readAnchors(),
     gridOrigin: () => ({ x: 0, y: 0 }),
     frozen: false,
+    // The reduced-motion path builds everything up front, so it is settled by definition.
+    settled: () => true,
     ready: true,
   };
 } else {
@@ -154,6 +156,7 @@ function boot(): void {
     anchors: () => readAnchors(),
     gridOrigin: () => stage.gridOrigin(),
     frozen: stage.isFrozen,
+    settled: () => stage.settled,
     ready: true,
   };
 }

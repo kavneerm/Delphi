@@ -647,7 +647,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     },
     // Flat band, hard edges. §3 permits a smooth gradient in the slot 7 sky and nowhere
     // else; a ramped haze is the exact thing the pixel register forbids.
-    free: rect(left, horizon - hazeBand, full, hazeBand * 2, P.skyHorizon, ' fill-opacity="0.3"'),
   };
 
   // ---- slot 5 — three mesas, tallest at 20vw and 80vw, none across the VP ---
@@ -781,7 +780,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       // directly and does not honour `protectRow`, and `toY` is exclusive.
       speckle(buf, iMesa, iMesaGrit, 0.2, iMesaShade, 0.14, horizon - h * 0.26, horizon);
     },
-    free: mesas,
   };
 
   // ---- slot 4 — scrub, and the fence line running to the VP -----------------
@@ -857,7 +855,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     // No fence. The posts and their two converging rails were the last VP-registered
     // geometry on the ground plane; with the town and the poles gone the rails read as bare
     // diagonals ruled across open sand rather than as a fence line.
-    free: scrub,
   };
 
   // ---- street furniture, so the middle distance is not an empty wedge -------
@@ -905,13 +902,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       // Outline the group's silhouette, not every internal tone boundary.
       buf.outline(tones, buf.tone(TOWN_LINE, 'town line'));
     },
-    free: outlined(
-      TOWN.filter((b) => b.d < 0.6)
-        .map((b) => buildingMarkup(geo, b))
-        .join(''),
-      TOWN_LINE,
-      1.5,
-    ),
   };
 
   // One accent, the last thing the eye finds: a lamp still lit over the nearest porch.
@@ -997,7 +987,6 @@ function build(geo: Geometry): readonly SlotArt[] {
      * of all eight, and a missing one is a different shape of thing from an empty one.
      */
     draw: () => {},
-    free: foreground,
   };
 
   // ---- slot 0 — tumbleweeds, motes, birds ----------------------------------
@@ -1077,7 +1066,6 @@ function build(geo: Geometry): readonly SlotArt[] {
           drawBird(buf, w * cx, h * cy, h * 0.018 * sc, iBird);
         }
       },
-      free: props,
       // Two tumbleweeds crossing at different speeds (§4 slot 0). Two shapes in one markup
       // string share one transform and cannot differ.
       parts: [

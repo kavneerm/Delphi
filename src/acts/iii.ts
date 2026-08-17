@@ -36,7 +36,6 @@ import {
   groundY,
   line,
   meander,
-  outlined,
   poly,
   r,
   rect,
@@ -1261,7 +1260,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     draw: (buf) => {
       buf.rect(left, horizon - hazeBand, full, hazeBand * 2, buf.tone(P.skyHorizon, 'haze'));
     },
-    free: rect(left, horizon - hazeBand, full, hazeBand * 2, P.skyHorizon, ' fill-opacity="0.32"'),
   };
 
   // ---- slot 5 — many towers, varied heights, none dominant -----------------
@@ -1602,39 +1600,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       // a ruled line rather than as a bank.
       buf.outline(silhouette, buf.tone(LINE, 'street line'));
     },
-    free: outlined(
-      poly(meander(geo, canalY - canalH * 0.24, canalH * 0.26, canalAmp, 2.2, 0.4), hue(P.road, 0.24)) +
-        poly(canalPath, P.water) +
-        poly(meander(geo, canalY, Math.max(canalH * 0.16, 2), canalAmp, 2.2, 0.4), tint(P.water, '#FFFFFF', 0.35)) +
-        poly(
-          [
-            [bridgeX - bridgeHalf, bridgeY + canalH * 1.15],
-            [bridgeX - bridgeHalf * 0.55, bridgeY - canalH * 0.55],
-            [bridgeX + bridgeHalf * 0.55, bridgeY - canalH * 0.55],
-            [bridgeX + bridgeHalf, bridgeY + canalH * 1.15],
-          ],
-          hue(P.road, 0.14),
-        ) +
-        STREET.trees.map((t) => treeMarkup(t.x, t.base, t.height, t.width, 0.14)).join('') +
-        STREET.stalls
-          .map(
-            (s) =>
-              rect(s.x - s.width / 2, s.base - s.height, s.width, s.height, hue(P.tower, -0.12)) +
-              poly(
-                [
-                  [s.x - s.width * 0.68, s.base - s.height],
-                  [s.x + s.width * 0.68, s.base - s.height],
-                  [s.x + s.width * 0.5, s.base - s.height * 1.36],
-                  [s.x - s.width * 0.5, s.base - s.height * 1.36],
-                ],
-                s.canopy === 'cyan' ? P.cyan : P.magenta,
-              ),
-          )
-          .join('') +
-        MID_FIGURES.map((f) => figureMarkup(f)).join(''),
-      LINE,
-      1.5,
-    ),
   };
 
   // ---- slot 2 — near buildings, with real gaps between them ----------------
@@ -1760,21 +1725,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       silhouette.add(trees.shadow);
       buf.outline(silhouette, buf.tone(shade(LINE, 0.15), 'near line'));
     },
-    free: outlined(
-      NEAR.map((b) => {
-        const sc = depthScale(geo, b.d);
-        const top = b.base - b.height;
-        return (
-          rect(b.x, top, b.width, b.height, P.tower) +
-          rect(b.x + b.width * 0.34, b.base - b.height * 0.36, b.width * 0.26, b.height * 0.36, hue(P.tower, 0.34)) +
-          rect(b.x - b.width * 0.03, top - below * 0.018 * sc, b.width * 1.06, below * 0.018 * sc, P.green) +
-          windowsMarkup(b.x + b.width * 0.08, top + b.height * 0.2, b.width * 0.84, b.height * 0.52, 3, 5, b.seed, 0.02) +
-          treeMarkup(b.x + b.width * (b.side === -1 ? 1.06 : -0.06), b.base, below * 0.4 * sc, w * 0.036 * sc, 0.02)
-        );
-      }).join(''),
-      LINE,
-      2.5,
-    ),
   };
 
   // ---- slot 1 — people at ground level, and near planting ------------------
@@ -1947,7 +1897,6 @@ function build(geo: Geometry): readonly SlotArt[] {
         drawMotes(buf);
         drawBirds(buf);
       },
-      free: motesMarkup,
       parts: [
         { draw: drawLeaves(521, 14, 0.05), markup: leavesMarkup(521, 14, 0.05), rate: 0.42 },
         { draw: drawLeaves(929, 11, 0.42), markup: leavesMarkup(929, 11, 0.42), rate: 0.22 },

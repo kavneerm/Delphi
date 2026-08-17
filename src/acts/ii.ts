@@ -761,42 +761,6 @@ function drawMonolith(buf: Buf, geo: Geometry, m: Monolith): void {
   }
 }
 
-/** SVG twin of `drawMonolith`, for the reduced-motion path only. */
-function monolithMarkup(geo: Geometry, m: Monolith): string {
-  const { w, horizon, vp, bleed } = geo;
-  const centre = w * m.cx;
-  const halfW = w * 0.082;
-  const top = -bleed;
-  let out = rect(centre - halfW, top, halfW * 2, horizon - top, P.monolith);
-  const away = Math.sign(centre - vp) || 1;
-  out += rect(
-    away === -1 ? centre - halfW : centre + halfW * 0.42,
-    top,
-    halfW * 0.58,
-    horizon - top,
-    shade(P.monolith, 0.35),
-  );
-  const cols = 6;
-  const rows = 30;
-  const gridW = halfW * 1.5;
-  const gridX = centre - gridW / 2;
-  const cellW = gridW / cols;
-  const cellH = (horizon - top) / rows;
-  for (let row = 2; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const hash = ((row * 73856093) ^ (col * 19349663) ^ (m.cx * 1000)) >>> 0;
-      if (hash % 100 > 82) continue;
-      out += rect(
-        gridX + col * cellW + cellW * 0.2,
-        top + row * cellH + cellH * 0.25,
-        cellW * 0.6,
-        cellH * 0.5,
-        m.glass,
-      );
-    }
-  }
-  return out;
-}
 
 interface Plume {
   readonly x: number;
@@ -1264,7 +1228,6 @@ function build(geo: Geometry): readonly SlotArt[] {
         buf.tone(tint(P.skyMid, P.skyHorizon, 0.7), 'haze'),
       );
     },
-    free: rect(left, horizon - hazeBand, full, hazeBand * 2, P.skyMid, ' fill-opacity="0.45"'),
   };
 
   // ---- slot 5 — the far skyline and the two monoliths -----------------------
@@ -1294,7 +1257,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       for (let tier = 0; tier < 3; tier++) drawSkyline(buf, geo, tier);
       for (const m of MONOLITHS) drawMonolith(buf, geo, m);
     },
-    free: MONOLITHS.map((m) => monolithMarkup(geo, m)).join(''),
   };
 
   // ---- slot 4 — the wall closing the road ----------------------------------
@@ -1452,7 +1414,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       buf.outline(tones, iLine);
       drawCables(buf, WALL_DEPTH, 0.8, iLine);
     },
-    free: outlined(midSlums.map((sl) => slumMarkup(geo, sl)).join(''), slumLine(midSlums), 1.5),
   };
 
   const near: SlotArt = {
@@ -1467,7 +1428,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       buf.outline(tones, iLine);
       drawCables(buf, 0.82, 1.15, iLine);
     },
-    free: outlined(nearSlums.map((sl) => slumMarkup(geo, sl)).join(''), slumLine(nearSlums), 2.5),
   };
 
   // ---- slot 1 — near ground. Nothing full-width (build.md B11). -------------
@@ -1527,28 +1487,8 @@ function build(geo: Geometry): readonly SlotArt[] {
         }
       }
     },
-    free: foreground,
   };
 
-  // ---- slot 0 — blimps and ash ---------------------------------------------
-  // Invented glyph forms on the ad panels: original geometric constructions that read as
-  // writing without being any real script (§5). Never real text in any language.
-  const glyph = (gx: number, gy: number, size: number, seed: number, fill: string): string => {
-    const next = lcg(seed);
-    let out = '';
-    const strokes = 3 + Math.floor(next() * 3);
-    for (let i = 0; i < strokes; i++) {
-      const vertical = next() > 0.45;
-      const ox = gx + size * next() * 0.6;
-      const oy = gy + size * next() * 0.6;
-      if (vertical) {
-        out += rect(ox, oy, Math.max(size * 0.1, 1), size * (0.3 + next() * 0.5), fill);
-      } else {
-        out += rect(ox, oy, size * (0.3 + next() * 0.6), Math.max(size * 0.1, 1), fill);
-      }
-    }
-    return out;
-  };
 
   const drawGlyph = (
     buf: Buf,
@@ -1570,31 +1510,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     }
   };
 
-  const blimp = (cx: number, cy: number, len: number, panel: string, seed: number): string => {
-    const bh = len * 0.34;
-    let out = '';
-    const bands = 5;
-    for (let i = 0; i < bands; i++) {
-      const t = (i + 0.5) / bands;
-      const bw = len * Math.sin(Math.PI * t);
-      out += rect(cx - bw / 2, cy - bh / 2 + (bh / bands) * i, bw, bh / bands, P.blimp);
-    }
-    out += rect(cx - len * 0.36, cy + bh * 0.1, len * 0.72, bh * 0.22, shade(P.blimp, 0.3));
-    out += rect(cx - len * 0.12, cy + bh * 0.42, len * 0.24, bh * 0.2, shade(P.blimp, 0.4));
-    const pw = len * 0.46;
-    const ph = bh * 0.44;
-    out += rect(cx - pw / 2, cy - ph / 2, pw, ph, panel);
-    for (let g = 0; g < 4; g++) {
-      out += glyph(
-        cx - pw / 2 + pw * 0.08 + g * pw * 0.23,
-        cy - ph * 0.3,
-        ph * 0.6,
-        seed + g * 17,
-        shade(panel, 0.62),
-      );
-    }
-    return out;
-  };
 
   /**
    * A blimp: stepped hull bands, a gondola, and the ad panel.
@@ -1697,22 +1612,18 @@ function build(geo: Geometry): readonly SlotArt[] {
           buf.rect(x, y, cell, tall, i % 4 === 0 ? iAshDim : iAsh);
         }
       },
-      free: ash,
       // Three blimps at different depths and speeds, drifting horizontally.
       parts: [
         {
           draw: drawBlimp(w * 0.24, h * 0.17, w * 0.2, P.magenta, 5),
-          markup: blimp(w * 0.24, h * 0.17, w * 0.2, P.magenta, 5),
           rate: 0.42,
         },
         {
           draw: drawBlimp(w * 0.7, h * 0.09, w * 0.13, P.cyan, 23),
-          markup: blimp(w * 0.7, h * 0.09, w * 0.13, P.cyan, 23),
           rate: 0.26,
         },
         {
           draw: drawBlimp(w * 0.52, h * 0.29, w * 0.09, P.magenta, 41),
-          markup: blimp(w * 0.52, h * 0.29, w * 0.09, P.magenta, 41),
           rate: 0.15,
         },
       ],

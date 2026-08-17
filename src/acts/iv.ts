@@ -400,16 +400,6 @@ function drawBird(buf: Buf, x: number, y: number, size: number, index: number): 
   buf.line(x + size * 0.34, y - size * 0.5, x + size, y, index, t);
 }
 
-/** A bird: two chunk staircases, no curve. §3 forbids both curves and sub-chunk detail. */
-function bird(x: number, y: number, size: number, tone: string): string {
-  const t = Math.max(size * 0.22, 2);
-  return (
-    line(x - size, y, x - size * 0.34, y - size * 0.5, tone, t) +
-    line(x - size * 0.34, y - size * 0.5, x, y, tone, t) +
-    line(x, y, x + size * 0.34, y - size * 0.5, tone, t) +
-    line(x + size * 0.34, y - size * 0.5, x + size, y, tone, t)
-  );
-}
 
 /**
  * The glow where the sun has not yet risen — **stepped bands, never a radial gradient**.
@@ -966,7 +956,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     },
     // Flat band, hard edges. §3 permits a smooth gradient in the slot 7 sky and
     // nowhere else; a ramped haze is the exact thing the pixel register forbids.
-    free: rect(left, horizon - hazeBand, full, hazeBand * 2, P.skyHorizon, ' fill-opacity="0.26"'),
   };
 
   // ---- slot 5 — the same three mesas, in the same places -------------------
@@ -1104,7 +1093,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       const mesaTop = horizon - h * 0.26;
       speckleTone(buf, iMesaGrit, iMesa, 0.2, iMesaShade, 0.14, 6421, mesaTop, horizon);
     },
-    free: mesas,
   };
 
   // ---- slot 4 — scrub, the fence, and the poles running to the VP ----------
@@ -1183,7 +1171,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     // No fence. The posts and their two converging rails were the last VP-registered
     // geometry on the ground plane; with the town and the poles gone the rails read as bare
     // diagonals ruled across open sand rather than as a fence line.
-    free: scrub,
   };
 
   // ---- street furniture, so the middle distance is not an empty wedge -------
@@ -1205,13 +1192,6 @@ function build(geo: Geometry): readonly SlotArt[] {
       // Outline the group's silhouette, not every internal tone boundary.
       buf.outline(tones, buf.tone(TOWN_LINE, 'town line'));
     },
-    free: outlined(
-      TOWN.filter((b) => b.d < 0.6)
-        .map((b) => buildingMarkup(geo, b))
-        .join(''),
-      TOWN_LINE,
-      1.5,
-    ),
   };
 
   // One accent: a lamp still burning on the last building, as in Act I.
@@ -1282,28 +1262,8 @@ function build(geo: Geometry): readonly SlotArt[] {
     verb: 'crossfade',
     /** Empty at the client's direction — see the note in i.ts. Slot retained. */
     draw: () => {},
-    free: foreground,
   };
 
-  // ---- slot 0 — a single tumbleweed. One bird. Nothing else (§7). ----------
-  const tumbleweed = (cx: number, cy: number, rad: number): string => {
-    const x = w * cx;
-    const y = h * cy;
-    const rr = h * rad;
-    let out = circle(x, y, rr * 0.55, P.desertShadow);
-    for (let i = 0; i < 11; i++) {
-      const a = (i / 11) * Math.PI * 2;
-      out += line(
-        x + Math.cos(a) * rr * 0.2,
-        y + Math.sin(a) * rr * 0.2,
-        x + Math.cos(a * 1.7) * rr,
-        y + Math.sin(a * 1.7) * rr,
-        P.desertShadow,
-        Math.max(rr * 0.14, 2),
-      );
-    }
-    return out;
-  };
 
   const drawTumbleweed = (cx: number, cy: number, rad: number) => (buf: Buf) => {
     const x = w * cx;
@@ -1325,7 +1285,6 @@ function build(geo: Geometry): readonly SlotArt[] {
     }
   };
 
-  const birdArt = bird(w * 0.44, h * 0.2, h * 0.017, P.town);
 
   return [
     {
@@ -1333,11 +1292,9 @@ function build(geo: Geometry): readonly SlotArt[] {
       draw: (buf) => {
         drawBird(buf, w * 0.44, h * 0.2, h * 0.017, buf.tone(P.town, 'bird'));
       },
-      free: birdArt,
       parts: [
         {
           draw: drawTumbleweed(0.38, 0.9, 0.04),
-          markup: tumbleweed(0.38, 0.9, 0.04),
           rate: 0.44,
         },
       ],

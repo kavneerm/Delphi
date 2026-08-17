@@ -25,13 +25,17 @@ import { aberrates, aberrationOffset, halftoneOverlay, postDefs } from './post/i
 /**
  * How long one frame may spend rastering newly-resident layers, in ms.
  *
- * 6 rather than something closer to a full 16ms frame: the write pass is not the only thing
- * in a frame, and the whole point is to leave the compositor room. It is a floor as well as
- * a ceiling — `sync` always builds at least one slot per frame, so a single slot costing
- * more than the budget on its own (slot 7 at 1440x900 is ~6.6ms) still makes progress
- * rather than deadlocking.
+ * 3, not something closer to a full 16ms frame: the write pass is not the only thing in a
+ * frame, and the point is to leave the compositor room. It is a floor as well as a ceiling —
+ * `sync` always builds at least one unit per frame, so a unit costing more than the budget
+ * on its own still makes progress rather than deadlocking.
+ *
+ * Tuned down from 6. At 6 the measured work-median was 7.1ms, i.e. above the budget, which
+ * meant a frame could admit a second unit before noticing it was over — and 1440x900 peaked
+ * at 16.7ms against a 16ms frame. A budget below the cost of a single unit makes "one unit
+ * per frame" the normal case instead of the lucky one.
  */
-const BUILD_BUDGET_MS = 6;
+const BUILD_BUDGET_MS = 3;
 
 interface ActLayer {
   readonly art: SlotArt;
@@ -61,6 +65,27 @@ export class Stage {
   private geo: Geometry;
   private twosAccumulator = 0;
   private buildsPending = false;
+  /**
+   * Locked-layer canvases whose upload has been deferred to a later frame.
+   *
+   * Only the *upload* is deferred, never the element: `.locked` is appended to its slot in
+   * document order at build time, because within a slot the child order is the paint order
+   * and moving a locked layer after another act's drift would change what paints over what
+   * mid-transition. The empty div costs nothing and is invisible until its act's opacity
+   * comes up, which `render` drives from the transition anyway.
+   *
+   * This exists because slot 7 is the only slot carrying both a `draw` and a `drawLocked`,
+   * and it is the entire act-entry cost — one indivisible `buildLayer` call doing two
+   * full-frame rasters, which no per-frame budget could split.
+   */
+  private readonly pendingLocked: {
+    host: HTMLElement;
+    act: ActIndex;
+    draw: DrawFn;
+    /** Blit from this canvas instead of re-uploading. See `canvasFor`. */
+    copyFrom?: HTMLCanvasElement;
+    alpha?: number;
+  }[] = [];
   /**
    * One `build()` per act, not one per slot.
    *
@@ -396,7 +421,25 @@ export class Stage {
       }
     }
 
-    this.buildsPending = pending;
+    // Deferred locked uploads share the frame budget with layer builds, and are drained
+    // after them: a slot's free layer is what becomes visible first, so it is what should
+    // exist first.
+    while (this.pendingLocked.length > 0) {
+      if (!immediate && built && performance.now() - start >= BUILD_BUDGET_MS) {
+        pending = true;
+        break;
+      }
+      const job = this.pendingLocked.shift();
+      if (!job) break;
+      job.host.appendChild(
+        job.copyFrom
+          ? this.canvas(this.rasterOnce(job.act, job.draw), job.alpha, job.copyFrom)
+          : this.canvas(this.rasterOnce(job.act, job.draw)),
+      );
+      built = true;
+    }
+
+    this.buildsPending = pending || this.pendingLocked.length > 0;
     return built;
   }
 
@@ -418,6 +461,11 @@ export class Stage {
     layer.drift.remove();
     layer.locked?.remove();
     els.layers.delete(act);
+    // Drop any deferred upload aimed at the element just removed, or the queue would raster
+    // a full frame's worth of art into a detached div — invisible, and paid for.
+    for (let i = this.pendingLocked.length - 1; i >= 0; i--) {
+      if (this.pendingLocked[i]?.host === layer.locked) this.pendingLocked.splice(i, 1);
+    }
   }
 
   /** One `build()` per act per geometry — see `builtArt`. */
@@ -460,8 +508,42 @@ export class Stage {
     // in-buffer split would re-raster the slot on every frame.
     // Raster the free layer at most once, however many DOM copies of it are needed.
     const freeRaster = art.draw ? this.rasterOnce(act, art.draw) : null;
-    const paintFree = (): Node =>
-      freeRaster ? this.canvas(freeRaster, art.alpha) : this.svg(art.free ?? '');
+    // The first canvas pays the upload; any further copy blits from it (see `canvasFor`).
+    let firstCanvas: HTMLCanvasElement | null = null;
+    const paintFree = (): Node => {
+      if (!freeRaster) return this.svg(art.free ?? '');
+      const canvas = this.canvas(freeRaster, art.alpha, firstCanvas ?? undefined);
+      firstCanvas ??= canvas;
+      return canvas;
+    };
+
+    /**
+     * Append a copy of the free raster into `host`, deferring it if one already exists.
+     *
+     * The two aberration plates are the last indivisible pair in a slot 7 build, and slot 7
+     * is the entire act-entry cost. The first plate is uploaded now because something has
+     * to be on screen; the second is queued, and until it lands the slot shows one channel
+     * instead of two. That is invisible in practice: an incoming act's layers are at
+     * opacity 0 for the whole of their first frames, and at load the placeholder is held
+     * until `settled`.
+     */
+    const appendFreeCopy = (host: HTMLElement): void => {
+      if (!freeRaster || !art.draw) {
+        host.appendChild(paintFree());
+        return;
+      }
+      if (!firstCanvas) {
+        host.appendChild(paintFree());
+        return;
+      }
+      this.pendingLocked.push({
+        host,
+        act,
+        draw: art.draw,
+        copyFrom: firstCanvas,
+        ...(art.alpha === undefined ? {} : { alpha: art.alpha }),
+      });
+    };
 
     // An aberrating slot is drawn *only* as its two channel plates — screened together
     // they reconstruct the original exactly. Keeping a full base copy underneath would
@@ -477,10 +559,10 @@ export class Stage {
       holder.className = 'plates';
       const red = document.createElement('div');
       red.className = 'plate plate-red';
-      red.appendChild(paintFree());
+      appendFreeCopy(red);
       const cyan = document.createElement('div');
       cyan.className = 'plate plate-cyan';
-      cyan.appendChild(paintFree());
+      appendFreeCopy(cyan);
       holder.appendChild(cyan);
       holder.appendChild(red);
       travel.appendChild(holder);
@@ -527,11 +609,12 @@ export class Stage {
       locked.className = 'layer locked';
       locked.dataset['vpLocked'] = 'true';
       locked.dataset['act'] = String(act);
-      locked.appendChild(
-        art.drawLocked
-          ? this.canvas(this.rasterOnce(act, art.drawLocked))
-          : this.svg(art.locked ?? ''),
-      );
+      // SVG is cheap and goes in now; a raster is queued for a later frame.
+      if (art.drawLocked) {
+        this.pendingLocked.push({ host: locked, act, draw: art.drawLocked });
+      } else {
+        locked.appendChild(this.svg(art.locked ?? ''));
+      }
       els.root.appendChild(locked);
     }
 
@@ -565,8 +648,8 @@ export class Stage {
   }
 
   /** One canvas showing a raster, with the layer's constant opacity if it declares one. */
-  private canvas(raster: Raster, alpha?: number): HTMLCanvasElement {
-    const canvas = canvasFor(raster);
+  private canvas(raster: Raster, alpha?: number, copyFrom?: HTMLCanvasElement): HTMLCanvasElement {
+    const canvas = canvasFor(raster, copyFrom);
     // Set on the canvas, not the layer, so the transition crossfade written to `.drift`
     // multiplies with it rather than overwriting it.
     if (alpha !== undefined && alpha < 1) canvas.style.opacity = String(alpha);

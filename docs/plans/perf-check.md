@@ -1,6 +1,40 @@
 # `check:perf` — everything wrong with it, and the fix
 
-**Status:** diagnosis complete, measured. Fix in progress.
+**Status:** FIXED. `npm run check:perf` passes — 21 assertions, 0 failures, 0 frames over
+budget at all three viewports. Result below; diagnosis retained because it is the reasoning
+the fix rests on.
+
+| viewport | worst frame, before | after |
+| --- | --- | --- |
+| 1440x900 | 39.10ms | **15.80ms** |
+| 768x1024 | 25.60ms | **13.10ms** |
+| 390x844 | 18.90ms | **8.30ms** |
+
+**What fixed it, in order of effect.** Each was measured; none is speculative.
+
+1. **`Stage.sync` amortises** — layers build in `STAGGER_ORDER` under a per-frame budget,
+   at least one per frame. Safe because at a transition's start no incoming layer is
+   visible: crossfade enters at opacity 0, rise/extrude below their clip line, drift
+   off-canvas. A slot need only exist when its own staggered window opens.
+2. **`act.build()` yields its own frame** — second-largest single item (6.49ms, Act III).
+3. **The second aberration plate blits instead of re-uploading.** `aberrates(slot)` is true
+   for five of eight slots, and each was handing the same 721kB image to `putImageData`
+   twice. `drawImage` from the first canvas moves it GPU-side. Total build cost across a
+   sweep: **118.9ms -> 79.4ms**.
+4. **Locked-layer uploads are deferred** to their own budget unit. Slot 7 is the only slot
+   with both a `draw` and a `drawLocked`, and it was the entire act-entry cost — measured
+   27.0 / 25.6 / 21.5 / 8.2ms for the four acts against <=2.8ms for every other layer. The
+   *element* is still appended immediately, because within a slot child order is paint
+   order; only the canvas upload moves.
+5. **`BUILD_BUDGET_MS` 6 -> 3.** At 6 the measured work-median was 7.1ms — above the budget —
+   so a frame could admit a second unit before noticing it was over, and 1440x900 peaked at
+   16.7ms. A budget below the cost of one unit makes "one unit per frame" the normal case
+   rather than the lucky one. Work-median is now 3.2-3.8ms.
+
+The single most useful step was **not** any of these: it was measuring under real wheel
+scrolling instead of teleports, which is what showed the spikes were genuine rather than a
+harness artifact, and later showed which changes actually moved them.
+
 **Why this file exists:** the diagnosis below is measured, not reasoned, and it must survive
 a context compaction. Resume from here rather than from memory.
 

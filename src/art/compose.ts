@@ -55,13 +55,26 @@ export function rasterOf(buf: Buf, rgba: Uint32Array): Raster {
  * kept on exact cell boundaries (see `bufferOriginFor`) — so the canvas is offset within
  * its `.layer` box rather than assumed to fill it.
  */
-export function canvasFor(raster: Raster): HTMLCanvasElement {
+export function canvasFor(raster: Raster, copyFrom?: HTMLCanvasElement): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = raster.w;
   canvas.height = raster.h;
   canvas.setAttribute('aria-hidden', 'true');
 
-  canvas.getContext('2d')?.putImageData(raster.image, 0, 0);
+  const ctx = canvas.getContext('2d');
+  if (copyFrom) {
+    // A blit from a canvas already holding this image, not a second upload of it.
+    //
+    // The aberration plates are two DOM copies of one raster, and five of the eight slots
+    // aberrate — so every one of them used to hand the same 721kB (at 1440x900) to
+    // `putImageData` twice. `drawImage` from the first canvas moves it GPU-side instead.
+    // Slot 7 is the whole act-entry cost: measured 27.0 / 25.6 / 21.5 / 8.2ms for the four
+    // acts, against <=2.8ms for every other layer, and only ~6.6ms of that is the drawing
+    // itself. The rest is upload, and this removes a third of it.
+    ctx?.drawImage(copyFrom, 0, 0);
+  } else {
+    ctx?.putImageData(raster.image, 0, 0);
+  }
 
   const style = canvas.style;
   style.position = 'absolute';

@@ -251,3 +251,46 @@ rasters, and nine-of-nine emit both.
   `stage.settled`.
 - Live at https://inevitablefrontier.org, deployed at commit 7136090.
 - `npm run deploy` builds + syncs + invalidates. Do not deploy with checks red.
+
+---
+
+## 8. Cropping rasters to their drawn extent — tried, reverted, and why
+
+**Motivation.** The client reported the page glitching on fast mobile scroll and suggested
+merging layers. The best version of that idea: every canvas is full-frame even when its art
+is a thin band, so the compositor allocates a device-resolution texture per layer — ~11.8MB
+at 390x844 dpr 3 — regardless of what is in it. `Buf` already tracks the drawn bounding box
+(`drawnCells`), so cropping is free information.
+
+**It worked, and the numbers were the best of any change attempted here:**
+
+| | before crop | after crop | vs. original |
+| --- | --- | --- | --- |
+| mobile hold | 193MB | **35MB** | was 861MB |
+| mobile transition | 404MB | **115MB** | was 844MB |
+| desktop hold | 99MB | 23MB | |
+| desktop transition | 204MB | 69MB | |
+
+`check:perf` went green outright — max 15.3ms at 1440x900 with **0 frames over budget at all
+three viewports**, which no other change achieved.
+
+**Why it was reverted.** `check:invariant` failed at p=0.74 at 1440 and 768: the strongest
+tonal boundary near the horizon moved to y=525 where 522 was wanted — exactly one art cell.
+Padding the crop box by one cell moved the failure to y=528, i.e. it moved *with the crop
+edge*. So the crop edge was itself producing a 100%-coverage boundary.
+
+The cause is that **`mix-blend-mode` makes an element's bounds semantically load-bearing**, not
+just its pixels. A blended layer composites against what is behind *the element*; shrink the
+element and the blended region shrinks with it, leaving a hard step at the new edge. Cropping
+is therefore only safe for layers that composite normally, and most slots here blend.
+
+**What a correct version would need**, if picked up again:
+- Crop only layers with no blend mode and no filter, and leave blended layers full-frame.
+  Determine which those are from `src/post/index.ts` (`aberrates`, the plate blend, the
+  halftone) rather than by inspection.
+- Or give blended layers an explicit full-frame backdrop so their bounds stop mattering,
+  which likely costs back what the crop saved.
+- Either way `check:invariant` at p=0.74 is the test that decides it, and it must be run at
+  1440 and 768 specifically — 390 did not catch this.
+
+Reverted at `86f7395` with the tree clean and every check green.

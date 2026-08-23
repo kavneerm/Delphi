@@ -55,22 +55,7 @@ Stated before anything else. Everything below it is a consequence.
 
 ---
 
-## 03 — On our name
-
-The turn. The organization is named against its own argument, and the site should say so
-plainly rather than let a reader notice it as a contradiction.
-
-**Lead**
-
-> Our belief is intentionally antithetical to our name: the frontier is not inevitable.
-
-**Body**
-
-> It will become what the American people choose to build, permit, and protect.
-
----
-
-## 04 — Our work
+## 03 — Our work
 
 **Lead**
 
@@ -86,7 +71,7 @@ plainly rather than let a reader notice it as a contradiction.
 
 ---
 
-## 05 — Get involved
+## 04 — Get involved
 
 **Lead**
 
@@ -142,3 +127,7 @@ that has not published any would be the single most damaging thing this site cou
   titles were invented.
 - **2026-08-23** — Contact address set to kavneerm@gmail.com, replacing the `[ADD EMAIL]`
   marker and unblocking `npm run deploy`.
+- **2026-08-23** — Removed the "On our name" section at the client's direction. The colophon
+  line repeated its claim verbatim ("The frontier is not inevitable…") and was replaced with
+  the section 01 descriptor, since leaving it would have asserted the removed argument with
+  nothing left explaining it. Remaining sections renumbered 01–04.

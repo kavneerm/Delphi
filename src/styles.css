@@ -418,55 +418,6 @@ em {
   margin-bottom: 0.2rem;
 }
 
-/* The turn: the one section allowed to raise its voice, because the whole position depends
-   on the reader accepting a contradiction. */
-.band-turn {
-  max-width: none;
-  background: var(--paper-sunk);
-  border-top: 1px solid var(--rule);
-}
-
-.band + .band-turn {
-  border-top-color: var(--rule);
-}
-
-.band-turn > * {
-  max-width: var(--frame);
-}
-
-@media (min-width: 60rem) {
-  .band-turn {
-    justify-content: center;
-  }
-}
-
-.turn-statement {
-  font-size: clamp(1.55rem, 1.12rem + 1.95vw, 2.5rem);
-  line-height: 1.24;
-  color: var(--ink);
-  margin-bottom: 0.35rem;
-}
-
-/* Strike the negation rather than italicise it — "not" is the load-bearing word, and it
-   should read as struck through the certainty the name implies. */
-.turn-statement em {
-  position: relative;
-  font-style: normal;
-  color: inherit;
-  white-space: nowrap;
-}
-
-.turn-statement em::after {
-  content: '';
-  position: absolute;
-  left: -0.05em;
-  right: -0.05em;
-  bottom: 0.08em;
-  height: 0.07em;
-  background: var(--accent);
-  opacity: 0.6;
-}
-
 /* ---------------------------------------------------------------- contact */
 
 .contact {

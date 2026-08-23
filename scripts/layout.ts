@@ -85,7 +85,6 @@ async function contrast(page: Page): Promise<ContrastRow[]> {
 
     const selectors = [
       '.hero-statement',
-      '.turn-statement',
       '.lead',
       '.prose p',
       '.eyebrow',
@@ -244,20 +243,41 @@ async function main(): Promise<void> {
     }
     await linkCtx.close();
 
-    // JavaScript off. With no script on the page this should be indistinguishable from the
-    // normal render — asserted rather than assumed, because that is the claim being made.
-    const noJsCtx = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
-      javaScriptEnabled: false,
-    });
-    const noJsPage = await noJsCtx.newPage();
-    await noJsPage.goto(server.url, { waitUntil: 'load' });
-    const noJsText = await noJsPage.locator('body').innerText();
-    report.assert(
-      noJsText.includes('the frontier is') && noJsText.length > 900,
-      `no-JS: page text is only ${noJsText.length} chars — content did not render`,
-    );
-    await noJsCtx.close();
+    /*
+     * JavaScript off. With no script on the page this must be indistinguishable from the
+     * normal render.
+     *
+     * Asserted as an equality between the two renders, not against a hardcoded phrase. The
+     * first version of this check looked for the literal string "the frontier is", and when
+     * that copy was removed from the site the check failed while nothing was actually
+     * broken. A check that must be edited whenever the copy changes will eventually be
+     * edited carelessly; this one derives its expectation from the page itself.
+     */
+    for (const { path, label } of PAGES) {
+      const withJs = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      const jsPage = await withJs.newPage();
+      await jsPage.goto(server.url + path, { waitUntil: 'networkidle' });
+      const jsText = (await jsPage.locator('body').innerText()).replace(/\s+/g, ' ').trim();
+      await withJs.close();
+
+      const noJsCtx = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        javaScriptEnabled: false,
+      });
+      const noJsPage = await noJsCtx.newPage();
+      await noJsPage.goto(server.url + path, { waitUntil: 'load' });
+      const noJsText = (await noJsPage.locator('body').innerText()).replace(/\s+/g, ' ').trim();
+      await noJsCtx.close();
+
+      report.assert(
+        noJsText.length > 400,
+        `${label}: no-JS text is only ${noJsText.length} chars — content did not render`,
+      );
+      report.assert(
+        noJsText === jsText,
+        `${label}: no-JS render differs from the scripted one (${noJsText.length} vs ${jsText.length} chars)`,
+      );
+    }
   } finally {
     await browser?.close();
     await server.close();

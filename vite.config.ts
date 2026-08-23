@@ -12,6 +12,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         writing: resolve(import.meta.dirname, 'writing/index.html'),
+        thanks: resolve(import.meta.dirname, 'thanks/index.html'),
         // Each further page is one line here plus the file itself, e.g.
         //   'writing/compliance-costs': resolve(import.meta.dirname, 'writing/compliance-costs/index.html'),
         //

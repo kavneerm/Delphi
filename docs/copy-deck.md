@@ -25,7 +25,10 @@ group, and `check:content` asserts that group's text against that page's built H
 
 Stated before anything else. Everything below it is a consequence.
 
-> We believe AI promises an abundant, prosperous future that can forward human flourishing. Regulation guided by optimism, not pessimism, will ensure we unlock AI's potential — and that it falls into the right hands.
+`everyone` and `few` are set in the accent colour on the page. They are the axis the whole
+statement turns on, and the contrast should be visible before the sentence is read.
+
+> We believe AI has two paths ahead. In the hands of everyone, it creates a future where all humans flourish. In the hands of few, it threatens totalitarian control to prevent everyone from accessing its benefits.
 
 ---
 
@@ -122,6 +125,11 @@ that has not published any would be the single most damaging thing this site cou
   titles were invented.
 - **2026-08-23** — Contact address set to kavneerm@gmail.com, replacing the `[ADD EMAIL]`
   marker and unblocking `npm run deploy`.
+- **2026-08-23** — Hero replaced with the two-paths statement, at the client's direction.
+  This restores the contingency the site lost when "On our name" was removed: the previous
+  hero asserted an abundant future, and nothing on the page then said it might not arrive.
+  "Two paths ahead" states the stake outright, which is what section 03's argument about who
+  may build AI needs in order to be an answer to something.
 - **2026-08-23** — Sections 01–04 restructured as one continuous letter: orange headings,
   one serif column, no rules between sections, no section numbers.
 - **2026-08-23** — Contact replaced with a form; kavneerm@gmail.com removed at the client's

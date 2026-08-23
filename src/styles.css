@@ -32,7 +32,6 @@
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 
   --gutter: clamp(1.5rem, 5vw, 4.5rem);
-  --band-space: clamp(4.5rem, 11vh, 8rem);
   --measure: 34rem;
   --frame: 72rem;
 }
@@ -308,6 +307,20 @@ em {
   margin-top: 1.5rem;
 }
 
+/*
+ * Blink silently ignores `text-wrap: balance` above six lines, and the hero runs eight at
+ * 390px — which left the last line as the single orphaned word "hands." `pretty` handles
+ * the tail instead.
+ *
+ * Scoped to narrow viewports on purpose: applied globally it is *worse* than `balance`
+ * from 600px up, where the statement is short enough for balancing to work.
+ */
+@media (max-width: 25rem) {
+  .hero-statement {
+    text-wrap: pretty;
+  }
+}
+
 .eyebrow {
   display: flex;
   align-items: center;
@@ -393,16 +406,27 @@ em {
 }
 
 .passage + .passage {
-  margin-top: clamp(2.75rem, 7vh, 4.25rem);
+  /* Kept proportional to the larger heading above, so section boundaries stay legible. */
+  margin-top: clamp(3.25rem, 8vh, 4.75rem);
 }
 
+/*
+ * Larger than the body, deliberately. At 1.0625rem this matched `.passage p` exactly, so
+ * below the hero the page had no size hierarchy at all and the headings — which carry the
+ * entire skim burden for someone deciding whether to read — were doing that work on colour
+ * and weight alone.
+ *
+ * The margin tightens as the size grows so the heading still binds to its own text: 11px
+ * to the paragraph below it against a 17px gap between paragraphs. Proximity is what makes
+ * a heading belong to a section rather than float between two.
+ */
 .passage-head {
   font-family: var(--sans);
-  font-size: 1.0625rem;
+  font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0.005em;
   color: var(--accent);
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.7rem;
 }
 
 /*

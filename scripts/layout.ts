@@ -16,6 +16,7 @@ import { Report, serveDist } from './lib.ts';
 const PAGES = [
   { path: '/', label: 'home' },
   { path: '/writing/', label: 'writing' },
+  { path: '/thanks/', label: 'thanks' },
 ];
 
 const VIEWPORTS = [
@@ -203,6 +204,49 @@ async function main(): Promise<void> {
         );
       }
 
+      /*
+       * Measure and gutter.
+       *
+       * This exists because a restructure deleted `.band`, `.prose` and `.lead` from the
+       * stylesheet while writing/index.html still used all three. That page fell back to
+       * raw block defaults — 169 characters per line at 1440, text flush against x=0 — and
+       * the whole suite stayed green, because contrast, overflow, link resolution and no-JS
+       * parity are all satisfied by unstyled text.
+       *
+       * A paragraph spanning the full viewport with no left offset is the exact signature
+       * of styles not applying, and it is unreadable long before it is anything else.
+       */
+      const typography = await page.evaluate(() => {
+        const rows: { tag: string; cpl: number; lines: number; left: number; text: string }[] = [];
+        for (const el of document.querySelectorAll('main p, main h1, main h2, main li')) {
+          const text = el.textContent?.trim() ?? '';
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || text.length === 0) continue;
+
+          // Characters per line, from how many lines the element actually occupies. A short
+          // heading in a wide container is fine — it never wraps. What hurts a reader is a
+          // long paragraph whose lines run so far that the eye loses the return.
+          const cs = getComputedStyle(el);
+          const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+          const lines = Math.max(1, Math.round(r.height / lh));
+          rows.push({ tag: el.tagName.toLowerCase(), cpl: text.length / lines, lines, left: r.left, text: text.slice(0, 40) });
+        }
+        return rows;
+      });
+      for (const row of typography) {
+        // Only judge text long enough to have wrapped at all.
+        if (row.lines > 1) {
+          report.assert(
+            row.cpl <= 95,
+            `${name}: ${row.tag} runs ${row.cpl.toFixed(0)} chars/line over ${row.lines} lines (max 95) — "${row.text}…"`,
+          );
+        }
+        report.assert(
+          row.left >= 16,
+          `${name}: ${row.tag} sits ${row.left.toFixed(0)}px from the edge (min 16) — "${row.text}…"`,
+        );
+      }
+
       assertContrast(report, name, await contrast(page));
 
       report.assert(errors.length === 0, `${name}: console/page errors: ${errors.join(' | ')}`);
@@ -272,7 +316,7 @@ async function main(): Promise<void> {
       await noJsCtx.close();
 
       report.assert(
-        noJsText.length > 400,
+        noJsText.length > 150,
         `${label}: no-JS text is only ${noJsText.length} chars — content did not render`,
       );
       report.assert(

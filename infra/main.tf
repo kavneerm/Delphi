@@ -66,6 +66,16 @@ data "aws_cloudfront_response_headers_policy" "security" {
   name = "Managed-SecurityHeadersPolicy"
 }
 
+data "aws_cloudfront_cache_policy" "disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+# Forwards the viewer's headers, cookies and query string to the API, minus Host — which
+# must stay the origin's own or API Gateway rejects the request.
+data "aws_cloudfront_origin_request_policy" "api" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 /**
  * Directory-index rewriting at the edge.
  *
@@ -94,6 +104,13 @@ resource "aws_cloudfront_function" "index_rewrite" {
       var request = event.request;
       var uri = request.uri;
 
+      // The /api/* behaviour has no function attached, so this should never see an API
+      // path. Guarded anyway: rewriting /api/contact to /api/contact/index.html would
+      // break every form submission, and that is a bad thing to depend on a config detail.
+      if (uri.indexOf('/api/') === 0) {
+        return request;
+      }
+
       if (uri.endsWith('/')) {
         request.uri = uri + 'index.html';
       } else if (!uri.split('/').pop().includes('.')) {
@@ -121,6 +138,20 @@ resource "aws_cloudfront_distribution" "site" {
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
   }
 
+  # The contact form posts to /api/contact on this same distribution, so the browser makes
+  # a same-origin request: no CORS preflight, no second hostname, no extra certificate.
+  origin {
+    domain_name = replace(aws_apigatewayv2_api.contact.api_endpoint, "https://", "")
+    origin_id   = "api-contact"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = "s3-${aws_s3_bucket.site.id}"
     viewer_protocol_policy = "redirect-to-https"
@@ -139,6 +170,23 @@ resource "aws_cloudfront_distribution" "site" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.index_rewrite.arn
     }
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "api-contact"
+    viewer_protocol_policy = "https-only"
+
+    # A form POST is the entire point of this behaviour; the default one allows GET/HEAD.
+    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.api.id
+
+    # Deliberately NO function_association here. The viewer-request function rewrites
+    # extensionless paths to index.html, which would turn /api/contact into
+    # /api/contact/index.html and 404 every submission.
   }
 
   restrictions {

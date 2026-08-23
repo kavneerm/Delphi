@@ -6,7 +6,7 @@
     <title>Inevitable Frontier</title>
     <meta
       name="description"
-      content="Inevitable Frontier is a research and policy organization working to shape the future of emerging technology. We believe regulation guided by optimism, not pessimism, will unlock AI's potential."
+      content="Inevitable Frontier is a research and policy organization working to shape the future of emerging technology. We believe AI has two paths ahead: in the hands of everyone, or in the hands of few."
     />
     <meta name="theme-color" content="#fbf9f6" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0e1013" media="(prefers-color-scheme: dark)" />
@@ -42,9 +42,9 @@
         <div class="hero-inner">
           <p class="eyebrow">Our belief</p>
           <h1 class="hero-statement">
-            We believe AI promises an abundant, prosperous future that can forward human
-            flourishing. Regulation guided by <em>optimism, not pessimism</em>, will ensure we
-            unlock AI's potential — and that it falls into the right hands.
+            We believe AI has two paths ahead. In the hands of <em>everyone</em>, it creates
+            a future where all humans flourish. In the hands of <em>few</em>, it threatens
+            totalitarian control to prevent everyone from accessing its benefits.
           </h1>
         </div>
 
@@ -118,11 +118,12 @@
         <!--
           A native form POST — no JavaScript, by design.
 
-          action= must point at a real endpoint before this can ship. `[FORM ENDPOINT]` is
-          caught by scripts/placeholder.ts, so `npm run deploy` refuses to publish a form
-          that silently discards what people type into it.
+          /api/contact is same-origin: CloudFront routes /api/* to an API Gateway origin,
+          so there is no CORS preflight and no second hostname. The Lambda behind it sends
+          one email through SES and answers 303 back to /thanks/, which is why the visitor
+          never sees an API response. See infra/contact.tf.
         -->
-        <form class="signup" action="[FORM ENDPOINT]" method="POST">
+        <form class="signup" action="/api/contact" method="POST">
           <div class="field">
             <label for="f-name">Name</label>
             <input id="f-name" name="name" type="text" autocomplete="name" required />

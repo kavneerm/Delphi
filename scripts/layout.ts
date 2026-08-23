@@ -95,7 +95,7 @@ async function contrast(page: Page): Promise<ContrastRow[]> {
       '.link',
       '.colophon-line',
       '.colophon-mark',
-      '.contact-placeholder',
+      '.contact-link',
     ];
 
     const rows: ContrastRow[] = [];

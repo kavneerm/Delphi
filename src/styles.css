@@ -473,20 +473,20 @@ em {
   margin-top: 0.5rem;
 }
 
-/* Loud on purpose. This marker must be impossible to mistake for finished copy, and
-   `npm run deploy` refuses to publish while it is present. */
-.contact-placeholder {
+/* The one action the page asks for, so it is sized to be found rather than tucked into
+   body copy. */
+.contact-link {
   display: inline-block;
-  padding: 0.3rem 0.6rem;
-  border: 1px dashed var(--accent);
-  border-radius: 2px;
-  background: var(--accent-wash);
-  /* Ink, not accent: accent on its own 10% wash measures 4.04:1 and fails AA at this size.
-     The dashed accent border carries the loudness instead. */
-  color: var(--ink);
   font-family: var(--mono);
-  font-size: 0.8125rem;
-  letter-spacing: 0.06em;
+  font-size: 0.9375rem;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 2px;
+}
+
+.contact-link:hover {
+  color: var(--accent);
 }
 
 /* ---------------------------------------------------------------- colophon */

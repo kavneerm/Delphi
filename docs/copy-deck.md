@@ -98,9 +98,11 @@ plainly rather than let a reader notice it as a contradiction.
 
 **Contact**
 
-The address is not yet set. The page ships the literal marker `[ADD EMAIL]`, and
-`npm run deploy` refuses to publish while it is present — see `scripts/placeholder.ts`.
-Replacing the marker with a real `mailto:` link is what unblocks publishing.
+> kavneerm@gmail.com
+
+A personal address, used deliberately for now. `contact@inevitablefrontier.org` would read
+as more established to press and policymaker staff, and the domain is already registered —
+swapping it is a one-line change here and in `index.html`.
 
 ---
 
@@ -138,3 +140,5 @@ that has not published any would be the single most damaging thing this site cou
   from section 05 into section 02, leaving no plural antecedent in section 04.
 - **2026-08-23** — Added the `/writing/` page. Copy is an honest empty state; no article
   titles were invented.
+- **2026-08-23** — Contact address set to kavneerm@gmail.com, replacing the `[ADD EMAIL]`
+  marker and unblocking `npm run deploy`.

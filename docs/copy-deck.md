@@ -14,7 +14,12 @@ copy that can drift together and still agree.
 Each `>` block is one element on the page. Splitting a block across two elements, or
 merging two into one, will fail the check — the units here are the units rendered.
 
+Blocks are grouped by the page they appear on. A `# Page: <path>` heading opens each
+group, and `check:content` asserts that group's text against that page's built HTML.
+
 ---
+
+# Page: /
 
 ## Hero — the belief
 
@@ -99,6 +104,30 @@ Replacing the marker with a real `mailto:` link is what unblocks publishing.
 
 ---
 
+# Page: /writing/
+
+## Head
+
+> Research and policy writing.
+
+## Status
+
+**Lead**
+
+> We have not published yet.
+
+**Body**
+
+> Inevitable Frontier is new. Our first briefs are in progress, and when they are ready they will be posted here in full — readable on the page, free, and without a login.
+
+> If you want to know when the first one lands, or you are working on something adjacent, get in touch.
+
+The page carries a commented-out entry template showing how a brief is added. It is
+deliberately not rendered: inventing plausible-looking publications for an organization
+that has not published any would be the single most damaging thing this site could do.
+
+---
+
 ## Revisions
 
 - **2026-08-23** — Deck rewritten for the current site. The previous deck described v1's
@@ -107,3 +136,5 @@ Replacing the marker with a real `mailto:` link is what unblocks publishing.
   the source statement). Punctuation only; no wording changed.
 - **2026-08-23** — "Achieving them" became "Achieving this" when the domains sentence moved
   from section 05 into section 02, leaving no plural antecedent in section 04.
+- **2026-08-23** — Added the `/writing/` page. Copy is an honest empty state; no article
+  titles were invented.

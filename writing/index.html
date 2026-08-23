@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Writing — Inevitable Frontier</title>
+    <meta
+      name="description"
+      content="Research and policy writing from Inevitable Frontier on artificial intelligence, competition, and the governance of emerging technology."
+    />
+    <meta name="theme-color" content="#fbf9f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1013" media="(prefers-color-scheme: dark)" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fbf9f6'/%3E%3Cpath d='M2 20h28' stroke='%23b8542a' stroke-width='2'/%3E%3Cpath d='M16 20V8' stroke='%2316181c' stroke-width='2'/%3E%3C/svg%3E"
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Writing — Inevitable Frontier" />
+    <meta
+      property="og:description"
+      content="Research and policy writing from Inevitable Frontier."
+    />
+
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="masthead">
+      <a class="wordmark" href="/" aria-label="Inevitable Frontier, home">
+        <span class="wordmark-mark" aria-hidden="true"></span>
+        <span>Inevitable&nbsp;Frontier</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="/writing/" aria-current="page">Writing</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="page-head">
+        <p class="eyebrow">Writing</p>
+        <h1 class="page-title">Research and policy writing.</h1>
+      </section>
+
+      <section class="band" aria-labelledby="state-h">
+        <p class="eyebrow"><span class="num">—</span> Status</p>
+        <div class="prose">
+          <h2 class="lead" id="state-h">We have not published yet.</h2>
+          <p>
+            Inevitable Frontier is new. Our first briefs are in progress, and when they are
+            ready they will be posted here in full — readable on the page, free, and without
+            a login.
+          </p>
+          <p>
+            If you want to know when the first one lands, or you are working on something
+            adjacent, get in touch.
+          </p>
+          <p><a class="link" href="/#join">Get involved &rarr;</a></p>
+        </div>
+      </section>
+
+      <!--
+        TEMPLATE — how to add a brief. Copy this block, fill it in, and remove the comment
+        markers. Entries go newest first, directly below this comment.
+
+        The heading must be an <h3>: the page's h1 is the title above and the h2 belongs to
+        the section, so an entry starting at h2 would skip no level but would claim equal
+        standing with the section itself. `npm run check:content` asserts heading order.
+
+        <ol class="entries">
+          <li class="entry">
+            <p class="entry-meta"><time datetime="2026-09-01">September 2026</time> · Brief</p>
+            <h3 class="entry-title">
+              <a href="/writing/compliance-costs-as-a-moat/">Compliance costs as a moat</a>
+            </h3>
+            <p class="entry-summary">
+              One or two sentences on what the piece argues — not a teaser. A reader should be
+              able to decide from this alone whether it is worth their time.
+            </p>
+          </li>
+        </ol>
+
+        Each entry needs its own page at writing/<slug>/index.html, plus a line in
+        vite.config.ts under rollupOptions.input. Note that /writing/<slug>/ returns 403
+        until the CloudFront function in infra/main.tf is applied — see the comment there.
+      -->
+    </main>
+
+    <footer class="colophon">
+      <div class="colophon-inner">
+        <p class="colophon-mark"><a class="plain" href="/">Inevitable Frontier</a></p>
+        <p class="colophon-line">
+          The frontier is not inevitable. It will become what we choose to build.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

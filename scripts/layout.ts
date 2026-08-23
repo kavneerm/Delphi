@@ -12,6 +12,12 @@
 import { chromium, type Browser, type Page } from 'playwright';
 import { Report, serveDist } from './lib.ts';
 
+/** Both pages get the whole viewport sweep. A second page is a second chance to overflow. */
+const PAGES = [
+  { path: '/', label: 'home' },
+  { path: '/writing/', label: 'writing' },
+];
+
 const VIEWPORTS = [
   { name: '1440x900', width: 1440, height: 900 },
   { name: '1280x3600', width: 1280, height: 3600 },
@@ -83,8 +89,10 @@ async function contrast(page: Page): Promise<ContrastRow[]> {
       '.lead',
       '.prose p',
       '.eyebrow',
-      '.masthead-note',
+      '.nav a',
       '.wordmark',
+      '.page-title',
+      '.link',
       '.colophon-line',
       '.colophon-mark',
       '.contact-placeholder',
@@ -131,7 +139,9 @@ async function main(): Promise<void> {
   try {
     browser = await chromium.launch();
 
+    for (const { path, label } of PAGES) {
     for (const vp of VIEWPORTS) {
+      const name = `${label} ${vp.name}`;
       const context = await browser.newContext({
         viewport: { width: vp.width, height: vp.height },
       });
@@ -149,7 +159,7 @@ async function main(): Promise<void> {
         }
       });
 
-      await page.goto(server.url, { waitUntil: 'networkidle' });
+      await page.goto(server.url + path, { waitUntil: 'networkidle' });
 
       const overflow = await page.evaluate(() => ({
         scrollW: document.documentElement.scrollWidth,
@@ -157,14 +167,15 @@ async function main(): Promise<void> {
       }));
       report.assert(
         overflow.scrollW <= overflow.clientW + 1,
-        `${vp.name}: horizontal overflow — scrollWidth ${overflow.scrollW} > clientWidth ${overflow.clientW}`,
+        `${name}: horizontal overflow — scrollWidth ${overflow.scrollW} > clientWidth ${overflow.clientW}`,
       );
 
-      // The headline is legible on arrival, with no script needed to make it so.
-      const heroBox = await page.locator('.hero-statement').boundingBox();
+      // The page's own headline is legible on arrival, with no script needed to make it so.
+      const headline = path === '/' ? '.hero-statement' : '.page-title';
+      const headBox = await page.locator(headline).boundingBox();
       report.assert(
-        heroBox !== null && heroBox.y >= 0 && heroBox.y < vp.height,
-        `${vp.name}: hero statement is not in the first viewport`,
+        headBox !== null && headBox.y >= 0 && headBox.y < vp.height,
+        `${name}: ${headline} is not in the first viewport`,
       );
 
       /*
@@ -173,7 +184,7 @@ async function main(): Promise<void> {
        * landed in the middle of the text at 1440x900. Asserting the geometry rather than
        * trusting the markup means a future layout change cannot quietly reintroduce it.
        */
-      const geometry = await page.evaluate(() => {
+      const geometry = path !== '/' ? null : await page.evaluate(() => {
         const hero = document.querySelector('.hero-statement');
         const line = document.querySelector('.horizon-line');
         if (!hero || !line) return null;
@@ -181,23 +192,26 @@ async function main(): Promise<void> {
         const l = line.getBoundingClientRect();
         return { heroBottom: h.bottom, lineTop: l.top };
       });
-      report.assert(geometry !== null, `${vp.name}: hero statement or horizon line missing`);
+      if (path === '/') {
+        report.assert(geometry !== null, `${name}: hero statement or horizon line missing`);
+      }
       if (geometry) {
         report.assert(
           geometry.lineTop >= geometry.heroBottom,
-          `${vp.name}: horizon crosses the headline — line at y=${geometry.lineTop.toFixed(0)}, text ends at y=${geometry.heroBottom.toFixed(0)}`,
+          `${name}: horizon crosses the headline — line at y=${geometry.lineTop.toFixed(0)}, text ends at y=${geometry.heroBottom.toFixed(0)}`,
         );
       }
 
-      assertContrast(report, vp.name, await contrast(page));
+      assertContrast(report, name, await contrast(page));
 
-      report.assert(errors.length === 0, `${vp.name}: console/page errors: ${errors.join(' | ')}`);
+      report.assert(errors.length === 0, `${name}: console/page errors: ${errors.join(' | ')}`);
       report.assert(
         offOrigin.length === 0,
-        `${vp.name}: off-origin request(s): ${offOrigin.join(', ')}`,
+        `${name}: off-origin request(s): ${offOrigin.join(', ')}`,
       );
 
       await context.close();
+    }
     }
 
     // Dark theme. The tokens are shared, so contrast is the only thing that genuinely
@@ -210,6 +224,25 @@ async function main(): Promise<void> {
     await darkPage.goto(server.url, { waitUntil: 'networkidle' });
     assertContrast(report, 'dark', await contrast(darkPage));
     await darkCtx.close();
+
+    // Every internal link must resolve. A nav pointing at a 404 is the most embarrassing
+    // failure a five-page site can have, and nothing else here would catch it.
+    const linkCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const linkPage = await linkCtx.newPage();
+    for (const { path, label } of PAGES) {
+      await linkPage.goto(server.url + path, { waitUntil: 'networkidle' });
+      const hrefs = await linkPage.evaluate(() =>
+        [...document.querySelectorAll('a[href]')]
+          .map((a) => a.getAttribute('href') ?? '')
+          .filter((h) => h.startsWith('/')),
+      );
+      for (const href of hrefs) {
+        const target = href.split('#')[0] || '/';
+        const res = await linkPage.request.get(server.url + target);
+        report.assert(res.ok(), `${label}: link ${href} -> HTTP ${res.status()}`);
+      }
+    }
+    await linkCtx.close();
 
     // JavaScript off. With no script on the page this should be indistinguishable from the
     // normal render — asserted rather than assumed, because that is the claim being made.

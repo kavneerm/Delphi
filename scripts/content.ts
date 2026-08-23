@@ -49,48 +49,54 @@ function norm(s: string): string {
 }
 
 /**
- * Every `>` block in the deck is one element on the page, and must appear verbatim.
+ * Every `>` block in the deck is one element on a page, and must appear verbatim.
  *
  * Consecutive `>` lines are one block: markdown wraps a long paragraph across lines, and
  * treating each line as its own claim would assert fragments the page never renders as
  * separate elements.
+ *
+ * Blocks are grouped by the `# Page: <path>` heading above them, so each page is asserted
+ * against its own copy. Without the grouping the writing page's text would be required to
+ * appear on the home page and vice versa.
  */
-function claimsFrom(markdown: string): string[] {
-  const blocks: string[] = [];
+function claimsByPage(markdown: string): Map<string, string[]> {
+  const pages = new Map<string, string[]>();
+  let page: string | null = null;
   let current: string[] = [];
-  for (const line of markdown.split('\n')) {
-    if (line.startsWith('>')) {
-      current.push(line.slice(1).trim());
-    } else if (current.length > 0) {
-      blocks.push(norm(current.join(' ')));
-      current = [];
+
+  const flush = (): void => {
+    if (current.length > 0 && page !== null) {
+      const text = norm(current.join(' '));
+      if (text) pages.get(page)?.push(text);
     }
+    current = [];
+  };
+
+  for (const line of markdown.split('\n')) {
+    const header = /^# Page:\s*(\S+)/.exec(line);
+    if (header?.[1]) {
+      flush();
+      page = header[1];
+      if (!pages.has(page)) pages.set(page, []);
+      continue;
+    }
+    if (line.startsWith('>')) current.push(line.slice(1).trim());
+    else flush();
   }
-  if (current.length > 0) blocks.push(norm(current.join(' ')));
-  return blocks.filter((b) => b.length > 0);
+  flush();
+  return pages;
 }
 
-function main(): void {
-  const report = new Report('content');
-  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
-  const text = textOf(html);
-  const claims = claimsFrom(readFileSync(DECK, 'utf8'));
+/** dist path for a page's URL: `/` -> index.html, `/writing/` -> writing/index.html. */
+function fileFor(page: string): string {
+  const trimmed = page.replace(/^\/+|\/+$/g, '');
+  return trimmed === '' ? 'index.html' : `${trimmed}/index.html`;
+}
 
-  // A deck that parsed to nothing would make every assertion below vacuous and the check
-  // would pass while asserting nothing at all.
-  report.assert(
-    claims.length >= 12,
-    `only ${claims.length} claims parsed from docs/copy-deck.md — the deck or its format changed`,
-  );
-
-  for (const claim of claims) {
-    const short = claim.length > 64 ? `${claim.slice(0, 64)}…` : claim;
-    report.assert(text.includes(claim), `deck text missing from the page: "${short}"`);
-  }
-
-  // Structure.
+/** Structural assertions that must hold on every page, not just the home page. */
+function checkStructure(report: Report, page: string, html: string): void {
   const h1s = html.match(/<h1[\s>]/g) ?? [];
-  report.assert(h1s.length === 1, `expected exactly one <h1>, found ${h1s.length}`);
+  report.assert(h1s.length === 1, `${page}: expected exactly one <h1>, found ${h1s.length}`);
 
   const levels = [...html.matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
   let skipped: string | null = null;
@@ -99,34 +105,59 @@ function main(): void {
     const here = levels[i] ?? 0;
     if (here > prev + 1) skipped = `h${prev} -> h${here}`;
   }
-  report.assert(skipped === null, `heading level skipped: ${skipped}`);
+  report.assert(skipped === null, `${page}: heading level skipped: ${skipped}`);
 
-  report.assert(/<html[^>]+lang="en"/.test(html), 'no lang="en" on <html>');
-  report.assert(/<title>Inevitable Frontier<\/title>/.test(html), 'title missing or changed');
+  report.assert(/<html[^>]+lang="en"/.test(html), `${page}: no lang="en" on <html>`);
+  report.assert(/<title>[^<]*Inevitable Frontier<\/title>/.test(html), `${page}: title missing`);
   report.assert(
     /<meta\s+name="description"\s+content="[^"]{80,}"/.test(html),
-    'meta description missing or too short',
+    `${page}: meta description missing or too short`,
   );
-  report.assert(/class="skip"/.test(html), 'skip link missing');
+  report.assert(/class="skip"/.test(html), `${page}: skip link missing`);
 
   for (const [, id] of html.matchAll(/aria-labelledby="([^"]+)"/g)) {
     report.assert(
       new RegExp(`id="${id}"`).test(html),
-      `aria-labelledby="${id}" has no matching element`,
+      `${page}: aria-labelledby="${id}" has no matching element`,
     );
   }
 
-  // No JavaScript at all. This is a design decision worth defending in the build: every
-  // bug in the previous version came from the one script on the page.
+  // No JavaScript at all. Every bug in the previous version came from the one script on
+  // the page, and this is what keeps that decision from quietly eroding.
   report.assert(
     !/<script[\s>]/i.test(html),
-    'the page ships a <script> — this site is meant to have none',
+    `${page}: ships a <script> — this site is meant to have none`,
   );
 
-  // No external origins. The page must render fully offline: no CDN fonts, no analytics,
-  // no third party able to observe who reads this.
+  // No external origins: no CDN fonts, no analytics, no third party able to observe who
+  // reads this.
   const external = [...html.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)].map((m) => m[1]);
-  report.assert(external.length === 0, `external resource(s): ${external.join(', ')}`);
+  report.assert(external.length === 0, `${page}: external resource(s): ${external.join(', ')}`);
+}
+
+function main(): void {
+  const report = new Report('content');
+  const pages = claimsByPage(readFileSync(DECK, 'utf8'));
+
+  // A deck that parsed to nothing would make every assertion below vacuous, and the check
+  // would pass while asserting nothing at all.
+  report.assert(pages.size >= 2, `only ${pages.size} page group(s) in the deck — format changed`);
+  const total = [...pages.values()].reduce((n, c) => n + c.length, 0);
+  report.assert(total >= 16, `only ${total} claims parsed from docs/copy-deck.md`);
+
+  for (const [page, claims] of pages) {
+    const file = join(DIST, fileFor(page));
+    const html = readFileSync(file, 'utf8');
+    const text = textOf(html);
+
+    report.assert(claims.length > 0, `${page}: no copy in the deck for this page`);
+    for (const claim of claims) {
+      const short = claim.length > 60 ? `${claim.slice(0, 60)}…` : claim;
+      report.assert(text.includes(claim), `${page}: deck text missing: "${short}"`);
+    }
+
+    checkStructure(report, page, html);
+  }
 
   report.finish();
 }

@@ -11,12 +11,14 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
-        // A second page is one line here plus the file itself:
-        //   writing: resolve(import.meta.dirname, 'writing/index.html'),
-        // Note before adding one: CloudFront serves S3 over origin access control, and
-        // `default_root_object` applies only to `/`. A request for `/writing/` returns 403
-        // until a viewer-request function rewrites trailing-slash paths to index.html.
-        // See docs/plans/deploy-aws.md.
+        writing: resolve(import.meta.dirname, 'writing/index.html'),
+        // Each further page is one line here plus the file itself, e.g.
+        //   'writing/compliance-costs': resolve(import.meta.dirname, 'writing/compliance-costs/index.html'),
+        //
+        // CloudFront serves S3 over origin access control, and `default_root_object`
+        // applies only to `/`. A request for `/writing/` would 403 without the
+        // viewer-request function in infra/main.tf, which rewrites trailing-slash paths to
+        // index.html. That function must be applied before any sub-page is reachable.
       },
     },
   },

@@ -66,6 +66,45 @@ data "aws_cloudfront_response_headers_policy" "security" {
   name = "Managed-SecurityHeadersPolicy"
 }
 
+/**
+ * Directory-index rewriting at the edge.
+ *
+ * CloudFront's `default_root_object` applies to `/` and nothing else. With an S3 REST
+ * origin behind origin access control there is no directory-index behaviour at all, so
+ * `/writing/` asks S3 for a key that does not exist and gets 403 — not even a 404, because
+ * the bucket policy denies ListBucket.
+ *
+ * This runs on viewer-request, before the cache lookup, so the cached object is keyed on
+ * the rewritten path. Two cases:
+ *
+ *   /writing/       -> /writing/index.html
+ *   /writing        -> /writing/index.html   (no trailing slash, no file extension)
+ *
+ * Paths that already name a file are passed through untouched, so /assets/styles-abc.css
+ * and /index.html are unaffected.
+ */
+resource "aws_cloudfront_function" "index_rewrite" {
+  name    = "${var.project}-index-rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite directory paths to their index.html"
+  publish = true
+
+  code = <<-EOT
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+      } else if (!uri.split('/').pop().includes('.')) {
+        request.uri = uri + '/index.html';
+      }
+
+      return request;
+    }
+  EOT
+}
+
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -94,6 +133,12 @@ resource "aws_cloudfront_distribution" "site" {
 
     cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
     response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
+
+    # Without this, every path below the root that is not a literal file returns 403.
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.index_rewrite.arn
+    }
   }
 
   restrictions {

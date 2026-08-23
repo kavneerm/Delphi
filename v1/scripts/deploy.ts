@@ -20,7 +20,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const INFRA = resolve(process.cwd(), 'infra');
+// Repo-level: the bucket and distribution outlive any one frontend.
+const INFRA = resolve(process.cwd(), '..', 'infra');
 const DIST = resolve(process.cwd(), 'dist');
 
 function tf(output: string): string {

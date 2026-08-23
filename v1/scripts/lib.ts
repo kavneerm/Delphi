@@ -14,6 +14,17 @@ import '../src/hooks.ts';
 
 export const DIST = resolve(process.cwd(), 'dist');
 
+/**
+ * The repository root, one level above this frontend.
+ *
+ * `v1/` is one implementation of the site; the *specification* it is judged against —
+ * the copy deck, the art references, the reference envelope — lives at the repo root and
+ * outlives any single implementation. A check that read those from `process.cwd()` would
+ * silently grade a rewrite against a copy of the spec that shipped with the old code,
+ * which is the one thing these checks exist to prevent.
+ */
+export const REPO = resolve(process.cwd(), '..');
+
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',

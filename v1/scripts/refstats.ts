@@ -23,17 +23,18 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, join } from 'node:path';
 import { VIEWPORTS } from '../src/config.ts';
 import { ACT_HOLD_P } from '../src/timeline.ts';
 import { ACTS } from '../src/acts/index.ts';
-import { Report, fmtP, gotoP, launch, openPage, serveDist } from './lib.ts';
+import { REPO, Report, fmtP, gotoP, launch, openPage, serveDist } from './lib.ts';
 import { ART_SCALE } from '../src/config.ts';
 import { artStats, decodePng, type ArtStats } from './pixels.ts';
 
-const ROOT = resolve(process.cwd());
-const REFERENCE_DIR = join(ROOT, 'Object Reference');
-const ENVELOPE_PATH = join(ROOT, 'docs', 'reference-envelope.json');
+// Repo-level, not frontend-level: the reference art and the envelope derived from it are
+// what any implementation is measured against, so they sit above `v1/`.
+const REFERENCE_DIR = join(REPO, 'Object Reference');
+const ENVELOPE_PATH = join(REPO, 'docs', 'reference-envelope.json');
 
 /**
  * Which reference group each act is held to. Acts I and IV are the frontier — the western

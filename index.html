@@ -57,27 +57,25 @@
         </div>
       </section>
 
-      <section class="band" aria-labelledby="who-h">
-        <p class="eyebrow"><span class="num">01</span> Who we are</p>
-        <div class="prose">
-          <h2 class="lead" id="who-h">
+      <div class="letter">
+      <section class="passage" aria-labelledby="who-h">
+        <h2 class="passage-head" id="who-h">Who we are</h2>
+          <p>
             Inevitable Frontier is a research and policy organization working to shape the
             future of emerging technology.
-          </h2>
+          </p>
           <p>
             We are students, researchers, policymakers, and founders from across the United
             States.
           </p>
-        </div>
       </section>
 
-      <section class="band" aria-labelledby="vision-h">
-        <p class="eyebrow"><span class="num">02</span> What we envision</p>
-        <div class="prose">
-          <h2 class="lead" id="vision-h">
+      <section class="passage" aria-labelledby="vision-h">
+        <h2 class="passage-head" id="vision-h">What we envision</h2>
+          <p>
             A future where human flourishing is not a question of <em>if</em>, but
             <em>when</em>.
-          </h2>
+          </p>
           <p>
             Technological innovation can transform human health, education, security,
             prosperity, and eventually humanity's reach into the cosmos.
@@ -86,13 +84,13 @@
             We believe extraordinary advancements are possible across artificial intelligence,
             biotechnology, defense, national security, health, education, and space.
           </p>
-        </div>
       </section>
 
-      <section class="band" aria-labelledby="work-h">
-        <p class="eyebrow"><span class="num">03</span> Our work</p>
-        <div class="prose">
-          <h2 class="lead" id="work-h">Our work focuses on artificial intelligence.</h2>
+      <section class="passage" aria-labelledby="work-h">
+        <h2 class="passage-head" id="work-h">Our work</h2>
+          <p>
+            Our work focuses on artificial intelligence.
+          </p>
           <p>
             Technological progress in AI should remain open to competition and experimentation
             — not directed exclusively by incumbent corporations, policymakers, or any single
@@ -107,22 +105,50 @@
             Achieving this requires an environment where new companies and independent
             researchers can build, compete, and succeed.
           </p>
-        </div>
       </section>
 
-      <section class="band" id="join" aria-labelledby="join-h">
-        <p class="eyebrow"><span class="num">04</span> Get involved</p>
-        <div class="prose">
-          <h2 class="lead" id="join-h">Work with us.</h2>
-          <p>
-            We are looking for students, researchers, policymakers, and founders who want to
-            help shape how this technology is governed.
-          </p>
-          <p class="contact">
-            <a class="contact-link" href="mailto:kavneerm@gmail.com">kavneerm@gmail.com</a>
-          </p>
-        </div>
+      <section class="passage" id="join" aria-labelledby="join-h">
+        <h2 class="passage-head" id="join-h">Get involved</h2>
+        <p>
+          We are looking for students, researchers, policymakers, and founders who want to
+          help shape how this technology is governed. Tell us who you are and we will be in
+          touch.
+        </p>
+
+        <!--
+          A native form POST — no JavaScript, by design.
+
+          action= must point at a real endpoint before this can ship. `[FORM ENDPOINT]` is
+          caught by scripts/placeholder.ts, so `npm run deploy` refuses to publish a form
+          that silently discards what people type into it.
+        -->
+        <form class="signup" action="[FORM ENDPOINT]" method="POST">
+          <div class="field">
+            <label for="f-name">Name</label>
+            <input id="f-name" name="name" type="text" autocomplete="name" required />
+          </div>
+
+          <div class="field">
+            <label for="f-email">Email</label>
+            <input id="f-email" name="email" type="email" autocomplete="email" required />
+          </div>
+
+          <div class="field">
+            <label for="f-note">What are you working on? <span class="optional">Optional</span></label>
+            <textarea id="f-note" name="note" rows="3"></textarea>
+          </div>
+
+          <!-- Honeypot. A bot fills every field it finds; a person never sees this one. Off
+               the tab order and hidden from screen readers, so it costs no one anything. -->
+          <div class="trap" aria-hidden="true">
+            <label for="f-company">Company</label>
+            <input id="f-company" name="_gotcha" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <button class="submit" type="submit">Send</button>
+        </form>
       </section>
+      </div>
     </main>
 
     <footer class="colophon">

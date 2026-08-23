@@ -31,11 +31,11 @@ Stated before anything else. Everything below it is a consequence.
 
 ## 01 — Who we are
 
-**Lead**
+**Heading** (orange)
+
+> Who we are
 
 > Inevitable Frontier is a research and policy organization working to shape the future of emerging technology.
-
-**Body**
 
 > We are students, researchers, policymakers, and founders from across the United States.
 
@@ -43,11 +43,11 @@ Stated before anything else. Everything below it is a consequence.
 
 ## 02 — What we envision
 
-**Lead**
+**Heading** (orange)
+
+> What we envision
 
 > A future where human flourishing is not a question of if, but when.
-
-**Body**
 
 > Technological innovation can transform human health, education, security, prosperity, and eventually humanity's reach into the cosmos.
 
@@ -57,11 +57,11 @@ Stated before anything else. Everything below it is a consequence.
 
 ## 03 — Our work
 
-**Lead**
+**Heading** (orange)
+
+> Our work
 
 > Our work focuses on artificial intelligence.
-
-**Body**
 
 > Technological progress in AI should remain open to competition and experimentation — not directed exclusively by incumbent corporations, policymakers, or any single ideological faction.
 
@@ -73,21 +73,20 @@ Stated before anything else. Everything below it is a consequence.
 
 ## 04 — Get involved
 
-**Lead**
+**Heading** (orange)
 
-> Work with us.
+> Get involved
 
-**Body**
+> We are looking for students, researchers, policymakers, and founders who want to help shape how this technology is governed. Tell us who you are and we will be in touch.
 
-> We are looking for students, researchers, policymakers, and founders who want to help shape how this technology is governed.
+**Form**
 
-**Contact**
+A native HTML form POST — no JavaScript. Fields: Name, Email, and an optional "What are you
+working on?". A honeypot field named `_gotcha` sits off-screen to absorb bots.
 
-> kavneerm@gmail.com
-
-A personal address, used deliberately for now. `contact@inevitablefrontier.org` would read
-as more established to press and policymaker staff, and the domain is already registered —
-swapping it is a one-line change here and in `index.html`.
+`action` is the literal marker `[FORM ENDPOINT]` until a real destination exists.
+`scripts/placeholder.ts` blocks `npm run deploy` while it is present, so the site cannot
+publish a form that silently discards what people type into it.
 
 ---
 
@@ -99,11 +98,7 @@ swapping it is a one-line change here and in `index.html`.
 
 ## Status
 
-**Lead**
-
 > We have not published yet.
-
-**Body**
 
 > Inevitable Frontier is new. Our first briefs are in progress, and when they are ready they will be posted here in full — readable on the page, free, and without a login.
 
@@ -127,6 +122,10 @@ that has not published any would be the single most damaging thing this site cou
   titles were invented.
 - **2026-08-23** — Contact address set to kavneerm@gmail.com, replacing the `[ADD EMAIL]`
   marker and unblocking `npm run deploy`.
+- **2026-08-23** — Sections 01–04 restructured as one continuous letter: orange headings,
+  one serif column, no rules between sections, no section numbers.
+- **2026-08-23** — Contact replaced with a form; kavneerm@gmail.com removed at the client's
+  direction. The site now has no working contact path until the form endpoint is set.
 - **2026-08-23** — Removed the "On our name" section at the client's direction. The colophon
   line repeated its claim verbatim ("The frontier is not inevitable…") and was replaced with
   the section 01 descriptor, since leaving it would have asserted the removed argument with

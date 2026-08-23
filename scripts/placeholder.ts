@@ -14,7 +14,34 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { DIST } from './lib.ts';
 
-const MARKERS = ['[ADD EMAIL]', 'ADD EMAIL', 'TODO', 'FIXME', 'lorem ipsum'];
+const MARKERS = [
+  '[ADD EMAIL]',
+  '[FORM ENDPOINT]',
+  'ADD EMAIL',
+  'FORM ENDPOINT',
+  'TODO',
+  'FIXME',
+  'lorem ipsum',
+];
+
+/**
+ * A form whose action does not resolve is worse than no form: someone types their name and
+ * email, submits, and believes they have made contact. Nothing in the markers list catches
+ * that on its own, so the action attribute is checked structurally too.
+ */
+const FORM_ACTION = /<form[^>]*\saction="([^"]*)"/gi;
+
+/**
+ * HTML comments are stripped before scanning.
+ *
+ * A comment is not user-visible, so a `TODO` inside one is not a thing that can ship badly
+ * — and the comment explaining this gate necessarily quotes the markers it looks for, which
+ * made the gate block on its own documentation. The commented-out entry template in
+ * writing/index.html is the same case.
+ */
+function scannable(html: string): string {
+  return html.replace(/<!--[\s\S]*?-->/g, ' ');
+}
 
 function htmlFiles(dir: string): string[] {
   const out: string[] = [];
@@ -28,7 +55,7 @@ function htmlFiles(dir: string): string[] {
 
 const found: string[] = [];
 for (const file of htmlFiles(DIST)) {
-  const text = readFileSync(file, 'utf8').toLowerCase();
+  const text = scannable(readFileSync(file, 'utf8')).toLowerCase();
   const hits: string[] = [];
   for (const marker of MARKERS) {
     if (!text.includes(marker.toLowerCase())) continue;
@@ -38,6 +65,17 @@ for (const file of htmlFiles(DIST)) {
     hits.push(marker);
   }
   for (const hit of hits) found.push(`${file.replace(DIST, 'dist')}: ${hit}`);
+}
+
+for (const file of htmlFiles(DIST)) {
+  const text = scannable(readFileSync(file, 'utf8'));
+  for (const match of text.matchAll(FORM_ACTION)) {
+    const action = match[1] ?? '';
+    const ok = /^(https?:\/\/|\/|mailto:)/.test(action) && !action.includes('[');
+    if (!ok) {
+      found.push(`${file.replace(DIST, 'dist')}: <form action="${action}"> does not resolve`);
+    }
+  }
 }
 
 if (found.length > 0) {

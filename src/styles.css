@@ -368,76 +368,153 @@ em {
   pointer-events: none;
 }
 
-/* ---------------------------------------------------------------- bands */
+/* ---------------------------------------------------------------- letter */
 
-.band {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(1.25rem, 3vw, 1.75rem);
+/*
+ * Sections 01-04 were separate bands, each a two-column grid with a mono label in the left
+ * margin and a hairline rule between them. They read as four boxed statements rather than
+ * one argument.
+ *
+ * They are now one continuous letter: a single measure-width column, orange headings, and
+ * no rules at all. Nothing delineates a section except the heading and the space above it,
+ * which is how a letter separates its parts.
+ */
+.letter {
   max-width: var(--frame);
   margin-inline: auto;
-  padding: var(--band-space) var(--gutter);
+  padding: clamp(3.5rem, 10vh, 6rem) var(--gutter) clamp(2rem, 5vh, 3rem);
 }
 
-.band + .band {
-  border-top: 1px solid var(--rule-soft);
-}
-
-@media (min-width: 60rem) {
-  .band {
-    grid-template-columns: 13rem minmax(0, 1fr);
-    column-gap: 4rem;
-  }
-
-  /*
-   * Optical alignment: the mono eyebrow sits on the first line of the lead beside it.
-   *
-   * `align-self: start` is load-bearing. The grid cell stretches to the band's full height
-   * by default, and `.eyebrow` is itself a flex row with `align-items: center` — so without
-   * this the label floats halfway down a tall section, unmoored from the heading it labels.
-   * The padding is the optical nudge onto the lead's baseline; this is what puts it in the
-   * right neighbourhood at all.
-   */
-  .band > .eyebrow {
-    align-self: start;
-    padding-top: 0.6rem;
-  }
-}
-
-.prose {
-  display: grid;
-  gap: 1.15rem;
+.passage {
   max-width: var(--measure);
+  /* Optically centred under the hero rather than mathematically: the letter reads as one
+     column, so it is centred in the frame, not floated left in a two-column remnant. */
+  margin-inline: auto;
+}
+
+.passage + .passage {
+  margin-top: clamp(2.75rem, 7vh, 4.25rem);
+}
+
+.passage-head {
+  font-family: var(--sans);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--accent);
+  margin-bottom: 0.85rem;
+}
+
+/*
+ * The letter body is serif. The old layout carried serif only in the large "lead" sentence
+ * of each section, with sans beneath it — which is what made each section read as a titled
+ * block rather than as prose. One typeface throughout is what makes it a letter.
+ */
+.passage p {
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.7;
   color: var(--ink-soft);
 }
 
-.lead {
-  font-size: clamp(1.3rem, 1.06rem + 1.05vw, 1.85rem);
-  line-height: 1.32;
+.passage p + p {
+  margin-top: 1.05rem;
+}
+
+/* The first line of each passage carries slightly more weight, the way an opening sentence
+   does — without becoming a second heading competing with the orange one above it. */
+.passage p:first-of-type {
   color: var(--ink);
-  margin-bottom: 0.2rem;
 }
 
-/* ---------------------------------------------------------------- contact */
+/* ---------------------------------------------------------------- form */
 
-.contact {
-  margin-top: 0.5rem;
+.signup {
+  display: grid;
+  gap: 1.1rem;
+  margin-top: 1.75rem;
+  max-width: 26rem;
 }
 
-/* The one action the page asks for, so it is sized to be found rather than tucked into
-   body copy. */
-.contact-link {
-  display: inline-block;
-  font-family: var(--mono);
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field label {
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+
+.field input,
+.field textarea {
+  font-family: var(--sans);
   font-size: 0.9375rem;
+  line-height: 1.5;
   color: var(--ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--accent);
-  padding-bottom: 2px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.6rem 0.7rem;
+  /* Inputs do not inherit the page font or colour, and on iOS an unstyled input renders at
+     a size that triggers a zoom on focus. 16px minimum avoids that. */
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.contact-link:hover {
-  color: var(--accent);
+.field textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+@media (max-width: 30rem) {
+  .field input,
+  .field textarea {
+    font-size: 1rem;
+  }
+}
+
+/* Off-screen rather than display:none — a bot reading the DOM still finds it, which is the
+   entire point, while nobody using the page ever encounters it. */
+.trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.submit {
+  justify-self: start;
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  padding: 0.6rem 1.4rem;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ---------------------------------------------------------------- colophon */

@@ -85,8 +85,8 @@ async function contrast(page: Page): Promise<ContrastRow[]> {
 
     const selectors = [
       '.hero-statement',
-      '.lead',
-      '.prose p',
+      '.passage-head',
+      '.passage p',
       '.eyebrow',
       '.nav a',
       '.wordmark',
@@ -94,7 +94,9 @@ async function contrast(page: Page): Promise<ContrastRow[]> {
       '.link',
       '.colophon-line',
       '.colophon-mark',
-      '.contact-link',
+      '.field label',
+      '.submit',
+      '.optional',
     ];
 
     const rows: ContrastRow[] = [];

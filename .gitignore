@@ -8,8 +8,7 @@ shots/
 scratch/
 
 # Terraform: state contains resource metadata and must never be committed; tfvars may
-# contain account-specific values. The lock file IS committed, deliberately — it pins
-# provider versions so two machines resolve the same ones.
+# contain account-specific values. The lock file IS committed, deliberately.
 infra/.terraform/
 *.tfstate
 *.tfstate.*

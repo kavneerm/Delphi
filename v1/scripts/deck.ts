@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { BLOCKS } from '../src/copy.ts';
-import { REPO, Report } from './lib.ts';
+import { Report } from './lib.ts';
 
 /**
  * Blocks whose text must appear verbatim in all three places.
@@ -66,9 +66,10 @@ function main(): void {
   // dist/, not the source: this asserts what actually ships. Vite rewrites index.html, and
   // the point of the check is the artifact.
   const html = readFileSync(resolve(root, 'dist/index.html'), 'utf8');
-  // The deck is repo-level: it is the argument the site makes, not an artifact of how
-  // this frontend renders it.
-  const deck = readFileSync(resolve(REPO, 'docs/copy-deck.md'), 'utf8');
+  // v1's deck lives with v1. It describes the act structure and scroll progress of this
+  // implementation specifically, so it moved back in here when the root deck was replaced
+  // by the copy for the current site.
+  const deck = readFileSync(resolve(root, 'docs/copy-deck.md'), 'utf8');
 
   // No early exit if this is missing: an absent <noscript> should fail *and* let every
   // per-block assertion below report too, so one run says exactly what is wrong rather

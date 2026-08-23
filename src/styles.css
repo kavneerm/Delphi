@@ -1,0 +1,422 @@
+/*
+ * inevitablefrontier.org — one stylesheet, no JavaScript.
+ *
+ * The organising device is the horizon: a hairline the eye returns to, sitting between the
+ * belief and the rest of the argument. Everything else is type and whitespace.
+ *
+ * There is deliberately no scroll-driven behaviour here. The previous build faded sections
+ * in as they entered view, and every bug in it came from that system — including one where
+ * the page's own `scroll-behavior: smooth` made the reveals untestable. A policy
+ * organization's page needs to be read, not animated.
+ */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  --paper: #fbf9f6;
+  --paper-sunk: #f4f0ea;
+  --ink: #16181c;
+  --ink-soft: #4a5058;
+  /* Measured, not chosen by eye: #7b828b renders 3.42:1 on the sunk band and fails WCAG
+     AA. check:layout asserts this in both themes. */
+  --ink-faint: #5f666e;
+  --rule: rgba(22, 24, 28, 0.14);
+  --rule-soft: rgba(22, 24, 28, 0.07);
+  --accent: #b8542a;
+  --accent-wash: rgba(184, 84, 42, 0.1);
+
+  --serif: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Source Serif Pro',
+    Georgia, serif;
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui,
+    sans-serif;
+  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  --gutter: clamp(1.5rem, 5vw, 4.5rem);
+  --band-space: clamp(4.5rem, 11vh, 8rem);
+  --measure: 34rem;
+  --frame: 72rem;
+}
+
+/* Dark is only a token swap, so every rule below is written once. Guarded against an
+   explicit light choice so a future toggle wins in both directions. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #0e1013;
+    --paper-sunk: #14171b;
+    --ink: #f0ede8;
+    --ink-soft: #a4abb4;
+    --ink-faint: #8f969f;
+    --rule: rgba(240, 237, 232, 0.16);
+    --rule-soft: rgba(240, 237, 232, 0.08);
+    --accent: #e08a4e;
+    --accent-wash: rgba(224, 138, 78, 0.13);
+  }
+}
+
+:root[data-theme='dark'] {
+  --paper: #0e1013;
+  --paper-sunk: #14171b;
+  --ink: #f0ede8;
+  --ink-soft: #a4abb4;
+  --ink-faint: #8f969f;
+  --rule: rgba(240, 237, 232, 0.16);
+  --rule-soft: rgba(240, 237, 232, 0.08);
+  --accent: #e08a4e;
+  --accent-wash: rgba(224, 138, 78, 0.13);
+}
+
+/* ---------------------------------------------------------------- reset */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: -0.017em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10;
+  padding: 0.75rem 1.25rem;
+  background: var(--ink);
+  color: var(--paper);
+  text-decoration: none;
+  font: 500 0.875rem/1 var(--sans);
+}
+
+.skip:focus {
+  left: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: var(--frame);
+  margin-inline: auto;
+  padding: clamp(1.5rem, 3.5vh, 2.25rem) var(--gutter);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* Two strokes of the page's own device: a horizon, and one mark standing on it. */
+.wordmark-mark {
+  position: relative;
+  flex: none;
+  align-self: center;
+  width: 1.05rem;
+  height: 0.85rem;
+}
+
+.wordmark-mark::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0.16rem;
+  height: 1.5px;
+  background: var(--accent);
+}
+
+.wordmark-mark::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0.16rem;
+  width: 1.5px;
+  height: 0.62rem;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.masthead-note {
+  font-size: 0.8125rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+/* ---------------------------------------------------------------- hero */
+
+.hero {
+  padding: clamp(2.5rem, 8vh, 6rem) var(--gutter) 0;
+  /* `clip`, not `hidden`: it contains the glow horizontally without creating a scroll
+     container and without forcing the vertical axis to `auto`. */
+  overflow-x: clip;
+}
+
+.hero-inner {
+  max-width: 46rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.hero-statement {
+  font-size: clamp(1.5rem, 1.02rem + 2.15vw, 2.75rem);
+  line-height: 1.25;
+  margin-top: 1.5rem;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.hero-inner .eyebrow {
+  justify-content: center;
+}
+
+.num {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The horizon sits in normal flow between the statement and the first band, so no
+ * viewport, font size, or line count can put it through the text. The glow is anchored to
+ * the line's own position rather than a percentage of anything.
+ */
+.horizon {
+  position: relative;
+  height: 1px;
+  margin-top: clamp(3.5rem, 10vh, 7rem);
+  /* Full-bleed past the page gutter, so the line reads as a horizon rather than a rule. */
+  margin-inline: calc(var(--gutter) * -1);
+}
+
+.horizon-line {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--rule) 14%,
+    var(--rule) 86%,
+    transparent
+  );
+}
+
+.horizon-glow {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  /* Never wider than the band itself. At 140vw the glow pushed the document 78px past the
+     viewport at 390 and 154px at 768 — a horizontal scrollbar on every phone. `.horizon` is
+     already full-bleed, so 100% here is the viewport. */
+  width: min(100%, 74rem);
+  aspect-ratio: 2 / 1;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 100%, var(--accent-wash), transparent 70%);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- bands */
+
+.band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1.25rem, 3vw, 1.75rem);
+  max-width: var(--frame);
+  margin-inline: auto;
+  padding: var(--band-space) var(--gutter);
+}
+
+.band + .band {
+  border-top: 1px solid var(--rule-soft);
+}
+
+@media (min-width: 60rem) {
+  .band {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    column-gap: 4rem;
+  }
+
+  /*
+   * Optical alignment: the mono eyebrow sits on the first line of the lead beside it.
+   *
+   * `align-self: start` is load-bearing. The grid cell stretches to the band's full height
+   * by default, and `.eyebrow` is itself a flex row with `align-items: center` — so without
+   * this the label floats halfway down a tall section, unmoored from the heading it labels.
+   * The padding is the optical nudge onto the lead's baseline; this is what puts it in the
+   * right neighbourhood at all.
+   */
+  .band > .eyebrow {
+    align-self: start;
+    padding-top: 0.6rem;
+  }
+}
+
+.prose {
+  display: grid;
+  gap: 1.15rem;
+  max-width: var(--measure);
+  color: var(--ink-soft);
+}
+
+.lead {
+  font-size: clamp(1.3rem, 1.06rem + 1.05vw, 1.85rem);
+  line-height: 1.32;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+}
+
+/* The turn: the one section allowed to raise its voice, because the whole position depends
+   on the reader accepting a contradiction. */
+.band-turn {
+  max-width: none;
+  background: var(--paper-sunk);
+  border-top: 1px solid var(--rule);
+}
+
+.band + .band-turn {
+  border-top-color: var(--rule);
+}
+
+.band-turn > * {
+  max-width: var(--frame);
+}
+
+@media (min-width: 60rem) {
+  .band-turn {
+    justify-content: center;
+  }
+}
+
+.turn-statement {
+  font-size: clamp(1.55rem, 1.12rem + 1.95vw, 2.5rem);
+  line-height: 1.24;
+  color: var(--ink);
+  margin-bottom: 0.35rem;
+}
+
+/* Strike the negation rather than italicise it — "not" is the load-bearing word, and it
+   should read as struck through the certainty the name implies. */
+.turn-statement em {
+  position: relative;
+  font-style: normal;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.turn-statement em::after {
+  content: '';
+  position: absolute;
+  left: -0.05em;
+  right: -0.05em;
+  bottom: 0.08em;
+  height: 0.07em;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+/* ---------------------------------------------------------------- contact */
+
+.contact {
+  margin-top: 0.5rem;
+}
+
+/* Loud on purpose. This marker must be impossible to mistake for finished copy, and
+   `npm run deploy` refuses to publish while it is present. */
+.contact-placeholder {
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border: 1px dashed var(--accent);
+  border-radius: 2px;
+  background: var(--accent-wash);
+  /* Ink, not accent: accent on its own 10% wash measures 4.04:1 and fails AA at this size.
+     The dashed accent border carries the loudness instead. */
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+}
+
+/* ---------------------------------------------------------------- colophon */
+
+.colophon {
+  max-width: var(--frame);
+  margin-inline: auto;
+  padding: clamp(2.5rem, 6vh, 4rem) var(--gutter) clamp(2.5rem, 6vh, 4rem);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.colophon-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+}
+
+.colophon-mark {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.colophon-line {
+  max-width: 30rem;
+  font-size: 0.875rem;
+  color: var(--ink-faint);
+}
+
+@media print {
+  .horizon {
+    display: none;
+  }
+}

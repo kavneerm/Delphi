@@ -1,156 +1,109 @@
 # Copy deck
 
-Exact text, mapped to scroll progress. **Do not paraphrase, reorder, or "improve" this
-copy.** If a line doesn't fit the layout, change the layout.
+The exact text of inevitablefrontier.org, in the units the page renders it.
 
-That rule stands. It is about nobody editing this copy *unilaterally* — not about the copy
-being unchangeable. It has been revised once, at the client's explicit direction, and the
-four changes are recorded under "Revisions" at the bottom so the rule keeps its force: the
-text above is still the only text that ships, and it still may not be improved on the way
-past. `npm run check:deck` asserts that the site and the `<noscript>` fallback both match
-it, so a silent divergence fails the build rather than shipping.
+**Do not paraphrase, reorder, or "improve" this copy.** If a line doesn't fit the layout,
+change the layout. This is not about the copy being unchangeable — it is about nobody
+editing it unilaterally on the way past.
 
-All of it lives in real DOM text and must be complete and readable in the reduced-motion
-render.
+Every block quoted below must appear **verbatim** on the page. `npm run check:content`
+asserts it, so a silent divergence fails the check rather than shipping. That is the point
+of the file: the page and the check read the same source, instead of each holding its own
+copy that can drift together and still agree.
 
----
-
-## Act I — The Frontier · `p` 0.00–0.12
-
-**H1** (reveals by word, `p` 0.01–0.04)
-
-> AI is the inevitable frontier.
-
-**Body** (`p` 0.05–0.09)
-
-> Abundance is guaranteed. Competition is not. Emerging technologies could bring
-> intelligence, knowledge, medicine, energy, and productive capacity to new levels of
-> development and sophistication.
-
-**Transition line** (`p` 0.10, sits low in frame, smaller)
-
-> We see two paths ahead for AI development.
-
-Scroll cue beneath it. Subtle — a thin descending rule, not a bouncing arrow.
+Each `>` block is one element on the page. Splitting a block across two elements, or
+merging two into one, will fail the check — the units here are the units rendered.
 
 ---
 
-## Act II — The Closed Frontier · `p` 0.25–0.40
+## Hero — the belief
 
-**Eyebrow** (`p` 0.22, arrives *during* the transition, before the city resolves)
+Stated before anything else. Everything below it is a consequence.
 
-> One
-
-**H2** (`p` 0.26)
-
-> Closed Frontier
-
-**Body** (`p` 0.29–0.36)
-
-> If technological power becomes concentrated in a small number of corporations and
-> government institutions, progress could instead produce dependency, regulatory capture,
-> and permanent barriers to competition.
-
-Copy column sits **right** in this act, pushed toward the frame edge by the slums. It is
-the only act where the column moves. The crowding is the point.
+> We believe AI promises an abundant, prosperous future that can forward human flourishing. Regulation guided by optimism, not pessimism, will ensure we unlock AI's potential — and that it falls into the right hands.
 
 ---
 
-## Act III — The Open Frontier · `p` 0.53–0.68
+## 01 — Who we are
 
-**Eyebrow** (`p` 0.50)
+**Lead**
 
-> Two
+> Inevitable Frontier is a research and policy organization working to shape the future of emerging technology.
 
-**H2** (`p` 0.54)
+**Body**
 
-> Open Frontier
-
-**Body** (`p` 0.57–0.65)
-
-> A society in which technological progress remains open to new entrants, independent
-> researchers, and widespread experimentation; in which genuine risks are governed
-> without creating monopolies; and in which the state is limited in scope, capable in
-> execution, and constrained by individual rights.
-
-Copy column returns **left**, its Act I position.
+> We are students, researchers, policymakers, and founders from across the United States.
 
 ---
 
-## Act IV — The Frontier Returns · `p` 0.80–1.00
+## 02 — What we envision
 
-**Statement** (`p` 0.84, display size, centered, the largest type on the page)
+**Lead**
 
-> Our goal is to ensure the frontier remains open.
+> A future where human flourishing is not a question of if, but when.
 
-**CTA** (`p` 0.92)
+**Body**
 
-Primary button, accent `#FF5E3A`, plus a quiet text link.
+> Technological innovation can transform human health, education, security, prosperity, and eventually humanity's reach into the cosmos.
 
-> [ Get involved ]   ·   Read the full case →
-
-**Footer** (`p` 0.97) — organization name, contact, socials, legal. Standard, quiet, no
-animation.
+> We believe extraordinary advancements are possible across artificial intelligence, biotechnology, defense, national security, health, education, and space.
 
 ---
 
-## Notes
+## 03 — On our name
 
-**On the numbering.** The source lists these as "1." and "2." I've set them as the
-eyebrow words *One* and *Two* because numerals read as ranked preference and these are
-alternatives. If you want the numerals back, they go in the same slot with the same
-timing.
+The turn. The organization is named against its own argument, and the site should say so
+plainly rather than let a reader notice it as a contradiction.
 
-**Reveal rule.** Every reveal is driven by `p`, never by a timer, and never blocks
-scrolling. A user who scrolls fast sees everything already revealed rather than a queue
-of animations playing catch-up.
+**Lead**
 
-**Reduced motion.** All copy renders immediately in document flow beneath its act's
-static scene. Nothing is hidden behind a reveal that requires motion to trigger.
+> Our belief is intentionally antithetical to our name: the frontier is not inevitable.
 
-**Placeholder content.** The CTA destinations, org name, and footer are unspecified.
-Leave them as clearly-marked `TODO` in the markup rather than inventing an organization
-name, a tagline, or a link target.
+**Body**
+
+> It will become what the American people choose to build, permit, and protect.
+
+---
+
+## 04 — Our work
+
+**Lead**
+
+> Our work focuses on artificial intelligence.
+
+**Body**
+
+> Technological progress in AI should remain open to competition and experimentation — not directed exclusively by incumbent corporations, policymakers, or any single ideological faction.
+
+> The companies building the most powerful technologies should not be able to use regulation to insulate themselves from competition — whether by raising compliance costs, gatekeeping access, or restricting what others may publish.
+
+> Achieving this requires an environment where new companies and independent researchers can build, compete, and succeed.
+
+---
+
+## 05 — Get involved
+
+**Lead**
+
+> Work with us.
+
+**Body**
+
+> We are looking for students, researchers, policymakers, and founders who want to help shape how this technology is governed.
+
+**Contact**
+
+The address is not yet set. The page ships the literal marker `[ADD EMAIL]`, and
+`npm run deploy` refuses to publish while it is present — see `scripts/placeholder.ts`.
+Replacing the marker with a real `mailto:` link is what unblocks publishing.
 
 ---
 
 ## Revisions
 
-### 2026-08-16 — copyedit for flow, grammar and punctuation
-
-At the client's request. Brief was explicit: refine the language, keep the general message,
-and keep the sentence structures. No sentence was added, removed, split, joined or reordered
-in any of the four; the argument is unchanged.
-
-**Act I body — "could make … reach" → "could bring … to".**
-Five list items sit between the verb and its complement, so `make` waited twelve words for
-`reach` and the reader had to hold the construction open across the whole list. `bring … to`
-is a lighter frame that survives the interruption. Same claim, same list, same order.
-
-**Act II body — "concentrated within" → "concentrated in".**
-Idiom. Power concentrates *in* institutions; *within* reads as "inside the boundary of",
-which is a spatial claim rather than a structural one.
-
-**Act III body — "in which" repeated at each semicolon.**
-The sentence hangs three long clauses off a single `in which`, and each clause carries its
-own comma series. By the second semicolon the governing phrase is twenty-odd words back and
-the parallel stops being audible. Repeating the relative pronoun is the standard fix and
-makes the three-part structure explicit. Four words longer; not one word otherwise changed.
-This is the only edit that alters length enough to affect layout, so it is the one to watch
-if the Act III column ever reflows.
-
-**Act IV statement — proposed, then withdrawn. The line is unchanged.**
-I proposed "ensure **that** the frontier remains open", on the grounds that without `that`,
-`ensure the frontier` parses as a complete object before `remains` forces a re-read.
-The client declined it, and the line stands as originally written:
-
-> Our goal is to ensure the frontier remains open.
-
-Recorded rather than deleted so the same edit is not proposed again. Omitting `that` after
-`ensure` is standard English, not an error — the argument for it was a preference, and on
-the largest line on the page the client's ear is the one that counts. The measurement taken
-at the time still holds and is worth keeping: both versions set to three lines at the same
-block height at 1440x900 and 390x844, so nothing typographic rides on this either way.
-
-**Not changed:** both H2s, the H1, the CTA, and the transition line. They are clean and any
-edit would have been preference, not correction.
+- **2026-08-23** — Deck rewritten for the current site. The previous deck described v1's
+  four-act scroll structure and now lives at `v1/docs/copy-deck.md`.
+- **2026-08-23** — Comma added to "guided by optimism, not pessimism" (was unpunctuated in
+  the source statement). Punctuation only; no wording changed.
+- **2026-08-23** — "Achieving them" became "Achieving this" when the domains sentence moved
+  from section 05 into section 02, leaving no plural antecedent in section 04.

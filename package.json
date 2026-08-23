@@ -1,0 +1,24 @@
+{
+  "name": "inevitable-frontier",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "shots": "node scripts/shoot.ts",
+    "check": "npm run typecheck && npm run check:content && npm run check:layout",
+    "check:content": "node scripts/content.ts",
+    "check:layout": "node scripts/layout.ts",
+    "check:placeholder": "node scripts/placeholder.ts",
+    "deploy": "npm run build && npm run check:placeholder && node scripts/deploy.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "playwright": "1.62.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.1"
+  }
+}

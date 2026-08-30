@@ -1,132 +1,97 @@
-# CLAUDE.md
+# Inevitable Frontier
 
-<!--
-MAINTAINER NOTES — block-level HTML comments are stripped before this file enters
-Claude's context, so everything in here is free. Write notes to humans in comments.
+Website for Inevitable Frontier (inevitablefrontier.org) — a youth research and
+policy organization on AI, co-founded by Nahom Sisay and Kavneer Majhail.
+Next.js 14 (App Router), TypeScript, Tailwind.
 
-This file is written for a repo that doesn't have code yet. It contains only rules
-Claude cannot infer from reading the codebase, because there is no codebase.
+```bash
+npm run dev      # http://localhost:3000
+```
 
-WHEN THERE IS CODE: run /init. Claude inspects the repo and fills in real build
-commands, test runners, and conventions. It proposes additions rather than
-overwriting an existing file. Then fill in the two stub sections at the bottom.
+**Never run `npm run build` while `next dev` is running.** The build overwrites
+`.next` and the dev server starts serving unstyled pages. Stop the server,
+build, then `rm -rf .next` and restart.
 
-EDITING RULE: for every line, ask "would deleting this cause Claude to make a
-mistake?" If no, delete it. Adherence drops as this file grows — a bloated file
-buries the rules that matter. Target under 200 lines. `/context` shows whether it
-loaded; `/doctor` proposes trims. Review edits in PRs like any other code.
+---
 
-WHEN THE REPO GROWS SUBDIRECTORIES: give each one its own CLAUDE.md rather than
-extending this file. Claude loads files above the working directory at launch and
-subdirectory files lazily — only when it reads something in that directory. That's
-what keeps them cheap. Two cautions: (1) nested files are NOT re-injected after
-/compact, so anything that must hold across a long session stays in THIS file;
-(2) all discovered files concatenate rather than override, so contradictions
-between levels get resolved arbitrarily. Audit for conflicts when behavior gets odd.
--->
+## The background — read this before touching it
 
-## Project invariants
+One background: `app/components/BackgroundArcs.tsx`, mounted **once in
+`app/layout.tsx`**. No page mounts it.
 
-<!--
-The load-bearing rules specific to THIS project: correctness properties, honesty
-requirements, things that must never be true of the output. These are decisions,
-not discoveries — Claude cannot derive them from code, which is exactly what earns
-them a place here. Put them first; they matter most and context position matters.
+Three rules, each of which was a real bug:
 
-Delete this section if there aren't any yet. Don't leave it empty.
--->
+1. **Mount it in the layout, never in a page.** Inside a page it is destroyed
+   and rebuilt on every route change, which reads as the background flashing
+   out between pages.
 
-- [invariant]
-- [invariant]
+2. **Internal links must be `next/link`.** A plain `<a href="/team">` is a
+   full document load and tears down the layout too, so rule 1 alone fixes
+   nothing. Plain `<a>` is still right for `#` anchors, external links and
+   the `.ics` downloads.
 
-## Verification — never report done without evidence
+3. **Size to `span = Math.max(W, H)`, never to `W`.** Anything covering the
+   viewport — Blooms, Vignette, ring radii — shrinks on a tall narrow screen
+   if it is a fraction of width. The biggest Bloom covered 174% of viewport
+   height on desktop and 45% on a phone before this was fixed.
 
-- Every change ships with a check that returns pass or fail: a test, a typecheck, a
-  build exit code, a script that diffs output against a fixture, or a screenshot
-  compared to a target.
-- Show the command and its actual output. Do not assert success in prose.
-- If no check exists for what I asked, say so **before** implementing and propose one.
-- Fix root causes. Never silence a warning, skip a test, widen a type, or add a
-  try/except that swallows the error to make a check pass.
-- If a check still fails after two attempts, stop. Report what you tried, what the
-  output said, and what you think is actually wrong.
+Earlier backgrounds are **not** kept as files; they are in git history:
 
-## Loops — iterate until the check passes
+```bash
+git show b4485ea:app/components/Background.tsx   # the old Field
+```
 
-- Default loop: change → run the check → read the output → fix → re-run. Do not hand
-  control back mid-loop to tell me a test is failing; fix it and show me the green run.
-- Stop after three rounds with no measurable progress. Report, don't thrash.
-- When I set `/goal <condition>`, the condition is judged from what you surface in the
-  conversation — the evaluator reads the transcript and cannot run commands. Run the
-  check and print its output every turn, or it can't be evaluated.
-- Before calling any multi-file change done, run an adversarial review in a **fresh**
-  subagent against the plan file. Report only gaps that affect correctness or a stated
-  requirement — not style preferences, not hypothetical edge cases.
+Recover with `git show <commit>:<path> > <path>` and verify with `shasum`
+and `git diff` before trusting it. Nahom asked for exactness here — a
+reconstruction from a screenshot is not a revert, and he will check.
 
-## Subagents — keep exploration out of the main context
+`app/components/BackgroundTrajectories.tsx` is a finished, unused third
+composition. Nothing imports it. Do not delete it as dead code — BRAND.md
+§9a documents it.
 
-- Delegate work whose output we will never reference again: repo-wide searches, full
-  test-suite runs, log triage, reading third-party docs. Return the finding, not the
-  transcript.
-- Independent questions → parallel subagents. Questions that depend on each other →
-  main conversation.
-- A subagent starts with a fresh context and cannot see our conversation. Restate the
-  file paths, the constraints, and the definition of done in every delegation prompt.
-- The built-in Explore and Plan agents do not load this file. If a rule here must apply
-  to their work, repeat it in the delegation prompt.
-- The agent that wrote the code never grades it. Reviews and verification run in a
-  separate context.
+`/bg` is an unlinked workbench: the background with no content over it.
+**L** texture, **S** scrim, **H** hint. Its root must not set an opaque
+background or it covers the layout's canvas.
 
-## Context management
+## BRAND.md is the design system
 
-- Plans, specs, and task lists go in files under `docs/plans/`, never in chat alone.
-  Conversation gets summarized away on compaction; files survive.
-- Track multi-step work as `[ ]` checkboxes in the plan file and tick them as you go.
-  On resuming, re-read the plan file rather than trusting conversation memory.
-- Prefer targeted reads: grep, symbol search, and specific line ranges over whole files.
-- Never read build output, dependency directories, generated files, or vendored code.
-- Say when you are guessing instead of having read the code. Guessing is fine; a
-  confident-sounding guess presented as fact is not.
-- Tell me to `/clear` when I switch to unrelated work while context is loaded with the
-  previous task.
+`BRAND.md` is the single source of truth for colour, type, shape, motion and
+the named elements. **Update it in the same commit as any design change** —
+Nahom asked for this explicitly. A brand guide that lags the code is worse
+than none, because it gets trusted.
 
-## When my prompt is thin
+Use its lexicon in conversation and commit messages: Pitch/Bone/Ember for the
+palette; the Field (Starfield, Blooms, Motes, Wisps, Sparks, Rings, Nodes,
+Vignette) for the background; 3D Card, Glint, Frost, Portrait, the Split for
+the surface.
 
-- No verification criterion in the request → ask for one, or propose one, before coding.
-- Touches 3+ files, or the approach is uncertain → plan first. Write the plan to
-  `docs/plans/<slug>.md` and wait for approval before editing.
-- One-sentence diff (typo, log line, rename) → just do it. Don't plan.
-- I named a file, symbol, or endpoint that doesn't exist → say so. Do not silently
-  substitute a plausible-looking alternative.
-- Ask at most one clarifying question per turn, and only when the answer changes the
-  implementation. Otherwise pick the reasonable default and state which one you picked.
-- For a feature-sized request, interview me with `AskUserQuestion` first — cover edge
-  cases, tradeoffs, and what's out of scope, not the obvious parts. Then write a spec.
+Design tokens live in `app/globals.css` under `:root`. No raw hex belongs in a
+component — `--fg` (Bone), `--muted` (Slate), `--ash` (Ash), `--accent`
+(Ember). The accent means "this is a link" and nothing else.
 
-## Repository etiquette
-
-- Branches: `[convention]`. Commits: `[convention]`.
-- Never commit secrets, `.env` files, or credentials. If you find one committed, stop
-  and tell me — do not rewrite history to hide it.
-- Never `git push --force`, amend a pushed commit, or rewrite shared history.
-- Do not create a PR unless I ask. Do not merge one, ever.
-
-## Non-negotiables
-
-- Do not add a dependency without asking. Use what's already in the tree.
-- Do not delete or rewrite a test to make it pass. If a test is wrong, say why.
-- Do not modify migrations, generated files, or lockfiles without saying so first.
-- Destructive commands (`rm -rf`, `DROP`, `TRUNCATE`, `reset --hard`) require my
-  explicit go-ahead in the current turn.
-
-## Commands
-
-<!-- Run /init once there is code. Keep only what can't be guessed from the manifest. -->
-
-_Not yet established._
+---
 
 ## Layout
 
-<!-- Six lines maximum, and only once directories exist. Layout, not architecture. -->
+- `app/page.tsx` — homepage: manifesto left, live conversations right
+- `app/join/page.tsx`, `app/team/page.tsx`, `app/blog/page.tsx`
+- `app/components/TiltCard.tsx` — the 3D card used by every card surface
+- Mobile breakpoint is `768px`. Inline styles are used heavily, so mobile
+  overrides need `!important`. Touch targets clear 44px at ≤768px by growing
+  hit area, never type size — see BRAND.md §7.
 
-_Not yet established._
+## Testing responsive layouts
+
+`resize_window` in the Chrome tools does **not** reflow the viewport on this
+machine (`innerWidth` stays pinned). Test in a sized iframe instead — an
+iframe has its own viewport, so media queries respond to its width. Audit
+`contentDocument` for horizontal overflow, sub-44px targets, and <12px text.
+
+## Still outstanding
+
+Needs content from Nahom: real Substack URL, Zoom links for events 01 and 02,
+social URLs (all still `#`), founder portraits for the Team page.
+
+Code: the email forms show a confirmation and reset without persisting
+anything; only the `/blog` Substack embed captures an address. Not deployed —
+no Vercel project, domain not pointed.

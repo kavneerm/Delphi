@@ -85,4 +85,4 @@ if (found.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS  no placeholders in dist/ — safe to publish');
+console.log('PASS  no placeholders in out/ — safe to publish');

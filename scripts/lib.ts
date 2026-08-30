@@ -1,15 +1,19 @@
 /**
- * Check harness: a pass/fail reporter and a static server over dist/.
+ * Check harness: a pass/fail reporter and a static server over the build output.
  *
  * Everything runs against the *built* site, never the dev server, so what is asserted is
  * what ships.
+ *
+ * The directory is out/, not dist/: the site is a Next.js static export
+ * (`output: "export"` in next.config.mjs) rather than a Vite build. Only the
+ * name changed -- the shape is the same, plain HTML plus fingerprinted assets.
  */
 
 import { createServer, type Server } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
-export const DIST = resolve(process.cwd(), 'dist');
+export const DIST = resolve(process.cwd(), 'out');
 
 export class Report {
   private failures: string[] = [];
@@ -54,7 +58,7 @@ export interface StaticServer {
 
 export async function serveDist(): Promise<StaticServer> {
   if (!existsSync(DIST)) {
-    throw new Error(`no dist/ at ${DIST} — run \`npm run build\` first`);
+    throw new Error(`no out/ at ${DIST} — run \`npm run build\` first`);
   }
 
   const server: Server = createServer((req, res) => {

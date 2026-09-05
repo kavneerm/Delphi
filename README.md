@@ -24,6 +24,7 @@ Setup and run instructions will be added alongside the first implementation.
 ```
 .
 ├── .gitignore
+├── NOTES.md     # local toolchain / credential status
 └── README.md
 ```
 

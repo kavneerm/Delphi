@@ -37,29 +37,67 @@ git config --global user.email "..."
 
 ## AWS
 
-Credentials on disk are **valid**.
+### Profiles on this machine
+
+Two IAM users, both with static access keys in `~/.aws/credentials`.
+
+| Profile | IAM user | Use |
+| --- | --- | --- |
+| `panoptes` | `panoptes` | **This project.** Use this one. |
+| `default` | `pubdef-dev` | Pre-existing, other work. Left untouched. |
+
+**This project uses the `panoptes` profile.** It is not the shell default, so
+either export it per shell:
 
 ```bash
-aws sts get-caller-identity
-# UserId  AIDA... (redacted)
-# Account <redacted>            # 12-digit account ID
-# Arn     arn:aws:iam::<account>:user/pubdef-dev
+export AWS_PROFILE=panoptes
 ```
 
-- IAM user: `pubdef-dev`
-- Credentials live in `~/.aws/credentials` (last modified 2026-07-29)
-- No `AWS_*` environment variables are set — the shared credentials file is
-  what's being used
-- These are **static IAM access keys**, not an expiring SSO/STS session, which
-  is why they still authenticate months later
+…or pass `--profile panoptes` per command. For Terraform, pin it in the
+provider block instead — that way a stray `AWS_PROFILE` can't route a run
+through the wrong identity:
+
+```hcl
+provider "aws" {
+  region  = "us-east-1"
+  profile = "panoptes"
+}
+```
+
+(`direnv` is not installed on this machine; an `.envrc` would be inert. Install
+it if you want the export to happen automatically on `cd`.)
+
+### Verified 2026-09-05
+
+```bash
+aws sts get-caller-identity --profile panoptes
+# Arn  arn:aws:iam::<account>:user/panoptes
+```
+
+Both users carry identical permissions — confirmed by
+`iam:ListAttachedUserPolicies`, no inline policies on either:
+
+- `arn:aws:iam::aws:policy/PowerUserAccess` — everything except IAM,
+  Organizations and Account
+- `pubdef-iam-scoped` (customer managed) — role management confined to
+  `role/pubdef-*` and `role/amplify-*`, `iam:PassRole` for those same roles,
+  service-linked roles for approved services, IAM read for tooling, instance
+  profile management, and self-inspection
 
 ### Caveats
 
-- `get-caller-identity` proves only that the key is valid. It says nothing
-  about what `pubdef-dev` is **authorized** to do — check IAM policy before
-  relying on it for anything that provisions infrastructure.
-- Long-lived static access keys are worth rotating on a schedule, or replacing
-  with IAM Identity Center / SSO short-lived credentials.
+- **`pubdef-iam-scoped` grants no user-management actions.** No
+  `CreateAccessKey`, `ListAccessKeys`, or `ListUsers`. Creating or rotating an
+  access key must be done in the console; the CLI cannot do it with either
+  identity.
+- Its `InspectOwnPermissions` statement is scoped to the calling user, so a
+  profile can inspect only itself. Cross-user IAM reads return `AccessDenied` —
+  expected, not a misconfiguration.
+- `get-caller-identity` proves only that a key is valid, never what it may do.
+- There are now **two sets of long-lived PowerUser keys** on this machine to
+  rotate. The account's IAM policy is otherwise built around assumable
+  `pubdef-*` roles; a `role/pubdef-panoptes` would fit that design better and
+  would need no static keys at all. Worth revisiting.
 
 ## Terraform
 

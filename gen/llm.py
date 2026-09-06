@@ -66,6 +66,7 @@ class Completion:
     prompt_tokens: int = 0
     cached_prompt_tokens: int = 0
     completion_tokens: int = 0
+    reasoning_tokens: int = 0
     schema_retries: int = 0
     transport_retries: int = 0
     latency_s: float = 0.0
@@ -88,6 +89,7 @@ class Usage:
     prompt_tokens: int = 0
     cached_prompt_tokens: int = 0
     completion_tokens: int = 0
+    reasoning_tokens: int = 0
     schema_retries: int = 0
     transport_retries: int = 0
     failures: int = 0
@@ -100,6 +102,7 @@ class Usage:
             self.prompt_tokens += completion.prompt_tokens
             self.cached_prompt_tokens += completion.cached_prompt_tokens
             self.completion_tokens += completion.completion_tokens
+            self.reasoning_tokens += completion.reasoning_tokens
             self.schema_retries += completion.schema_retries
             self.transport_retries += completion.transport_retries
             self.latency_s += completion.latency_s
@@ -110,6 +113,7 @@ class Usage:
             "prompt_tokens": self.prompt_tokens,
             "cached_prompt_tokens": self.cached_prompt_tokens,
             "completion_tokens": self.completion_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
             "schema_retries": self.schema_retries,
             "transport_retries": self.transport_retries,
             "failures": self.failures,
@@ -170,16 +174,19 @@ class LLMClient:
         raise RuntimeError("unreachable")
 
     @staticmethod
-    def _usage_of(response: Any) -> tuple[int, int, int]:
+    def _usage_of(response: Any) -> tuple[int, int, int, int]:
         usage = getattr(response, "usage", None)
         if usage is None:
-            return 0, 0, 0
+            return 0, 0, 0, 0
         details = getattr(usage, "input_tokens_details", None)
         cached = getattr(details, "cached_tokens", 0) if details else 0
+        output_details = getattr(usage, "output_tokens_details", None)
+        reasoning = getattr(output_details, "reasoning_tokens", 0) if output_details else 0
         return (
             int(getattr(usage, "input_tokens", 0) or 0),
             int(cached or 0),
             int(getattr(usage, "output_tokens", 0) or 0),
+            int(reasoning or 0),
         )
 
     # -- structured output --------------------------------------------------
@@ -216,13 +223,14 @@ class LLMClient:
             kwargs["prompt_cache_key"] = cache_key
         response, transport_retries = await self._create(**kwargs)
         text = (response.output_text or "").strip()
-        prompt_tokens, cached, completion_tokens = self._usage_of(response)
+        prompt_tokens, cached, completion_tokens, reasoning_tokens = self._usage_of(response)
         return Completion(
             payload=json.loads(text) if text else {},
             model=getattr(response, "model", self.model),
             prompt_tokens=prompt_tokens,
             cached_prompt_tokens=cached,
             completion_tokens=completion_tokens,
+            reasoning_tokens=reasoning_tokens,
             transport_retries=transport_retries,
             latency_s=time.monotonic() - started,
             raw_text=text,
@@ -240,7 +248,7 @@ class LLMClient:
         errors: list[str] = []
         schema_retries = 0
         transport_retries = 0
-        cached = prompt_tokens = completion_tokens = 0
+        cached = prompt_tokens = completion_tokens = reasoning_tokens = 0
         started = time.monotonic()
 
         for attempt in range(self.config.max_schema_retries + 1):
@@ -254,6 +262,7 @@ class LLMClient:
             prompt_tokens += completion.prompt_tokens
             cached += completion.cached_prompt_tokens
             completion_tokens += completion.completion_tokens
+            reasoning_tokens += completion.reasoning_tokens
             transport_retries += completion.transport_retries
 
             decision = from_strict(completion.payload)
@@ -263,6 +272,7 @@ class LLMClient:
                 completion.prompt_tokens = prompt_tokens
                 completion.cached_prompt_tokens = cached
                 completion.completion_tokens = completion_tokens
+                completion.reasoning_tokens = reasoning_tokens
                 completion.schema_retries = schema_retries
                 completion.transport_retries = transport_retries
                 completion.latency_s = time.monotonic() - started

@@ -1,7 +1,7 @@
 # agent7-ui
 state: IN_PROGRESS
 branch: agent7-ui
-last_commit:
+last_commit: 72e8015
 interfaces_ready: []
 needs: [engine/samples/stub_run.jsonl (agent1-engine), validation/heatmap.csv + validation/final_report.md (agent6-eval), engine local websocket for the human seat (agent1-engine)]
 awaiting_human:

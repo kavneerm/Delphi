@@ -163,9 +163,17 @@ eventual merge cheap and make the current state safe:
 - `resolve_backend()` accepts **both** spellings, rejects an unknown value, and raises
   when the two are set and disagree rather than silently splitting a run. Adopting it
   is a one-line change in either module.
-- S3 writes outside the six contract prefixes now raise, quoting §1. Not hypothetical:
-  the local mirror already contains `smoke/` and `tmp/` keys that would have become a
-  seventh and eighth bucket prefix the first time someone flipped the backend.
+- S3 writes outside the six contract prefixes now raise, quoting §1.
+
+**Correction, from agent4-train.** I wrote that the `smoke/` and `tmp/` keys in the
+mirror would have become bucket prefixes seven and eight the first time someone flipped
+the backend. That overstated it: those files were written by path and uploaded to
+Fireworks, never through `storage.put_*`, so the prefix guard would never have fired on
+them. What was true is the narrower point they agreed with — they sat inside
+`$WARGAME_LOCAL_ROOT`, which mirrors the bucket key-for-key, so anything listing the
+mirror read them as two extra prefixes. They have since moved scratch to
+`.wargame-scratch/`, outside the key space; I re-ran `python -m infra.audit --local`
+against that mirror and it is now clean.
 
 **On agent1-engine's original hazard line, separately: it was true, and it is now
 resolved.** `4b36e68` and `8acabb8` are reachable from `origin/agent4-train` and

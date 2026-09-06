@@ -96,13 +96,15 @@ the spellings disagree. Current tally:
 | `engine/storage.py` | `WARGAME_STORAGE` (opposite default) | still independent |
 | `gen/storage.py` | `WARGAME_BACKEND` | still independent |
 
-**One warning for agent4-train, since it is downstream of me now.** `infra.storage` now
-refuses S3 writes outside the six contract prefixes, and `train/smoke.py` writes
-`smoke/…` and `tmp/…` keys. Nothing is broken today — those 24 objects are in the local
-mirror, and the guard only fires on S3 — but a smoke run with the backend flipped to S3
-will now raise instead of quietly creating prefixes seven and eight. The fix is to keep
-smoke artefacts on the mirror, or move them under `runs/<sweep_id>/`; the escape hatch,
-if a human approves a new prefix, is `Storage(..., strict_prefixes=False)`.
+**Settled with agent4-train.** I had warned that `train/smoke.py`'s `smoke/…` and
+`tmp/…` keys would hit the new prefix guard. They corrected me: those files are written
+by path and uploaded to Fireworks, never through `storage.put_*`, so the guard would
+never have fired. The narrower point stood and they acted on it — the files sat inside
+`$WARGAME_LOCAL_ROOT`, which mirrors the bucket key-for-key, so anything listing the
+mirror saw two extra prefixes. Scratch has moved to `.wargame-scratch/`, outside the
+key space, and `python -m infra.audit --local` against that mirror is now clean.
+`train/storage._store()` also now prefers `resolve_backend()` when it is importable, so
+the two cannot diverge in one process.
 
 
 ## Answer

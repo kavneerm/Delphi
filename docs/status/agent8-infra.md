@@ -79,4 +79,13 @@ notes: |
   the nine metadata keys, the content type, the cost tag and the bytes, then removes
   the probe BY VERSION ID so it leaves no object, no version and no delete marker.
   8/8 against live S3; verified afterwards that logs/ holds only .keep.
+  2026-09-06 — agent4-train answered and corrected me: their smoke/ and tmp/ files
+  were written by path, never through storage.put_*, so the prefix guard would never
+  have fired on them. The mirror-shape half was right and they acted on it — scratch
+  moved to .wargame-scratch/, outside the key space. Verified: that mirror now audits
+  clean, and they now call resolve_backend() when it is importable. Corrections in
+  infra/REPORT.md and infra/QUESTIONS.md.
+  BLOCKING OTHERS: PR #3 is MERGEABLE/CLEAN and unmerged, and agent4-train is waiting
+  on it to run infra.audit. Until it lands, infra/audit.py, infra/selftest.py and
+  resolve_backend() are only on branch agent8-infra.
   111 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.

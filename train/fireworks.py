@@ -50,45 +50,76 @@ BASE_MODELS: dict[str, dict[str, Any]] = {
         "deprecation_date": "2025-11-26",
         "smoke_verified": "2026-09-06 COMPLETED in 371s",
     },
-    "qwen3_8b": {
-        "id": "accounts/fireworks/models/qwen3-8b",
+    "qwen3_14b": {
+        "id": "accounts/fireworks/models/qwen3-14b",
         "context_length": 40960,
         "status": "OK",
-        "deprecation_date": "2026-05-14",
-        "smoke_verified": "2026-09-06 COMPLETED",
-        # Stands in for qwen2p5-7b-instruct, which the SFT API rejects outright.
-        # NOT YET APPROVED -- see train/QUESTIONS.md #2. Choosing the sweep's
-        # bases is a human call, so anything that would spend real budget on this
-        # base has to pass --approve-base-swap or set APPROVE_BASE_SWAP=1. The
-        # smoke test is exempt: proving it trains is what the question is for.
+        "deprecation_date": None,
+        # Trains AND serves: supervisedLoraTunable plus an unquantized default
+        # precision, which is the combination that actually matters (see
+        # SERVABILITY_NOTE). Job acceptance verified 2026-09-06.
+        "smoke_verified": "2026-09-06 SFT job accepted",
+        # Stands in for qwen2p5-7b-instruct. NOT YET APPROVED --
+        # train/QUESTIONS.md #2. Anything that would spend sweep budget on this
+        # base must pass --approve-base-swap; the smoke test is exempt, because
+        # proving it works is the evidence the question is waiting on.
         "replaces": "qwen25_7b",
         "needs_approval": "train/QUESTIONS.md #2",
     },
 }
 
-#: Bases the brief named that turned out not to be trainable. Kept so that a
-#: config still referencing one fails with an explanation instead of a KeyError.
+#: Bases that looked viable and are not. Kept so a config naming one fails with
+#: the reason rather than a KeyError, and so nobody re-proposes them.
 REJECTED_BASES: dict[str, str] = {
     "qwen25_7b": (
-        "accounts/fireworks/models/qwen2p5-7b-instruct is rejected by the SFT API with "
+        "accounts/fireworks/models/qwen2p5-7b-instruct is refused by the SFT API with "
         "'model is not supported for fine-tuning', despite advertising Tunable: true and "
-        "Supports Lora: true. So is qwen2p5-14b-instruct. Use qwen3_8b; see "
-        "train/QUESTIONS.md #2."
+        "Supports Lora: true. It has no supervisedLoraTunable. So does qwen2p5-14b-instruct. "
+        "See train/QUESTIONS.md #2."
+    ),
+    "qwen3_8b": (
+        "accounts/fireworks/models/qwen3-8b TRAINS but cannot SERVE. It publishes at "
+        "Default Precision FP8 and ships an in-checkpoint drafter that stays quantized, so "
+        "every multi-LoRA deployment is refused with 'draft model precision validation "
+        "failed: addons cannot be enabled with quantized precisions (FP8/FP4)'. Overriding "
+        "the deployment precision does not help; the drafter's precision is not settable "
+        "from the deployment. Multi-LoRA serving is how gates.py and devset.py reach a "
+        "checkpoint at all, so a train-only base is not a usable sweep arm."
+    ),
+    "llama32_3b": (
+        "accounts/fireworks/models/llama-v3p2-3b-instruct reports supervisedLoraTunable "
+        "but the SFT API still refuses it: 'model does not support tuning'."
     ),
 }
 
-TUNABILITY_NOTE = """`Tunable: true` and `Supports Lora: true` do NOT mean a model
-accepts a supervised LoRA job. The field that tracks acceptance is
-`Supervised Lora Tunable`, which `firectl get model` prints only when it is set:
+TUNABILITY_NOTE = """A base is usable only if it can do BOTH halves of the job,
+and the model library advertises neither reliably.
 
-    llama-v3p1-8b-instruct   Tunable Supports-Lora Rl-Tunable Supervised-Lora-Tunable  -> accepted
-    qwen3-8b                 Tunable Supports-Lora Rl-Tunable Supervised-Lora-Tunable  -> accepted
-    qwen2p5-7b-instruct      Tunable Supports-Lora                                     -> REJECTED
-    qwen2p5-14b-instruct     Tunable Supports-Lora Rl-Tunable                          -> REJECTED
+**Training.** `Tunable: true` and `Supports Lora: true` do NOT mean a model
+accepts a supervised LoRA job. The field that tracks it is
+`supervisedLoraTunable`, at the TOP level of the REST model resource, not under
+`baseModelDetails` where `tunable` lives. Even that is not conclusive:
+llama-v3p2-3b-instruct reports it and is still refused.
 
-`supports_supervised_lora()` below reads it over REST so a base can be checked
-before the sweep spends anything. It is a good filter, not a proof: the only
-proof is a 200-example job."""
+**Serving.** Multi-LoRA addons cannot ride a quantized deployment. A base whose
+`baseModelDetails.defaultPrecision` is FP8/FP4 is refused at deployment create,
+and if it ships an in-checkpoint drafter (qwen3-8b does) overriding the
+deployment precision does not rescue it -- the drafter stays quantized and fails
+validation on its own.
+
+Measured 2026-09-06 by submitting a job and, where it trained, a deployment:
+
+    model                     sftLora  precision  trains  serves
+    llama-v3p1-8b-instruct    yes      BF16       yes     yes
+    qwen3-14b                 yes      BF16       yes     yes
+    qwen3-4b-instruct-2507    yes      BF16       yes     yes
+    qwen3-32b                 yes      BF16       yes     yes
+    qwen3-8b                  yes      FP8        yes     NO
+    qwen2p5-7b-instruct       no       BF16       NO      -
+    qwen2p5-14b-instruct      no       BF16       NO      -
+    llama-v3p2-3b-instruct    yes      BF16       NO      -
+
+`Client.preflight()` checks both halves before the sweep spends anything."""
 
 #: Smallest context window across the sweep's bases. `train/filter.py` measures
 #: every example against this so the Qwen arm cannot degrade silently.
@@ -102,6 +133,9 @@ DEFAULT_ACCELERATOR = "NVIDIA_H100_80GB"
 #: Multi-LoRA addons cannot ride a quantized deployment (FP8/FP4). BF16 is the
 #: default precision both sweep bases are published at.
 ADDON_SAFE_PRECISION = "BF16"
+
+#: Precisions that cannot carry multi-LoRA addons.
+QUANTIZED_PRECISIONS = frozenset({"FP8", "FP4"})
 
 # 1-63 chars, must start and end alphanumeric. A single character is legal;
 # requiring two silently rejected short ids.
@@ -310,13 +344,23 @@ class Client:
                 problems[key] = f"unknown base {key!r}; have {sorted(BASE_MODELS)}"
                 continue
             try:
-                if not self.supports_supervised_lora(base["id"]):
-                    problems[key] = (
-                        f"{base['id']} does not report Supervised Lora Tunable; the SFT API "
-                        "will refuse it. See TUNABILITY_NOTE."
-                    )
+                model = self.get_model(base["id"])
             except FireworksError as exc:
                 problems[key] = f"{base['id']} could not be fetched: {str(exc)[:200]}"
+                continue
+            if not model.get("supervisedLoraTunable"):
+                problems[key] = (
+                    f"{base['id']} does not report supervisedLoraTunable; the SFT API will "
+                    "refuse it. See TUNABILITY_NOTE."
+                )
+                continue
+            precision = (model.get("baseModelDetails") or {}).get("defaultPrecision")
+            if precision in QUANTIZED_PRECISIONS:
+                problems[key] = (
+                    f"{base['id']} publishes at {precision}; multi-LoRA addons cannot ride a "
+                    "quantized deployment, so it can train but never serve. See "
+                    "TUNABILITY_NOTE."
+                )
         return problems
 
     # ----------------------------------------------------------- SFT / DPO
@@ -420,8 +464,45 @@ class Client:
     def get_deployment(self, deployment_id: str) -> dict:
         return self.get(f"accounts/{self.account}/deployments/{resource_id(deployment_id)}")
 
-    def delete_deployment(self, deployment_id: str) -> dict:
-        return self.delete(f"accounts/{self.account}/deployments/{resource_id(deployment_id)}")
+    def delete_deployment(self, deployment_id: str, *, ignore_checks: bool = True) -> dict:
+        """Delete a deployment. `ignore_checks` defaults to True, deliberately.
+
+        Fireworks refuses a plain delete on a deployment that has served traffic
+        in the last hour: `400 "deployment has received inference requests in the
+        last hour, pass ignore_checks to skip this check"`. That safety check is
+        backwards for us — the deployments we most need torn down are exactly the
+        ones that just answered a dev-set request, and the failure mode is a
+        GPU billing by the hour until somebody notices.
+        """
+        path = f"accounts/{self.account}/deployments/{resource_id(deployment_id)}"
+        if ignore_checks:
+            path += "?ignoreChecks=true"
+        return self.delete(path)
+
+    def ensure_deployment_gone(self, deployment_id: str, *, timeout: int = 600) -> dict[str, Any]:
+        """Delete and then *confirm* it is gone. Never raises; always reports.
+
+        Teardown that reports success without checking is how a GPU gets left up.
+        """
+        dep = resource_id(deployment_id)
+        result: dict[str, Any] = {"deployment": dep, "deleted": False}
+        try:
+            self.delete_deployment(dep)
+        except FireworksError as exc:
+            result["delete_error"] = str(exc)[:300]
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                state = str(self.get_deployment(dep).get("state", ""))
+            except FireworksError:
+                result["deleted"] = True  # 404 is the success case
+                return result
+            if state in ("DELETED", ""):
+                result["deleted"] = True
+                return result
+            time.sleep(10)
+        result["state"] = "still present after timeout"
+        return result
 
     def model_name(self, model_id: str) -> str:
         if model_id.startswith("accounts/"):

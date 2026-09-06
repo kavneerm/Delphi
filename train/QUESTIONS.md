@@ -17,56 +17,76 @@ Resolved 2026-09-06 by the human.
 
 ---
 
-# 2. The Llama caveat was wrong, and the Qwen base is the one that cannot train
+# 2. Both base-model caveats were backwards, and the sweep needs a second base
 
-**Needs a decision: I have swapped the second base and want it confirmed or vetoed.**
+**Open. `launch.py` refuses to run until this is answered** — `qwen3_14b` carries
+`needs_approval`, and a plain `python -m train.launch` now exits before spending
+anything. Picking the sweep's bases is a human call, so I have not made it.
 
-The brief predicted Llama 3.1 8B would fail and Qwen2.5 7B would be the safe arm.
-A 200-example job on each says the opposite.
+## What the brief predicted, and what actually happened
 
-| base | library flags | SFT job | outcome |
-|---|---|---|---|
-| `llama-v3p1-8b-instruct` | `Status: INTERNAL`, deprecated 2025-11-26 | accepted | **JOB_STATE_COMPLETED in 371s**, adapter produced |
-| `qwen2p5-7b-instruct` | `Status: OK`, `Tunable: true`, `Supports Lora: true` | **refused** | `400 "model is not supported for fine-tuning"` |
+The brief expected Llama 3.1 8B to be the risky arm and Qwen2.5 7B to be safe.
+Measured by submitting real jobs, it is the reverse.
 
-So the deprecation warning cost nothing and the healthy-looking base is the dead
-one. `qwen2p5-14b-instruct` is refused the same way, which rules out the
-replacement I proposed in the previous version of this question.
+- **Llama 3.1 8B — works end to end.** `Status: INTERNAL`, deprecated
+  2025-11-26, and none of that matters: 200-example LoRA job
+  `JOB_STATE_COMPLETED` in 371s, deployment READY, adapter loaded, **inference
+  returned a real completion**. The full smoke path is green on this base.
+- **Qwen2.5 7B — cannot train.** `400 "model is not supported for fine-tuning"`,
+  despite `Status: OK`, `Tunable: true`, `Supports Lora: true`.
 
-**What actually predicts acceptance** is a field neither the brief nor I was
-reading — `Supervised Lora Tunable`, which `firectl get model` prints only when
-set:
+## Why the obvious replacements also fail
 
-| model | Tunable | Supports Lora | Rl Tunable | **Supervised Lora Tunable** | SFT job |
-|---|---|---|---|---|---|
-| `llama-v3p1-8b-instruct` | yes | yes | yes | **yes** | accepted |
-| `qwen3-8b` | yes | yes | yes | **yes** | accepted |
-| `qwen2p5-7b-instruct` | yes | yes | — | **no** | refused |
-| `qwen2p5-14b-instruct` | yes | yes | yes | **no** | refused |
+A base has to do two things, and the library advertises neither reliably.
 
-`train/fireworks.py` now reads that field in `Client.preflight()`, and every
-entry point calls it before spending. It is a filter, not a proof — the proof is
-still a 200-example job.
+1. **Train** — needs `supervisedLoraTunable` (top level of the REST model
+   resource, *not* under `baseModelDetails` where `tunable` lives).
+2. **Serve** — multi-LoRA addons cannot ride a quantized deployment. A base at
+   `defaultPrecision` FP8/FP4 is refused at deployment create. If it also ships
+   an in-checkpoint drafter, overriding the deployment precision does not save
+   it: the drafter stays quantized and fails validation on its own.
 
-**What I did, and what I want confirmed.** `qwen2p5-7b-instruct` is not a
-judgement call, it is a hard API rejection: leaving it in the sweep would
-guarantee five of ten variants fail. I replaced it with
-`accounts/fireworks/models/qwen3-8b` — accepted by the SFT API, `Status: OK`,
-`Supervised Lora Tunable`, 8B-class, 40960 context. Two consequences worth your
-eye before the sweep runs:
+Serving is not optional — it is how `gates.py` and `devset.py` reach a
+checkpoint at all — so a train-only base is not a usable arm.
 
-1. **The context floor moved from 32768 to 40960.** `filter.py` computes it from
-   `BASE_MODELS` rather than a literal, and a test asserts config and code agree,
-   so nothing silently truncates — but a filter config tuned to 32k now has 8k of
-   slack it is not using.
-2. **Qwen3-8B is itself past a deprecation date (2026-05-14)**, same as Llama. On
-   this account that has turned out to be cosmetic, but both sweep bases are now
-   deprecated models, which is worth knowing before results are quoted anywhere.
-   `qwen2p5-7b-instruct` remains listed in `REJECTED_BASES` so a stale config
-   fails with the reason rather than a `KeyError`.
+| model | sftLora | precision | trains | serves |
+|---|---|---|---|---|
+| `llama-v3p1-8b-instruct` | yes | BF16 | **yes** | **yes** |
+| `qwen3-14b` | yes | BF16 | **yes** | **yes** |
+| `qwen3-4b-instruct-2507` | yes | BF16 | **yes** | **yes** |
+| `qwen3-32b` | yes | BF16 | yes | yes |
+| `qwen3-8b` | yes | **FP8** | yes | **no** |
+| `qwen2p5-7b-instruct` | **no** | BF16 | **no** | — |
+| `qwen2p5-14b-instruct` | **no** | BF16 | **no** | — |
+| `llama-v3p2-3b-instruct` | yes | BF16 | **no** | — |
 
-If you would rather the sweep run Llama-only and spend the freed budget on ranks
-and filter configs, say so and I will cut the ten variants to six.
+I proposed `qwen2p5-14b-instruct` and then `qwen3-8b` in earlier revisions of
+this question. Both were wrong, for the two different reasons above. This table
+is measured, not read off flags.
+
+## What I recommend, for you to confirm or veto
+
+**`accounts/fireworks/models/qwen3-14b`** as the second base. It trains, it
+serves, it is BF16, it has no deprecation date, and it keeps a genuine
+cross-architecture contrast against Llama. Context 40960, so the filter floor
+stays where it already is and no filter config has to move.
+
+Three things you should weigh before saying yes:
+
+1. **It is 14B, not 8B.** Bigger than the brief's 7B, so the two arms differ in
+   capacity as well as architecture, which muddies "which base is better"
+   slightly. `qwen3-4b-instruct-2507` is the alternative if you would rather the
+   contrast be architecture-only-ish and cheaper; it is further from 8B in the
+   other direction.
+2. **14B costs more per job and per GPU-hour than 7B would have.** Five of the
+   ten sweep variants are on this base.
+3. **Llama-only is a legitimate answer.** If you would rather not spend on a
+   second architecture at all, say so and I will cut the sweep from ten variants
+   to six and put the budget into ranks and filter configs instead. That loses
+   the cross-architecture claim but nothing else.
+
+To approve: answer below, or just run with `--approve-base-swap` /
+`APPROVE_BASE_SWAP=1`.
 
 ## Answer
 <!-- human: answer here -->

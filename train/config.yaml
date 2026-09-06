@@ -112,20 +112,21 @@ filters:
 sweep:
   # 2 bases x 2 ranks x 2 epoch counts x 3 filters = 24 cells; `variants` below
   # names the 8-12 we actually run (docs/agent_workstreams.md, Agent 4 DoD).
-  # qwen2p5-7b-instruct was the brief's second base; the SFT API rejects it
-  # outright ("model is not supported for fine-tuning"), so qwen3-8b stands in.
-  # Pending human sign-off -- see train/QUESTIONS.md #2.
-  bases: [llama31_8b, qwen3_8b]
+  # qwen2p5-7b-instruct was the brief's second base; the SFT API refuses it, and
+  # qwen3-8b trains but cannot serve multi-LoRA (FP8 drafter). qwen3-14b does
+  # both. Pending human sign-off -- see train/QUESTIONS.md #2; launch.py refuses
+  # to start on it without --approve-base-swap.
+  bases: [llama31_8b, qwen3_14b]
   ranks: [16, 32]
   epochs: [2, 3]
   filters: [filter_v1, filter_v2, filter_v3]
   learning_rate: 0.0001
   variants:
-    - {base: qwen3_8b,   rank: 16, epochs: 2, filter: filter_v1}
-    - {base: qwen3_8b,   rank: 32, epochs: 2, filter: filter_v1}
-    - {base: qwen3_8b,   rank: 32, epochs: 3, filter: filter_v1}
-    - {base: qwen3_8b,   rank: 32, epochs: 3, filter: filter_v2}
-    - {base: qwen3_8b,   rank: 16, epochs: 3, filter: filter_v3}
+    - {base: qwen3_14b,  rank: 16, epochs: 2, filter: filter_v1}
+    - {base: qwen3_14b,  rank: 32, epochs: 2, filter: filter_v1}
+    - {base: qwen3_14b,  rank: 32, epochs: 3, filter: filter_v1}
+    - {base: qwen3_14b,  rank: 32, epochs: 3, filter: filter_v2}
+    - {base: qwen3_14b,  rank: 16, epochs: 3, filter: filter_v3}
     - {base: llama31_8b, rank: 16, epochs: 2, filter: filter_v1}
     - {base: llama31_8b, rank: 32, epochs: 2, filter: filter_v1}
     - {base: llama31_8b, rank: 32, epochs: 3, filter: filter_v1}

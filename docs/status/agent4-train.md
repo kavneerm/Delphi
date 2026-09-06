@@ -87,4 +87,27 @@ notes: |
       the candidate base trains is the evidence the question is waiting on.
   67 tests green; the launch tests caught versions_for() silently accepting an
   undefined filter version, which would have tagged a run nobody could reproduce.
-  Next: land the serving leg (in flight), then serve/devset tests and the sweep.
+  2026-09-06 02:40 — SERVING WORKS. Llama 3.1 8B: deployment READY, adapter
+  loaded, inference returned a real completion. The winning `model` ref is
+  <model>#accounts/<acct>/deployments/<dep> — the earlier 404s were adapter
+  readiness, not ref syntax, and load_lora_and_wait() fixed that. Full smoke path
+  is now green end to end on llama31_8b: filter -> dataset -> SFT -> deploy ->
+  load -> infer -> tear down.
+  TEARDOWN GAP, caught and closed: Fireworks REFUSES a plain delete on a
+  deployment that has served traffic in the last hour ("pass ignore_checks to
+  skip this check"). That check is backwards for us — the deployments most
+  needing teardown are the ones that just answered a dev-set request — and it
+  left a GPU up. Deleted manually within ~2 min; delete_deployment now passes
+  ignoreChecks by default and ensure_deployment_gone() CONFIRMS the deployment is
+  gone instead of assuming DELETE worked. serve.py --down does the same.
+  SECOND BASE, third attempt and this one is measured not guessed. A base must
+  train (supervisedLoraTunable) AND serve (multi-LoRA cannot ride an FP8/FP4
+  deployment). qwen3-8b trains but CANNOT serve: FP8 with an in-checkpoint
+  drafter whose precision is not settable from the deployment, so every addon
+  deployment is refused. Verified across the library: llama-v3p1-8b, qwen3-14b,
+  qwen3-4b-instruct-2507 and qwen3-32b do both; qwen2p5-7b, qwen2p5-14b and
+  llama-v3p2-3b do not train at all. Recommending qwen3-14b, STILL PENDING
+  QUESTIONS.md #2 — preflight now checks both halves and launch.py still refuses
+  to start without --approve-base-swap.
+  GPU total 15.0 H100-minutes, 0 live deployments.
+  Next: serve/devset/dpo tests, then the sweep once #2 is answered.

@@ -119,13 +119,14 @@ def _deploy_and_probe(
         trail.append(_log("failed", error=str(exc)[:400]))
     finally:
         if created and not keep_up:
-            try:
-                client.delete_deployment(deployment_id)
-                result["deployment_down"] = datetime.now(UTC).isoformat(timespec="seconds")
-                trail.append(_log("deployment_deleted", deployment=deployment_id))
-            except FireworksError as exc:
-                result["teardown_error"] = str(exc)[:500]
-                trail.append(_log("teardown_failed", error=str(exc)[:400]))
+            gone = client.ensure_deployment_gone(deployment_id)
+            result["deployment_down"] = datetime.now(UTC).isoformat(timespec="seconds")
+            result["teardown_confirmed"] = gone["deleted"]
+            if not gone["deleted"]:
+                result["teardown_error"] = gone.get("delete_error") or gone.get("state")
+                # Loud on purpose: an un-torn-down deployment bills by the hour.
+                result["ok"] = False
+            trail.append(_log("teardown", **gone))
     result["trail"] = trail
     return result
 

@@ -31,3 +31,22 @@ Training jobs are billed separately from deployments and are not GPU-hour
 metered the same way; for the record, the two smoke SFT jobs were
 `smoke-llama31-8b-20260906t015356z` (200 examples, rank 8, 1 epoch, 371s,
 COMPLETED) and `smoke-qwen3-8b-20260906t020721z` (same shape, COMPLETED).
+
+### Deployment log, continued
+
+| up (UTC) | down (UTC) | minutes | deployment | base | purpose | outcome |
+|---|---|---|---|---|---|---|
+| 2026-09-06 02:28:53 | 2026-09-06 02:34:52 | 6.0 | `smoke-llama31-8b-20260906t022852z-dep` | llama31_8b | smoke: deploy leg | **SUCCESS** — adapter loaded, inference returned a completion |
+
+That row is the first successful serve, and it is also the one that exposed a
+teardown gap worth recording: Fireworks **refuses a plain delete on a deployment
+that has served traffic in the last hour** (`400 "deployment has received
+inference requests in the last hour, pass ignore_checks to skip this check"`).
+The check is backwards for this project — the deployments most needing teardown
+are exactly the ones that just answered a dev-set request — and the failure mode
+is a GPU billing by the hour. It was caught and deleted manually within ~2
+minutes. `Client.delete_deployment` now passes `ignoreChecks=true` by default and
+`ensure_deployment_gone()` confirms the deployment is actually gone rather than
+assuming the DELETE worked.
+
+**Running total: 15.0 H100-minutes.** Account verified at 0 live deployments.

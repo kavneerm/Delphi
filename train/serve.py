@@ -166,13 +166,10 @@ def up(
 def down(*, sweep_id: str, base: str, config: dict[str, Any], client: Client) -> dict[str, Any]:
     """Delete the deployment. Logs the row whether or not the delete succeeds."""
     dep = deployment_id(config["serve"]["deployment_id_prefix"], sweep_id, base)
-    detail = "deleted"
-    try:
-        client.delete_deployment(dep)
-    except FireworksError as exc:
-        detail = f"delete failed: {str(exc)[:200]}"
+    gone = client.ensure_deployment_gone(dep)
+    detail = "deleted and confirmed gone" if gone["deleted"] else f"STILL UP: {gone}"
     log_deployment_event("down", deployment=dep, base=base, sweep_id=sweep_id, detail=detail)
-    return {"deployment": dep, "base": base, "detail": detail}
+    return {"deployment": dep, "base": base, "confirmed_gone": gone["deleted"], "detail": detail}
 
 
 def status(*, sweep_id: str, base: str, config: dict[str, Any], client: Client) -> dict[str, Any]:

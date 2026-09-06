@@ -1,7 +1,7 @@
 # agent1-engine
 state: IN_PROGRESS
 branch: agent1-engine
-last_commit: 2733730
+last_commit: pending
 interfaces_ready: [engine/samples/stub_run.jsonl, engine.agent_api, engine.human_agent]
 needs: [calib/storm_effects.csv, calib/attribution_lags.csv, specs/train/*.json]
 awaiting_human:
@@ -37,4 +37,11 @@ notes:
     of a 72-hour episode. Verified against agent2's committed files: may2024 loads clean with no
     TODO_CALIB left. Handoffs published for agent7-ui (stub_run.jsonl) and agent2-calib (columns).
     Next: finish the test suite, REPORT.md, then the env_lock gate.
+  - 2026-09-05 — test suite complete: 66 tests green. The ones that matter most are the leak
+    guards in test_seats.py — no seat's filtered view may contain another seat's private_type, the
+    hacktivist affiliation, the true storm state (as opposed to SWPC's forecast with this run's
+    error), an undelivered message, an inject on a feed the seat does not have, or an inject's
+    truthful/is_knife_inject scoring keys. Also asserted: both clock modes emit the same event
+    types apart from `checkpoint`, no irreversible action lands without a granted release, and the
+    three folded seat ids never reappear. Next: REPORT.md, then run the env_lock numbers.
 

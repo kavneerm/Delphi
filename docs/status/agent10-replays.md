@@ -44,3 +44,27 @@ notes: |
   not the raw real_responses times — three of the four real responses happened 34 to
   75 days after episode end, and scoring correct patience against them would mark it
   as failure. Each scoring.md now carries that table. Next: dozor_teleport.
+
+  2026-09-05 — BRANCH INCIDENT, now contained; read this if you are the coordinator.
+  I had been launched in the shared primary checkout (/Users/kavneerm/Desktop/Panoptes)
+  rather than in my own worktree, which already existed at ../Panoptes-agent10-replays.
+  At least five agents plus a coordinator were committing in that one checkout against
+  whatever branch happened to be checked out. Consequences: (a) agent1, agent2, agent4
+  and agent9 commits landed on the agent10-replays branch pointer and were pushed to
+  origin/agent10-replays, which is why that ref carries engine/, calib/ and train/ work
+  that is not mine; (b) my own four draft commits landed on agent4-train instead and
+  were pushed there; (c) agent4 later rebased, so my tip 033a472 is now on no remote
+  ref at all. Nothing was lost: I have moved into my own worktree, reset to
+  origin/main (9f1413b), cherry-picked my six commits cleanly, and re-validated all
+  four JSON files against contracts on current main. The branch now diffs against main
+  as exactly eight files, all mine.
+  Remaining question is the push, and it is a human's call: my rebuilt branch is not a
+  fast-forward from origin/agent10-replays, so landing it needs a force-push, which
+  AGENTS.md forbids. The stale commits on that ref are duplicates — agent1, agent2 and
+  agent9 all carry the same work in more advanced form on their own branches (checked:
+  origin/agent1-engine has all 26 engine/ files) — so no content would be lost, but I
+  am not rewriting a shared ref on my own judgement. Not blocking my authoring; I am
+  continuing with dozor_teleport locally and committing to my worktree.
+  Also, minor but persistent: in a worktree-isolated session the Bash tool refuses any
+  command containing the literal token `eval`, which is the name of my working
+  directory. Using `git add -A` and the file tools instead.

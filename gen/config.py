@@ -57,13 +57,13 @@ class GenConfig:
     """Everything a generation or judge pass needs, resolved once at startup."""
 
     # --- model -------------------------------------------------------------
-    model: str = field(default_factory=lambda: os.environ.get("GEN_MODEL", "gpt-6-astra"))
+    model: str = field(default_factory=lambda: os.environ.get("GEN_MODEL", "gpt-5.6-terra"))
     fallback_model: str = field(
-        default_factory=lambda: os.environ.get("GEN_MODEL_FALLBACK", "gpt-5.5")
+        default_factory=lambda: os.environ.get("GEN_MODEL_FALLBACK", "gpt-5.6-terra")
     )
     judge_model: str = field(
         default_factory=lambda: os.environ.get(
-            "JUDGE_MODEL", os.environ.get("GEN_MODEL", "gpt-6-astra")
+            "JUDGE_MODEL", os.environ.get("GEN_MODEL", "gpt-5.6-terra")
         )
     )
     max_output_tokens: int = field(default_factory=lambda: _int_env("GEN_MAX_OUTPUT_TOKENS", 4096))

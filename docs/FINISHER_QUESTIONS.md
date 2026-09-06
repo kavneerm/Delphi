@@ -29,7 +29,8 @@ tokens/call, and reserves 4,096 completion plus 4,096 hidden-reasoning tokens/ca
 At the currently configured conservative rates this caps the live check at
 **$341.73**. The live checker will report provider-observed reasoning tokens.
 
-**Recommendation:** approve the live ten-episode cost check only after
-`GEN_MODEL` is explicitly present in the execution environment; then use its
-observed token report to decide the full lake size. No large run should start
-until that report is reviewed.
+**Recommendation:** use `gpt-5.6-terra` at low reasoning effort for generation
+and judging. It is the current balance-of-quality-and-cost option; `gpt-5.6-luna`
+is reserved for a later high-volume fallback only if the cost check demonstrates
+that Terra is unaffordable. Approve the live ten-episode check only after
+`GEN_MODEL=gpt-5.6-terra` is explicitly present in the execution environment.

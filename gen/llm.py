@@ -209,6 +209,8 @@ class LLMClient:
             },
             "max_output_tokens": max_output_tokens or self.config.max_output_tokens,
             "store": False,
+            "reasoning": {"effort": "low"},
+            "service_tier": "flex",
         }
         if cache_key:
             kwargs["prompt_cache_key"] = cache_key

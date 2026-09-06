@@ -4,6 +4,7 @@ branch: agent8-infra
 last_commit: d4e0f4b
 interfaces_ready: [s3_bucket, infra.storage, infra.storage.resolve_backend, infra/teardown.sh]
 needs: []
+pr: https://github.com/kavneerm/Delphi/pull/3
 awaiting_human: infra/QUESTIONS.md Q1 (which storage helper wins) and Q2 (.gitignore line) — recommendations given, not blocking
 updated: 2026-09-05
 notes: |

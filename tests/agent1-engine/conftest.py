@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from engine.config import EnvConfig
+from engine.contracts import SEATS
 from engine.episode import Episode
 from engine.stubs import build_stubs
 
@@ -20,6 +21,10 @@ def make_config(**overrides: Any) -> EnvConfig:
         "seed": 7,
         "duration_s": SHORT_HOURS * 3600,
         "scenario_id": "test_scenario",
+        # Unit tests exercise the engine's release mechanics, not the currently
+        # promoted persona pool. Pin the deterministic placeholder assignment so
+        # a real-spec promotion cannot remove every releasable stub action.
+        "seats": {seat: f"{seat}_placeholder" for seat in SEATS},
         "clock_mode": {"mode": "continuous", "tick_s": 60},
         "release_policy": {"policy": "auto", "approval_probability": 0.5},
         "storm": {"profile": "synthetic", "severity": "G5", "onset_sim_time_s": 0},

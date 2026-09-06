@@ -1,7 +1,7 @@
 # finisher
 state: IN_PROGRESS
 branch: finisher
-last_commit: 53ce53f
+last_commit: b6dd71e
 interfaces_ready: []
 needs: [human direction after inventory]
 awaiting_human:

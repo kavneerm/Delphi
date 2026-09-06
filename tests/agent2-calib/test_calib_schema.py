@@ -89,3 +89,45 @@ def test_series_files_parse_and_are_ordered() -> None:
         stamps = [r["utc_start"] for r in rows]
         assert stamps == sorted(stamps), f"{stem} is not in time order"
         assert all(r["source_url"].startswith("http") for r in rows), stem
+
+
+LAG_COLUMNS_ENGINE_READS = ["attack_type", "median_hours", "sigma", "floor_hours", "source_url"]
+
+
+def test_attribution_lags_has_the_columns_engine_reads() -> None:
+    # engine/attacks.py:load_attribution_lags() reads exactly these by name.
+    rows = read("attribution_lags.csv")
+    assert rows
+    for column in LAG_COLUMNS_ENGINE_READS:
+        assert column in rows[0], column
+
+
+def test_attribution_lags_cover_every_engine_attack_type() -> None:
+    kinds = {r["attack_type"] for r in read("attribution_lags.csv")}
+    assert {"jam", "dazzle", "ground_cyber", "rpo"} <= kinds
+
+
+def test_attribution_lags_are_positive_and_ordered_by_difficulty() -> None:
+    by = {r["attack_type"]: r for r in read("attribution_lags.csv")}
+    for row in by.values():
+        assert float(row["median_hours"]) > 0
+        assert float(row["sigma"]) > 0
+        assert 0 < float(row["floor_hours"]) <= float(row["median_hours"])
+    # The one ordering the public record actually establishes: a kinetic event is
+    # attributed same-day, cyber takes years, and rpo and jam sit between them.
+    median = {k: float(v["median_hours"]) for k, v in by.items()}
+    assert median["kinetic"] < median["rpo"] < median["jam"] < median["ground_cyber"]
+
+
+def test_attribution_incidents_back_every_fitted_parameter() -> None:
+    incidents = read("attribution_incidents.csv")
+    ids = {r["incident_id"] for r in incidents}
+    for row in read("attribution_lags.csv"):
+        cited = row["fitted_from"].split()
+        assert set(cited) <= ids, row["attack_type"]
+        assert len(cited) == int(row["n_incidents"]), row["attack_type"]
+
+
+def test_attribution_incidents_exclude_the_holdout_years() -> None:
+    for row in read("attribution_incidents.csv"):
+        assert row["effect_date"] < "2025-01-01", row["incident_id"]

@@ -4,24 +4,70 @@
   "seat": "iridium",
   "temperament": "contract_first",
   "authority": {
-    "unilateral": ["hold", "maneuver", "private_demarche", "share_telemetry", "geofence_or_throttle", "disclose_incident"],
+    "unilateral": [
+      "hold",
+      "maneuver",
+      "private_demarche",
+      "share_telemetry",
+      "geofence_or_throttle",
+      "disclose_incident"
+    ],
     "requires_release": [],
-    "recommend_only": ["public_attribution", "request_commercial_priority"]
+    "recommend_only": [
+      "public_attribution",
+      "request_commercial_priority"
+    ]
   },
   "information": {
     "clearance": "commercial_proprietary",
     "feeds": [
-      { "name": "own_telemetry", "latency_minutes": 5, "confidence_scale": 1.0 },
-      { "name": "customer_reports", "latency_minutes": 20, "confidence_scale": 0.75 },
-      { "name": "ground_station_status", "latency_minutes": 10, "confidence_scale": 1.0 },
-      { "name": "space_weather", "latency_minutes": 25, "confidence_scale": 0.9 },
-      { "name": "commercial_ssa", "latency_minutes": 45, "confidence_scale": 0.8 },
-      { "name": "media", "latency_minutes": 15, "confidence_scale": 0.55 },
-      { "name": "osint", "latency_minutes": 50, "confidence_scale": 0.5 },
-      { "name": "insurer", "latency_minutes": 120, "confidence_scale": 0.85 }
+      {
+        "name": "own_telemetry",
+        "latency_minutes": 5,
+        "confidence_scale": 1.0
+      },
+      {
+        "name": "customer_reports",
+        "latency_minutes": 20,
+        "confidence_scale": 0.75
+      },
+      {
+        "name": "ground_station_status",
+        "latency_minutes": 10,
+        "confidence_scale": 1.0
+      },
+      {
+        "name": "space_weather",
+        "latency_minutes": 25,
+        "confidence_scale": 0.9
+      },
+      {
+        "name": "commercial_ssa",
+        "latency_minutes": 45,
+        "confidence_scale": 0.8
+      },
+      {
+        "name": "media",
+        "latency_minutes": 15,
+        "confidence_scale": 0.55
+      },
+      {
+        "name": "osint",
+        "latency_minutes": 50,
+        "confidence_scale": 0.5
+      },
+      {
+        "name": "insurer",
+        "latency_minutes": 120,
+        "confidence_scale": 0.85
+      }
     ]
   },
-  "decision_clock": { "poll_minutes": 50, "wake_on_inject": true, "deliberation_minutes": 35 },
+  "decision_clock": {
+    "poll_minutes": 50,
+    "wake_on_inject": true,
+    "deliberation_minutes": 35
+  },
   "utility_weights": {
     "asset_loss": 0.5,
     "escalation_risk": 0.45,
@@ -58,5 +104,5 @@
   },
   "voice": "Corporate and relationship-managed. Answers a government request with what the company can do, on what timeline, and under which existing vehicle, and gets the vehicle named in writing before the capacity moves. Discusses customers in tiers rather than as people. Will not comment on cause and redirects the question to the government customer, which is both prudent and convenient. Its characteristic sentence offers more than was asked for and attaches a condition that will matter in six months.",
   "backstory": "The same surviving constellation seen from the commercial side of the house. The government line of business is the company's stability — a multi-year vehicle, an option period under discussion, and a competitor that has just demonstrated in public that it will withhold service on a founder's mood. This persona reads the crisis primarily as the moment the government customer discovers which supplier is reliable, and intends the answer to be this one: capacity moved fast, no public commentary, no surprises. That produces genuinely helpful behaviour and a real blind spot, because the customers who lose capacity when the government tier is prioritised are the ones with no contract and the most exposure — the trawlers, the stations, the hull with passengers on it. He is not indifferent to them; he has simply never had to weigh them against a renewal, and the crisis is where that gets weighed.",
-  "notes": "The counterfactual partner to iridium_safety_of_life: revenue 0.90 against 0.50, civilians trust 0.50 against 0.90, and trust in the Blue government seats a full 0.10-0.20 higher throughout. Same seat, same authority envelope, opposite allocation criterion — the pair exists so that request_commercial_priority at rung 4 produces genuinely different outcomes from an identical Blue request, which is the point of modelling two commercial seats at all. escalation_risk 0.45 is the lowest on the commercial side because this persona does not experience itself as being on the ladder."
+  "notes": "The counterfactual partner to iridium_safety_of_life: revenue 0.90 against 0.50, civilians trust 0.50 against 0.90, and trust in the Blue government seats a full 0.10-0.20 higher throughout. Same seat, same authority envelope, opposite allocation criterion — the pair exists so that request_commercial_priority at rung 4 produces genuinely different outcomes from an identical Blue request, which is the point of modelling two commercial seats at all. escalation_risk 0.45 is the lowest on the commercial side because this persona does not experience itself as being on the ladder. Sourcing: CSIS Space Threat Assessment on commercial dependence and the government services line of business; the safety-of-life and distress-communication obligations that attach to a maritime satellite operator by regulation rather than by contract, which is what this persona is structurally positioned to under-weight. Rung 4 in contracts/action_schema.json is a request and not an order — the whole point of two commercial seats is that an identical Blue request meets two different answers."
 }

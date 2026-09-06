@@ -15,6 +15,7 @@ Run from anywhere::
     python specs/drafts/promote.py --all
     python specs/drafts/promote.py --group train devset
     python specs/drafts/promote.py --all --except norway_alliance_first
+    python specs/drafts/promote.py --all --resync            # update already-promoted files
 
 Two gates run before anything moves: every draft must validate (validate_drafts.py)
 and the whole tree must pass scripts/check_quarantine.sh. Nothing is ever overwritten;
@@ -84,6 +85,15 @@ def main() -> int:
         help="hold these back by spec_id, exemplar_id or devset scenario id",
     )
     parser.add_argument("--dry-run", action="store_true", help="show the moves, change nothing")
+    parser.add_argument(
+        "--resync",
+        action="store_true",
+        help=(
+            "overwrite an already-promoted file whose draft has since changed, instead of "
+            "skipping it. Use after a draft is corrected post-promotion; without it a "
+            "promoted file is never touched."
+        ),
+    )
     args = parser.parse_args()
 
     groups = set(GROUPS) if (args.all or (args.dry_run and not args.group)) else set(args.group)
@@ -112,8 +122,23 @@ def main() -> int:
             held += 1
             continue
         if dest.exists():
-            print(f"  SKIP   {name} — already exists at {rel_dest}", file=sys.stderr)
-            held += 1
+            if not args.resync:
+                msg = f"  SKIP   {name} — already at {rel_dest} (--resync to update)"
+                print(msg, file=sys.stderr)
+                held += 1
+                continue
+            if dest.read_bytes() == src.read_bytes():
+                held += 1
+                continue
+            if args.dry_run:
+                print(f"  would  RESYNC {rel_dest}")
+            else:
+                dest.write_bytes(src.read_bytes())
+                src.unlink()
+                subprocess.run(["git", "add", str(rel_dest)], cwd=REPO_ROOT, check=True)
+                subprocess.run(["git", "rm", "-q", str(rel_src)], cwd=REPO_ROOT, check=False)
+                print(f"  resync {rel_dest}")
+            moved += 1
             continue
         if args.dry_run:
             print(f"  would  {rel_src} -> {rel_dest}")

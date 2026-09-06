@@ -84,6 +84,26 @@ notes: |
   specs that put an action behind release cannot deadlock. Both stand as written.
   Q6 (train/devset.py cannot load the devset) is the only thing still open on another branch.
 
+  2026-09-06 — Audited what the finisher branch promoted. All 25 train specs and all 10
+  exemplar cards went through and are BYTE-IDENTICAL to my drafts — nothing was altered,
+  truncated or reworded. All nine actors present (3 each except starlink/iridium at 2), all
+  three northern_fleet private_types, all three china private_types, all four psyches, every
+  spec carrying notes, temperament, 6-11 feeds and 11-13 trust entries, all at spec_v1.
+  TWO GAPS, both consequential: the 4 holdout specs and all 8 devset scenarios were NOT
+  promoted and are still sitting in specs/drafts/ on that branch. train/gates.py reads
+  specs/holdout/ for held-out-persona coherence and train/devset.py reads specs/devset/ —
+  both are pass-gates in contracts/targets.md, and both currently have nothing to read.
+  Content gap found and fixed: 7 of 25 specs carried no citation to the open doctrine the
+  brief names. Added sourcing to those 7 plus the 2 holdout specs that lacked it, so 29 of 29
+  now cite at least one source. Important distinction — notes is explicitly NOT sent to the
+  model, so a citation there documents provenance for a reviewer; where the doctrine should
+  actually shape behaviour I put it in backstory instead (northern_fleet_initiative now carries
+  the bastion frame explicitly, northcom_coalition_minded the alliance-domain proposition).
+  Added promote.py --resync, because promote.py refused to overwrite and an already-promoted
+  file therefore had no path to receive a correction. Verified against a copy of the finisher
+  tree: resync targets exactly the 7 changed specs, holds the 29 unchanged, and promotes the
+  20 holdout+devset files that never landed.
+
   PR: https://github.com/kavneerm/Delphi/pull/4
 
   Blocked on nothing. Downstream agents can read specs/drafts/ directly before promotion if the

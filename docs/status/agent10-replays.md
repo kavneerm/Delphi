@@ -13,3 +13,12 @@ notes: |
   (4 real: Kosmos-2558, Viasat KA-SAT, Dozor-Teleport, Balticconnector;
   2 controls: Intelsat-33e, Galaxy 15). Now: web-verifying dates for the
   Kosmos-2558 and Viasat timelines before writing any inject.
+
+  2026-09-05 — Web-verified the core dates for all six incidents (launch/onset,
+  disclosure, attribution). Surprises worth recording: (a) the Dozor-Teleport
+  attack was self-attributed by the Ukrainian Cyber Alliance on 2025-08-14,
+  two years after the fact and long outside any 72-hour window — so ground truth
+  gets a real responsible actor but attribution_time_s stays null, which is what
+  keeps the entropy target honest; (b) the Kosmos-2558 close approach is
+  2022-08-04 ~14:16 UTC at ~67 km, not the ~75 km first published. Next:
+  write eval/replays_draft/ scaffolding and the Kosmos-2558 inject timeline.

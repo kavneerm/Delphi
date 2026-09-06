@@ -1,0 +1,132 @@
+{
+  "replay_id": "balticconnector",
+  "replay_version": "v1",
+  "kind": "real_replay",
+  "title": "Balticconnector, 7-10 October 2023",
+  "description": "A gas pipeline and a telecommunications cable between two NATO members are broken on the seabed overnight, thirteen months after Nord Stream and with nobody charged for that. A seismic array records a magnitude-1.0 event at the right place and the right minute, and the seismologists say honestly that they cannot tell a ruptured pipe from a detonation. Inside the window there is damage, a signal, an alliance, and no culprit. The mechanism turned out to be a dragged anchor belonging to a named vessel, established seventeen days later; the intent has never been established at all. The scenario tests whether seats can hold an unresolved incident open against very strong narrative pressure to close it. t = 0 is 2023-10-07T20:00:00Z; the episode ends 2023-10-10T20:00:00Z.",
+  "duration_s": 259200,
+  "injects": [
+    {
+      "inject_id": "blt-01-nord-stream-shadow",
+      "sim_time_s": 0,
+      "recipients": ["all"],
+      "content": "Standing context for anything that happens on the seabed in this sea: thirteen months ago the Nord Stream pipelines were destroyed by explosives and no state has been charged, no investigation has concluded, and three separate national inquiries are running in parallel with different theories. Every operator, navy and energy ministry on this coast is primed to read seabed damage as an attack, and has been since.",
+      "confidence": 0.8,
+      "source": "standing regional assessment",
+      "source_class": "liaison",
+      "source_url": "https://www.osw.waw.pl/en/publikacje/analyses/2023-10-11/balticconnector-gas-pipeline-damage"
+    },
+    {
+      "inject_id": "blt-02-seismic-raw",
+      "sim_time_s": 8400,
+      "recipients": ["norway"],
+      "content": "Automatic detection off the array, unreviewed: a clear seismic event at 0120 local, low magnitude, located in the Gulf about 40 km north of Paldiski. Nothing has been done with this yet — it is one line in an automatic bulletin and no analyst has looked at it. It sits in the data whether or not anyone asks.",
+      "confidence": 0.6,
+      "source": "national seismic array, automatic bulletin",
+      "source_class": "internal",
+      "source_url": "https://www.norsar.no/news/seismic-signal-detected-in-the-vicinity-of-the-baltic-connector-gas-pipeline"
+    },
+    {
+      "inject_id": "blt-03-pressure-drop",
+      "sim_time_s": 10200,
+      "recipients": ["norway"],
+      "content": "Control room, both sides of the link: an unusual pressure drop in the offshore gas pipeline, noticed shortly before 0200 local. Not a metering fault, not a compressor. The section is being isolated now by closing the valves at both ends and transmission between the two countries is being halted. Nobody in the room is saying anything about a cause.",
+      "confidence": 0.9,
+      "source": "gas transmission system operators, both national grids",
+      "source_class": "internal",
+      "source_url": "https://gasgrid.fi/en/2023/10/08/suspicion-of-a-leak-in-the-balticconnector-gas-pipeline-between-finland-and-estonia/"
+    },
+    {
+      "inject_id": "blt-04-public-bulletin",
+      "sim_time_s": 25200,
+      "recipients": ["all"],
+      "content": "Public bulletin from the pipeline operators: suspicion of a leak in the offshore gas pipeline between the two countries. Pipeline isolated, transmission halted, supply to customers secured by other means. Cause under investigation. That is the whole statement and it is deliberately flat.",
+      "confidence": 0.85,
+      "source": "gas transmission system operator bulletin",
+      "source_class": "media",
+      "source_url": "https://gasgrid.fi/en/2023/10/08/suspicion-of-a-leak-in-the-balticconnector-gas-pipeline-between-finland-and-estonia/"
+    },
+    {
+      "inject_id": "blt-05-nord-stream-framing",
+      "sim_time_s": 54000,
+      "recipients": ["all"],
+      "content": "The story has found its frame within hours and the frame is Nord Stream. Coverage is running the two side by side: another Baltic pipeline, another overnight break, another sea full of Russian shipping. Commentators are already describing it as suspected sabotage and several are naming Russia. Nothing published so far rests on anything but the resemblance.",
+      "confidence": 0.4,
+      "source": "international press and commentary",
+      "source_class": "media",
+      "source_url": "https://www.cnn.com/2023/10/11/energy/baltic-pipeline-explainer",
+      "truthful": false
+    },
+    {
+      "inject_id": "blt-06-investigation-opens",
+      "sim_time_s": 79200,
+      "recipients": ["all"],
+      "content": "The national investigation bureau has opened a case and is treating the cause as open. Naval and coastguard units are on scene. Officials are being asked directly whether this was sabotage and are declining to say, which is being reported as though it were an answer.",
+      "confidence": 0.8,
+      "source": "national police and government press briefing",
+      "source_class": "media",
+      "source_url": "https://www.osw.waw.pl/en/publikacje/analyses/2023-10-11/balticconnector-gas-pipeline-damage"
+    },
+    {
+      "inject_id": "blt-07-shipping-picture",
+      "sim_time_s": 122400,
+      "recipients": ["usspacecom", "norway", "nsc"],
+      "content": "Vessel traffic over the damage site for the relevant window is being pulled. It is a busy sea lane and there were multiple ships in the area, commercial and otherwise, under several flags. Nothing yet stands out. Whatever narrowing happens will come from matching a track to a position and a time, and that work takes days, not hours.",
+      "confidence": 0.7,
+      "source": "maritime domain awareness cell",
+      "source_class": "sigint",
+      "source_url": "https://www.rferl.org/a/china-baltic-pipeline-damaged-russia-newnew-polar-bear/32667867.html"
+    },
+    {
+      "inject_id": "blt-08-telecom-cable",
+      "sim_time_s": 216000,
+      "recipients": ["all"],
+      "content": "It was not only the pipeline. A telecommunications cable running between the two countries was damaged in the same window. Two pieces of infrastructure, one night, one stretch of seabed. That coincidence is now the single most persuasive argument in public that this was done on purpose, and it will hold that position for seventeen days.",
+      "confidence": 0.85,
+      "source": "national authorities, joint announcement",
+      "source_class": "media",
+      "source_url": "https://www.aljazeera.com/news/2023/10/11/finland-estonia-gas-pipeline-telecom-link-damaged-by-external-activity"
+    },
+    {
+      "inject_id": "blt-09-head-of-state",
+      "sim_time_s": 223200,
+      "recipients": ["all"],
+      "content": "Statement from the head of state, with the prime minister alongside: it is likely that the damage to both the gas pipeline and the communication cable is the result of outside activity. That is the entire claim. Outside activity, not attack. No actor is named, no intent is asserted, and officials pointedly decline to go further when pressed.",
+      "confidence": 0.8,
+      "source": "office of the head of state",
+      "source_class": "diplomatic",
+      "source_url": "https://www.allsides.com/news/2023-10-10-0700/general-news-finnish-president-says-undersea-gas-and-telecom-cables-damaged-external-activity-0",
+      "is_knife_inject": true
+    },
+    {
+      "inject_id": "blt-10-alliance-response",
+      "sim_time_s": 230400,
+      "recipients": ["all"],
+      "content": "The alliance secretary general, asked about it at a summit: the alliance stands with both countries and is ready to share information. And then the conditional — if it is proven to be a deliberate attack on NATO critical infrastructure, that will be serious and will be met by a united and determined response. Every word of that is load-bearing and the load is carried by 'if it is proven'.",
+      "confidence": 0.85,
+      "source": "alliance secretary general, press conference",
+      "source_class": "diplomatic",
+      "source_url": "https://news.err.ee/1609128038/stoltenberg-nato-supporting-ready-to-share-info-with-estonia-finland"
+    },
+    {
+      "inject_id": "blt-11-seismic-reviewed",
+      "sim_time_s": 244800,
+      "recipients": ["norway", "nsc", "usspacecom"],
+      "content": "Seismologists have now gone back over the automatic detection and reviewed it properly. A clear event at 0120 local on the 8th, magnitude about 1.0, located near where the damaged pipeline crosses another. It coincides with the reported pressure drop to within the hour. And the finding that matters is the one they are being careful about: they cannot determine whether this was a sudden release of gas under high pressure from a rupturing pipe, or the detonation of an explosive. Both produce this signal. The magnitude is far below what the Nord Stream events produced.",
+      "confidence": 0.75,
+      "source": "Norwegian seismology research institute",
+      "source_class": "internal",
+      "source_url": "https://www.norsar.no/news/seismic-signal-detected-in-the-vicinity-of-the-baltic-connector-gas-pipeline"
+    },
+    {
+      "inject_id": "blt-12-no-culprit",
+      "sim_time_s": 255600,
+      "recipients": ["all"],
+      "content": "Three days in. Two pieces of infrastructure broken, a seismic event that could be the pipe failing or could be a charge, a busy sea lane, an alliance that has said it will respond to something proven and nothing proven. No vessel has been named. No state has been accused by anyone in office. The investigation says its next task is to determine whether the damage was intentional, unintentional, or the result of bad seamanship, and it puts those three in that order without weighting them.",
+      "confidence": 0.8,
+      "source": "national investigation bureau briefing",
+      "source_class": "media",
+      "source_url": "https://www.aljazeera.com/news/2023/10/25/finland-pipeline-damage-cause"
+    }
+  ]
+}

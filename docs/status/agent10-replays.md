@@ -68,3 +68,18 @@ notes: |
   Also, minor but persistent: in a worktree-isolated session the Bash tool refuses any
   command containing the literal token `eval`, which is the name of my working
   directory. Using `git add -A` and the file tools instead.
+
+  2026-09-05 — dozor_teleport and balticconnector drafted; 4 of 6 replays done, all
+  8 JSON files validating against contracts on current main (9f1413b). Two authoring
+  notes. (1) dozor is the only file in the set using truthful:false on the claimed
+  attribution, and its scoring.md pins the entropy computation to the four hypotheses
+  that were actually live rather than the whole nine-seat roster — spreading mass over
+  actors nobody proposed would inflate dozor_entropy_ratio for free. Max entropy over
+  four candidates is 2 bits, so the 0.80 target means >= 1.6 bits. (2) balticconnector
+  needed cause=unknown with responsible_actor=null, which is a distinction worth
+  holding: the mechanism was established (an anchor off a named vessel, 17 days later),
+  the intent never was. responsible_actor 'none' would have been wrong because a ship
+  did do it. Flagged in that scoring.md that an attribution to the china seat is a
+  false positive and not partial credit, even though the vessel really was Chinese —
+  no Chinese state direction was ever established. Next: the two controls
+  (control_intelsat_33e, control_galaxy_15), then REPORT.md and a PR.

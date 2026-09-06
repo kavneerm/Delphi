@@ -1,0 +1,1410 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-fraunces: "Fraunces", serif;
+  --font-space: "Space Grotesk", sans-serif;
+  --bg: #0a0a0a;
+  --fg: #f0ede6;
+  /* Slate — at-rest interactive text: nav links, ghost buttons. */
+  --muted: #6a6560;
+  /* Ash — secondary prose: body copy and blog excerpts. */
+  --ash: var(--ash);
+  --accent: #ff5c35;
+  --border: var(--fg);
+  /* Height of the sticky mobile nav. Single source of truth for the bar
+     itself, the sticky header offset, and anchor scroll-margin. */
+  --mobile-nav-height: 48px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-space);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.background-dimmer {
+  position: fixed;
+  inset: 52px 0 0;
+  background: rgba(10, 10, 10, 0.10);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Typography */
+.font-display {
+  font-family: var(--font-fraunces);
+}
+
+/* Nav link */
+.nav-link {
+  font-family: var(--font-space);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.nav-link:hover {
+  color: var(--fg);
+}
+
+/* Event card */
+.card {
+  border-top: 1px solid var(--border);
+  padding: 2rem 0;
+  transition: border-color 0.2s;
+}
+.card:last-child {
+  border-bottom: 1px solid var(--border);
+}
+.card:hover {
+  border-top-color: var(--accent);
+}
+
+/* Ghost button */
+.btn-ghost {
+  font-family: var(--font-space);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.5rem 1.25rem;
+  display: inline-block;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+
+/* Solid button */
+.btn-solid {
+  font-family: var(--font-space);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: #0a0a0a;
+  padding: 0.6rem 1.5rem;
+  display: inline-block;
+  transition: opacity 0.15s;
+}
+.btn-solid:hover {
+  opacity: 0.85;
+}
+
+/* Email input */
+.email-input {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-family: var(--font-space);
+  font-size: 0.875rem;
+  padding: 0.6rem 1rem;
+  outline: none;
+  transition: border-color 0.15s;
+  flex: 1;
+  /* Without this a flex item cannot shrink below its intrinsic width, which
+     pushes the submit button off the right edge on narrow screens. */
+  min-width: 0;
+}
+.email-input::placeholder {
+  color: var(--muted);
+}
+.email-input:focus {
+  border-color: var(--muted);
+}
+
+
+/* Section label */
+.label {
+  font-family: var(--font-space);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The nav lockup: the square symbol beside the wordmark on two lines. Sized
+   by height, never width -- the file carries its own clear space (~59% of its
+   height is ink), so a height chosen to "look right" as a number renders the
+   type much smaller than the same nominal size did as live text.
+
+   flex-shrink: 0 because the nav is a flexbox and will otherwise squeeze the
+   image rather than the gap, which distorts the mark's aspect ratio. */
+.nav-logo {
+  height: 48px;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Accent dot */
+.dot-accent {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ── Hero actions ─────────────────────────────────────────────────────
+   Desktop shows the primary action only. The secondary is purely a mobile
+   scroll affordance — on desktop both panes are already on screen, so
+   there is nothing to scroll to. It is hidden below, not rendered and
+   covered, so it reserves no space. */
+.hero-actions {
+  display: flex;
+  align-items: center;
+  /* Wrap, because the pane is half the viewport: between about 769px and
+     1180px the two buttons are wider than the column and would otherwise
+     push straight through its right edge. The links set `white-space:
+     nowrap`, so without this they cannot break. */
+  flex-wrap: wrap;
+  gap: 12px;
+  /* Larger than the gap above the paragraph, so the actions read as a
+     separate tier rather than as a third line of copy -- see the note on the
+     manifesto's margin in HomeClient.tsx. */
+  margin-top: 2.6rem;
+}
+.hero-cta-secondary {
+  display: none;
+}
+.hero-actions a {
+  font-family: var(--font-space);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.7rem 1.2rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+
+/* Primary — existing solid-orange treatment */
+.hero-cta-primary {
+  background: var(--accent);
+  color: #0a0a0a;
+  border: 1px solid var(--accent);
+}
+.hero-cta-primary:hover {
+  opacity: 0.85;
+}
+
+/* Outlined treatment, shared by the two non-primary hero actions. Split from
+   .hero-cta-secondary because that class also carries `display: none` — the
+   scroll affordance is mobile-only, but Get involved shows everywhere. */
+.hero-cta-secondary,
+.hero-cta-join {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+}
+.hero-cta-secondary:hover,
+.hero-cta-join:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Speaker introduction, sitting under the event description. Matches the
+   description exactly — same size, same colour, no dimming — so the two
+   read as one continuous block of copy. */
+.event-intro {
+  font-family: var(--font-space);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--fg);
+  margin-bottom: 0.75rem;
+}
+
+/* ── Event CTA ────────────────────────────────────────────────────────
+   Spans the full width of the event-copy column, label left and arrow
+   right. Scale, padding, weight and letter-spacing are lifted verbatim
+   from the primary hero CTA (.hero-actions a) rather than inventing new
+   values, so the two read as the same control at the same size. Keeps its
+   own orange-outline treatment — only the metrics are shared. */
+.event-cta-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-space);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.7rem 1.2rem;
+  transition: opacity 0.15s;
+}
+.event-cta-btn:hover {
+  opacity: 0.85;
+}
+
+/* Event rows share a minimum height so that every headshot frame — which
+   stretches to fill its row — resolves to the same size, whether the
+   description runs two lines or four. Neutralised on mobile, where the
+   row stacks and nothing stretches. */
+.event-inner {
+  min-height: 236px;
+}
+
+/* ── Desktop: the heading floats over the conversation list ────────────
+   Mirrors the mobile treatment. Previously the heading sat above the list
+   as a sibling, so the list clipped its own content on a hard line at the
+   scroll container's top edge. Lifting the heading out of flow lets events
+   scroll *behind* it, where the backdrop blur softens them the same way it
+   does on mobile. Applies from 769px up, so the mobile block is untouched. */
+@media (min-width: 769px) {
+  /* Every event row takes the height of the tallest one, so the headshot
+     frames — which stretch to fill their row — all resolve to the same
+     size no matter how long each event's copy runs. This replaces the old
+     min-height floor, which only held while every description happened to
+     wrap to the same number of lines and broke the moment the speaker
+     intros were added. grid-auto-rows:1fr on an auto-height container
+     equalises rows to the tallest.
+
+     Scoped to the event rows via .events-list rather than applied to the
+     scroll container, so the newsletter block below is not stretched too. */
+  .events-list {
+    display: grid;
+    grid-auto-rows: 1fr;
+  }
+  /* The row must pass its equalised height all the way down to the flex row
+     inside it, or the frames still size to their own content. The tilt
+     wrapper and the card surface both sit in that chain now, so each one has
+     to stretch too. */
+  .event-row {
+    display: flex;
+    flex-direction: column;
+  }
+  .event-row > .event-card-outer {
+    flex: 1;
+    display: flex;
+  }
+  .event-card-outer > .event-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .event-card > .event-inner {
+    flex: 1;
+  }
+
+  .pane-right {
+    position: relative;
+  }
+  .conversations-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    /* No fill at all — the blur does all the work. A heavy radius smears
+       whatever passes underneath into an unreadable wash without darkening
+       it, so the animated background still shows through the heading. */
+    background: transparent;
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+  }
+  /* Clears the floating heading so the first event starts below it. Needs
+     !important because the inline padding shorthand sets padding-top: 0. */
+  .events-scroll {
+    padding-top: 40px !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE — applies only at 768px and below.
+   Desktop never evaluates this block, so the desktop layout is unchanged.
+   !important is required here because the page uses inline styles, which
+   otherwise outrank every class rule.
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Shell: release the locked 100dvh viewport so the page scrolls normally */
+  .page-shell {
+    height: auto !important;
+    min-height: 100dvh;
+    overflow: visible !important;
+  }
+
+  /* Nav: tighter, and sticky so it stays reachable while scrolling */
+  .nav-bar {
+    height: var(--mobile-nav-height) !important;
+    padding: 0 1.15rem !important;
+    position: sticky !important;
+    top: 0;
+    /* Not opaque: the Field's colour and lines should carry up through the
+       bar. The blur does most of the legibility work -- it separates the nav
+       text from whatever scrolls under it without hiding what is back there,
+       so the backing can sit lighter than it otherwise would. */
+    background: rgba(10, 10, 10, 0.68);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  /* Touch targets: the visible text stays small, but every nav item is a
+     flex box filling the bar's full height, so the tappable area clears the
+     44px minimum without the bar growing or the type getting bigger. */
+  .nav-wordmark {
+    display: flex !important;
+    align-items: center;
+    min-height: 44px;
+  }
+  /* The bar is 48px on mobile against 52px above it. */
+  .nav-logo { height: 42px; }
+  .nav-links { gap: 0.85rem !important; align-items: stretch !important; }
+  /* The bar is one line. Wrapping doubles its height and pushes the wordmark
+     onto two rows, which reads as broken rather than as tight. */
+  .nav-wordmark,
+  .nav-links a { white-space: nowrap; }
+  .nav-links a {
+    font-size: 0.68rem !important;
+    display: flex !important;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* Two columns collapse to one. Source order puts the manifesto first,
+     then the conversations — which is the intended reading flow. */
+  .split-pane {
+    grid-template-columns: 1fr !important;
+    overflow: visible !important;
+  }
+
+  /* No bottom border and no min-height here. The min-height used to force
+     this pane to a full screen, and since its content is centred that left
+     a large dead gap above the LIVE CONVERSATIONS heading. Letting the pane
+     size to its content removes the gap without any spacer hacks. */
+  .pane-left {
+    border-right: none !important;
+    overflow-y: visible !important;
+    padding: 2.25rem 1.25rem 2.25rem !important;
+  }
+
+  .pane-right {
+    overflow: visible !important;
+  }
+
+  /* Sticky-nav offset lives here, not in visible padding */
+  #live-conversations {
+    scroll-margin-top: var(--mobile-nav-height);
+  }
+
+  /* Section header: ~30px symmetrical vertical padding. Horizontal stays
+     at 1.25rem to line the heading up with the event list below it.
+     Pinned under the nav, framed by white rules top and bottom, with no
+     fill of its own. The blur is kept but the black is not: it tints
+     nothing, it only softens whatever scrolls underneath so the heading
+     stays legible without a solid panel behind it. */
+  .conversations-header {
+    display: flex;
+    align-items: center;
+    padding: 30px 1.25rem !important;
+    position: sticky;
+    top: var(--mobile-nav-height);
+    z-index: 5;
+    background: transparent;
+    border-top: 1px solid var(--fg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  /* The dot is nested inside the label span, not a direct child of the
+     header — so the flex that centres it has to go on the label itself. */
+  .conversations-header .label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .conversations-header .dot-accent {
+    margin-right: 0;
+    flex-shrink: 0;
+  }
+
+  .events-scroll {
+    overflow-y: visible !important;
+    padding: 0 1.25rem 2.5rem !important;
+  }
+
+  /* Event row: copy first, then speakers, then the CTA.
+     The CTA is nested inside .event-text, but it has to land *below* the
+     speaker rail — which is .event-text's sibling, not its child. Setting
+     display:contents promotes the text block's children into .event-inner's
+     own flex flow, which is what lets `order` reach across the two. */
+  .event-inner {
+    flex-direction: column !important;
+    gap: 0 !important;
+    min-height: 0;
+  }
+  .event-text {
+    display: contents !important;
+  }
+  .event-cta {
+    order: 2;
+    margin-top: 1.25rem !important;
+    padding-top: 0 !important;
+  }
+
+  /* Speakers as a horizontal row that scrolls sideways if it overflows.
+     order:1 places them after the copy but before the CTA. */
+  .speaker-rail {
+    order: 1;
+    margin-top: 1.15rem;
+    gap: 0.75rem !important;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .speaker-rail::-webkit-scrollbar { display: none; }
+
+  /* Cards are sized in vw so that once there are more than ~3, the next one
+     is left partly visible at the edge — the cue that the row scrolls. */
+  .speaker-card {
+    width: 28vw !important;
+    max-width: 112px !important;
+    min-width: 84px !important;
+  }
+  /* Square frames, not vertical rectangles. flex:1 inline would stretch
+     these, so it has to be cleared for aspect-ratio to hold. */
+  .speaker-photo {
+    width: 100% !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    aspect-ratio: 1 / 1 !important;
+    min-height: 0 !important;
+    border-radius: 14px !important;
+  }
+  /* The 1:1 mobile frame crops more off a portrait source than the taller
+     desktop frame does, and a centred crop takes it evenly off the top and
+     bottom — which eats into foreheads. Bias the crop upward. */
+  .speaker-photo img {
+    object-position: center 20%;
+  }
+
+  .speaker-name  { font-size: 0.7rem !important; }
+  .speaker-affil {
+    font-size: 0.6rem !important;
+    color: #9d9890 !important;
+  }
+
+
+  /* Forms wrap instead of running off the screen edge.
+     16px on the input is deliberate: iOS auto-zooms on any focused
+     input under 16px, which throws off the whole layout. */
+  .signup-form {
+    flex-wrap: wrap !important;
+    max-width: 100% !important;
+    gap: 0.5rem !important;
+  }
+  .signup-form .email-input {
+    flex: 1 1 100% !important;
+    font-size: 16px !important;
+  }
+  /* Newsletter's Subscribe spans the full width; the per-event form keeps
+     its inline row so the dismiss (✕) stays beside the submit. */
+  .newsletter-form .btn-solid {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* Socials as a balanced 2×2 instead of 3-up with a widow */
+  .social-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+  .social-row .btn-ghost {
+    text-align: center !important;
+  }
+
+  /* The footer's opacity is driven by the right pane's scroll position,
+     which no longer scrolls on mobile — so pin it visible. */
+  .site-footer {
+    position: static !important;
+    opacity: 1 !important;
+    padding: 0 1.25rem 1.5rem;
+    text-align: center;
+  }
+
+  /* Mobile: both actions, stacked full-width, primary on top */
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 12px;
+    margin-top: 1.6rem;
+  }
+  .hero-cta-secondary {
+    display: block;
+  }
+  .hero-actions a {
+    padding: 0.85rem 1rem;
+    text-align: center;
+    white-space: normal;
+  }
+}
+
+/* Respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   BLOG — preview tiles linking out to Substack
+
+   Frames deliberately match the speaker headshots: 14px radius, a hairline
+   cream border at 15%, and a 4% fill. That restraint is what lets them sit
+   over the animated background without competing with it. At rest the tiles
+   only drift; the 3D tilt is reserved for hover, so the motion rewards
+   attention instead of demanding it.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.blog-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.blog-header {
+  flex-shrink: 0;
+  padding: 0.6rem 2.5rem;
+  border-bottom: 1px solid var(--fg);
+}
+
+/* auto-fit + minmax is the whole layout engine: it fits as many tracks as
+   will hold 320px, then divides the remainder equally between them. Tiles
+   stay proportional, the column count follows the viewport, and adding a
+   post reflows the grid with no breakpoints to maintain. A lone child --
+   the empty state -- stretches across every track by itself. */
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  padding: 2.5rem;
+  align-items: start;
+}
+
+.blog-tile-lead { grid-column: 1 / -1; }
+
+/* Outer element: idle drift only. The tilt lives on the child so a hover
+   cannot interrupt the float -- both effects want `transform`. */
+.tilt-drift {
+  display: block;
+  text-decoration: none;
+  animation-name: tilt-float;
+  /* linear, not ease-in-out. With only two keyframes, ease-in-out decelerates
+     to a full stop at the top and bottom of the travel and holds there, which
+     reads as a machine hitting the limit of its stroke rather than something
+     floating. The curve is carried by the keyframes below instead, so the
+     velocity never reaches zero. */
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* A shallow ellipse rather than a vertical line. Eight steps sample a sine
+   closely enough that linear interpolation between them has no visible
+   corners, and the small horizontal component stops the motion reading as an
+   elevator -- two axes on different phases never line up, so the tile always
+   appears to be going somewhere.
+
+   Speed is the thing that actually makes this read as smooth. A 1px border
+   moving slowly does not glide -- it stays on one pixel row until its
+   subpixel position crosses the next threshold, then snaps. At the old 9px
+   over 14s that happened about twice a second, which the eye reads as
+   stepping. Zoom in and the same travel covers more device pixels, the steps
+   get finer, and it looks smooth again -- which is exactly the tell that the
+   problem was speed and not jitter. At 12px over 5.5-8.8s the edge crosses a
+   row every 0.15-0.23s, fast enough to read as continuous.
+
+   translate3d, not translateY: it keeps the element on its own compositor
+   layer, so the move is interpolated on the GPU in subpixels rather than
+   being snapped to whole pixels on the main thread. */
+@keyframes tilt-float {
+  0%     { transform: translate3d(0,      0,      0); }
+  12.5%  { transform: translate3d(1.2px, -2.3px,  0); }
+  25%    { transform: translate3d(1.9px, -6.0px,  0); }
+  37.5%  { transform: translate3d(1.2px, -9.7px,  0); }
+  50%    { transform: translate3d(0,     -12px,   0); }
+  62.5%  { transform: translate3d(-1.2px,-9.7px,  0); }
+  75%    { transform: translate3d(-1.9px,-6.0px,  0); }
+  87.5%  { transform: translate3d(-1.2px,-2.3px,  0); }
+  100%   { transform: translate3d(0,      0,      0); }
+}
+
+/* Shared card behaviour: the surface that tilts and catches the highlight.
+   Appearance (border, fill, padding) belongs to whatever class is applied
+   alongside it -- .blog-tile in the writing grid, .join-card on /join. */
+.tilt-card {
+  position: relative;
+  transform-style: preserve-3d;
+  /* Frosted glass: the background keeps showing through, softly blurred, so
+     a card reads as a pane laid over the scene rather than a hole cut in it.
+     Kept light -- past a few px the stars smear into a flat wash and the
+     motion behind the card is lost, which is the point of having it.
+     The blur clips to each card's own border-radius. */
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  /* Short enough to track the cursor without visible lag, long enough that
+     the release back to flat reads as a settle rather than a snap. */
+  transition: transform 0.18s ease-out, border-color 0.25s, box-shadow 0.25s;
+}
+
+.tilt-card[data-hover] {
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+}
+
+.blog-tile {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(240, 237, 230, 0.04);
+}
+
+.blog-tile[data-hover] {
+  border-color: rgba(255, 92, 53, 0.55);
+}
+
+/* Sheen: a soft highlight that follows the cursor across the tile, as though
+   a light source moved with it. --mx/--my are written by the tilt handler;
+   the 50% fallbacks keep the gradient centred before the first mousemove and
+   on any device that never sends one. Sits above the content but takes no
+   pointer events, so it never blocks the link underneath. */
+.tilt-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    /* An explicit radius, not the default farthest-corner. Left to scale,
+       a wide card produced a glow twice the radius of a narrow one -- but a
+       light source does not grow because the surface under it is bigger.
+       Fixed, it reads as one light across every card on the site. */
+    circle 380px at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.075),
+    rgba(255, 255, 255, 0.028) 28%,
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.28s ease-out;
+}
+
+.tilt-card[data-hover]::after { opacity: 1; }
+
+.blog-tile-media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: rgba(240, 237, 230, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blog-tile-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease-out;
+}
+
+.blog-tile[data-hover] .blog-tile-media img { transform: scale(1.04); }
+
+.blog-tile-media-fallback {
+  font-family: var(--font-space);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: rgba(240, 237, 230, 0.25);
+}
+
+.blog-tile-body {
+  padding: 1.25rem 1.35rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.blog-tile-title {
+  font-family: var(--font-fraunces);
+  font-size: 1.35rem;
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+  transition: color 0.2s;
+}
+
+.blog-tile[data-hover] .blog-tile-title { color: #ffffff; }
+
+.blog-tile-excerpt {
+  font-family: var(--font-space);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--ash);
+  flex: 1;
+}
+
+.blog-tile-meta {
+  font-family: var(--font-space);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Empty state — one large tile that reads as intentional, not as a gap */
+.blog-tile-empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.9rem;
+  padding: clamp(3.5rem, 11vw, 7rem) 2rem;
+}
+
+.blog-tile-empty-label {
+  font-family: var(--font-space);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.blog-tile-empty-title {
+  font-family: var(--font-fraunces);
+  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  max-width: 18ch;
+}
+
+.blog-tile-empty-note {
+  font-family: var(--font-space);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--fg);
+  max-width: 42ch;
+}
+
+@media (max-width: 768px) {
+  .blog-header { padding: 0.6rem 1.25rem; }
+  /* One column below 768px. Two 320px tracks cannot fit anyway, and naming
+     the single column keeps the gutters honest on narrow phones. */
+  .blog-grid {
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+    padding: 1.5rem 1.25rem 3rem;
+  }
+  .blog-tile-title { font-size: 1.2rem; }
+}
+
+/* Touch devices have no hover to reward, and the tilt would only fire on
+   tap. Drop it there and leave the tiles flat and still. */
+@media (hover: none) {
+  .tilt-drift { animation: none; }
+  .tilt-card { transition: border-color 0.25s; }
+  .tilt-card::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt-drift { animation: none; }
+  .tilt-card,
+  .blog-tile-media img { transition: none; }
+}
+
+/* ── Blog: subscribe ─────────────────────────────────────────────────────
+   Substack's embed is cross-origin, so nothing inside the iframe can be
+   restyled -- it is a white panel and will stay one. Containing it in the
+   same rounded frame the tiles use turns that into a deliberate card rather
+   than a stray rectangle. */
+.blog-subscribe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.55rem;
+  padding: 1rem 2.5rem 4.5rem;
+}
+
+.blog-subscribe-label {
+  font-family: var(--font-space);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.blog-subscribe-title {
+  font-family: var(--font-fraunces);
+  font-size: clamp(1.6rem, 3.2vw, 2.2rem);
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  margin-bottom: 0.6rem;
+}
+
+.blog-subscribe-frame {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  /* The iframe has square corners of its own; clipping here is what gives
+     the white panel the same radius as every other frame on the page. */
+  overflow: hidden;
+  line-height: 0;
+}
+
+.blog-subscribe-frame iframe {
+  display: block;
+  width: 100%;
+  height: 150px;
+  border: 0;
+  background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .blog-subscribe { padding: 0.5rem 1.25rem 3.5rem; }
+}
+
+/* ── Get Involved: the 3D card behind the content ────────────────────────
+   Same frame language as the writing tiles and the speaker headshots, sized
+   to hold the page's main block. Padding is generous so the card reads as a
+   surface the content sits on, not a box drawn tightly around it. */
+.join-card-outer {
+  width: 100%;
+  max-width: 620px;
+}
+
+.join-card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(240, 237, 230, 0.04);
+  padding: clamp(2rem, 5vw, 3.25rem);
+}
+
+/* Neutral, not accent: the writing tiles are links and earn the orange.
+   This card holds a form -- warming its border the same way would promise a
+   click that the card itself does not answer. */
+.join-card[data-hover] {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .join-card { padding: 1.5rem 1.25rem; }
+}
+
+/* Social buttons sit at 28px tall from their inline padding, which is under
+   the 44px touch minimum. On touch screens only, grow the hit area -- the
+   type and border stay exactly as they are. */
+@media (max-width: 768px) {
+  .social-row .btn-ghost {
+    min-height: 44px;
+    display: inline-flex !important;
+    align-items: center;
+    padding: 0.35rem 1rem !important;
+  }
+}
+
+/* Small phones (iPhone SE and similar). The nav fits on one line at 390px
+   but not at 320px, so the type steps down rather than wrapping. Tap targets
+   keep their 44px height -- only the glyphs shrink. */
+@media (max-width: 360px) {
+  .nav-wordmark { font-size: 0.63rem !important; }
+  .nav-links { gap: 0.6rem !important; }
+  .nav-links a { font-size: 0.58rem !important; }
+}
+
+/* ── The manifesto dim ───────────────────────────────────────────────────
+   Legibility for the left pane's copy without a card. One dim per text block
+   rather than one over the pane: a single large ellipse darkens the gaps
+   between blocks as heavily as the text, which reads as a smudge. */
+.pane-left > p,
+.pane-left > .hero-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.pane-left > p::before {
+  content: "";
+  position: absolute;
+  inset: -0.45em -1.2em;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50% / 40%;
+  background: radial-gradient(
+    ellipse 62% 58% at 44% 50%,
+    rgba(10, 10, 10, 0.5) 0%,
+    rgba(10, 10, 10, 0.32) 52%,
+    rgba(10, 10, 10, 0) 80%
+  );
+}
+
+@media (max-width: 768px) {
+  /* The pane is full width here, so the same dim covers far more of the
+     screen than it does beside a desktop split. Tighter and lighter. */
+  .pane-left > p::before {
+    inset: -0.35em -0.8em;
+    background: radial-gradient(
+      ellipse 66% 58% at 50% 50%,
+      rgba(10, 10, 10, 0.34) 0%,
+      rgba(10, 10, 10, 0.2) 52%,
+      rgba(10, 10, 10, 0) 82%
+    );
+  }
+}
+
+/* ── Live Conversations: one 3D card per event ───────────────────────────
+   The cards replace the hairline rules that used to separate events: a card
+   already says where one conversation ends and the next begins, and keeping
+   both read as clutter. */
+.event-card-outer { width: 100%; }
+
+/* A rounded surface inset inside each row. The vertical margin is what keeps
+   it clear of the hairline rules above and below -- the card should sit
+   between them, never touch them. Padding is deliberately generous: a border
+   running close to the text reads as a box squeezing the copy. */
+.event-card {
+  margin: 1.15rem 0;
+  padding: 1.6rem 1.9rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(240, 237, 230, 0.04);
+}
+
+.event-card[data-hover] {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* The rules between conversations. Every row reserves the 1px, including the
+   first, so the equal-height grid resolves every headshot to the same size;
+   only the rows after the first paint theirs. */
+.event-row {
+  border-top: 1px solid transparent;
+}
+
+.event-row + .event-row {
+  border-top-color: var(--fg);
+}
+
+@media (max-width: 768px) {
+  /* Mobile has no equal-height grid to preserve -- rows simply stack. */
+  .events-list {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Narrow screens cannot spare 1.9rem of horizontal padding on both sides
+     without squeezing the copy into a column. */
+  .event-card {
+    margin: 0.9rem 0;
+    padding: 1.25rem 1.15rem;
+  }
+}
+
+/* ── Touch targets: form controls ────────────────────────────────────────
+   The email inputs and their submit buttons come in at 29-40px from their
+   inline padding. On touch screens the row grows to the 44px minimum; the
+   type, borders and desktop layout are untouched. */
+@media (max-width: 768px) {
+  .email-input,
+  .btn-solid,
+  .btn-ghost,
+  .event-cta-btn {
+    min-height: 44px;
+  }
+  .btn-solid,
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TEAM — the founders
+
+   Content cards, not links. They take the gentle 2.5deg tilt and the
+   neutral hover border: warming these to Ember would promise a click the
+   card does not answer. No idle Bob either — Bob is for grids of tiles,
+   and a float under a paragraph someone is reading reads as instability.
+
+   Portraits keep the 14px corners of the speaker headshots, tighter than
+   the 16px card holding them, so a photograph never reads as the same kind
+   of object as the surface it sits on.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* flex-start, not center: with two sections the page outgrows the viewport,
+   and a centred flex item that overflows its container is clipped at the top
+   with no way to scroll back up to it. */
+.team-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4rem 2rem;
+}
+
+.team-inner {
+  width: 100%;
+  /* Wider than the 900px the page started at. The figure track has to clear
+     276px for Kavneer's portrait to reach Nahom's height without cropping
+     him, and at 900px that left under 90px for the bio beside it. */
+  max-width: 1140px;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  /* stretch, not start: the bios differ in length, and two cards of
+     different heights side by side read as a layout bug rather than as
+     two people. The wrapper has to carry the height too — the tilt lives
+     on the inner element, so only the outer one is a grid item. */
+  align-items: stretch;
+}
+
+.team-card-outer { display: block; height: 100%; }
+
+/* Two columns when a cutout is present: text left, figure right. The figure
+   column is `auto`, so a card with no image collapses back to a plain text
+   card with no empty gutter. overflow:hidden is what crops the figure at the
+   card's bottom edge — it is the whole effect. */
+.team-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(240, 237, 230, 0.04);
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  height: 100%;
+  min-height: 300px;
+  display: grid;
+  /* A fixed figure track, never `auto`. An `auto` track sizes to the image's
+     max-content contribution, so a wide source claims a far wider column than
+     a narrow one and crushes the bio beside it -- the cards stop matching for
+     a reason that has nothing to do with the design.
+
+     The track is sized for the WIDEST portrait, not the narrowest. Both
+     figures are capped to the same height, so a wide-shouldered headshot needs
+     more width than a tall narrow one to reach that height. Sizing the track
+     to the narrow one is what makes the wide one render short. */
+  grid-template-columns: clamp(150px, 58%, 280px) 1fr;
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.team-card-text { align-self: start; min-width: 0; }
+
+/* No portrait: collapse to a single column so the text uses the full card
+   width instead of leaving a gutter where the figure would have been. */
+.team-card-plain {
+  grid-template-columns: 1fr !important;
+  min-height: 0;
+}
+
+/* The negative bottom margin is what makes it bleed: it cancels the card's
+   own padding so the figure reaches the border and is clipped by it, rather
+   than stopping short and floating in a pocket of empty card. */
+.team-cutout {
+  position: relative;
+  align-self: end;
+  width: 100%;
+  /* The box is slightly wider than the widest portrait (0.953), which forces
+     BOTH figures to be height-limited by `contain` rather than width-limited.
+     That is what makes them render at exactly the same height at every
+     viewport width -- a fixed `max-height` only matched at the one width it
+     was measured at, and drifted apart on either side of it. */
+  aspect-ratio: 0.96;
+  margin-bottom: calc(-1 * clamp(1.5rem, 3vw, 2.25rem));
+  /* Pull left to the card's border. The photo was cropped through his arm,
+     and that straight edge is invisible once the border sits on top of it --
+     mid-card it read as a slice through him. */
+  margin-left: calc(-1 * clamp(1.5rem, 3vw, 2.25rem));
+  pointer-events: none;
+}
+
+/* contain + bottom, never cover: cover crops from the centre and takes the
+   head off a standing figure. */
+.team-cutout img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* bottom left, not bottom: `contain` centres the figure in its column,
+     which would open a sliver of empty card between the cut edge and the
+     border -- exactly the gap that makes the crop visible again. */
+  object-position: bottom left;
+}
+
+/* Separates hair from the Blooms behind. Bone, not Ember -- see the accent
+   rule. Sits under the figure and fades out well before the card edge so it
+   never reads as a disc. */
+.team-cutout-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 150%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle,
+    rgba(240, 237, 230, 0.07) 0%,
+    rgba(240, 237, 230, 0.035) 42%,
+    rgba(240, 237, 230, 0) 68%
+  );
+  pointer-events: none;
+}
+
+/* Neutral, not accent — see the accent rule in BRAND.md §1. */
+.team-card[data-hover] {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Width and height are set inline by <Portrait size> — 72px on the founders,
+   52px on the board. Everything else is shared. */
+.team-portrait {
+  flex-shrink: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(240, 237, 230, 0.04);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+/* One column on a phone: two 320px-minimum cards cannot sit side by side,
+   and squeezing them turns every bio into a column of two-word lines. */
+@media (max-width: 768px) {
+  .team-main { padding: 2.5rem 1.25rem; }
+  .team-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+  /* Keep the two columns on a phone rather than stacking. A full-width card
+     is ~340px, which still leaves the bio a readable measure beside a
+     narrower figure, and stacking would put the cutout above the name where
+     it stops reading as someone standing in the card. */
+  .team-card { padding: 1.5rem 1.25rem; min-height: 280px; }
+  /* Mobile stacks: copy full width on top, figure beneath it, still bleeding
+     off the card floor.
+
+     Side by side does not survive a 340px card. The figure track leaves the
+     bio a ~150px measure, which wraps it to six lines and builds a card far
+     taller than the figure -- so the figure sits at the bottom with 100px+ of
+     empty card above it, and it gets worse at 320px. Stacked, the bio runs
+     the full width in three lines, the figure gets over half the card width,
+     and there is no dead space at all because nothing sits beside anything.
+
+     No min-height: the card has `overflow: hidden` for the bleed, so a fixed
+     height shorter than the content silently clips the end of a bio. */
+  .team-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.5rem 1.25rem;
+    min-height: 0;
+  }
+
+  .team-card-text { order: 1; width: 100%; }
+
+  .team-cutout {
+    order: 2;
+    /* Override the desktop `align-self: end`. The card is a column flexbox
+       here, so that property aligns on the horizontal axis and was pushing
+       the figure to the card's right edge, away from the border it is meant
+       to bleed against. */
+    align-self: flex-start;
+    /* Flex items default to `min-height: auto`, which lets the image's own
+       intrinsic height override the aspect-ratio box and pull the two
+       portraits back to different heights. */
+    min-height: 0;
+    /* Generous, because stacked there is nothing beside the figure competing
+       for the width -- the only cost of a bigger portrait here is card
+       height, and a taller card reads better than a small floating figure. */
+    min-height: 0;
+    width: 72%;
+    max-width: 250px;
+    margin-top: 1rem;
+    /* Reach the card's border and floor, as on desktop. */
+    margin-bottom: -1.5rem;
+    margin-left: -1.25rem;
+  }
+}
+
+/* ── Roster social row ──────────────────────────────────────────────────
+   Mail, X, LinkedIn. Rounded squares, hairline border, 4% fill -- the same
+   surface language as the cards, one step smaller. 10px corners: tighter than
+   the 14px Portrait, which is itself tighter than the 16px card, so the three
+   nest rather than compete. */
+.team-social {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.team-social-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  /* Lit at rest, not only on hover. Ember at full strength on the glyph, a
+     warm fill, and a soft outer bloom -- the buttons read as live links
+     before the cursor ever reaches them. */
+  border: 1px solid rgba(255, 92, 53, 0.55);
+  background: rgba(255, 92, 53, 0.08);
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(255, 92, 53, 0.22);
+  transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.team-social-btn svg { width: 18px; height: 18px; display: block; }
+
+/* Hover still has somewhere to go: the bloom widens and the fill deepens.
+   A control that is already lit needs a louder hover, not a different hue. */
+.team-social-btn:hover,
+.team-social-btn:focus-visible {
+  border-color: var(--accent);
+  background: rgba(255, 92, 53, 0.16);
+  box-shadow: 0 0 22px rgba(255, 92, 53, 0.4);
+}
+
+/* A button with no address yet looks exactly like a live one -- same border,
+   same fill, same hover. It simply has no href, so it does not navigate.
+   Dimming it made the row read as broken rather than as pending. */
+
+/* 44px touch minimum, per §7. The icon does not grow -- only the hit area. */
+@media (max-width: 768px) {
+  .team-social { gap: 0.6rem; margin-top: 1rem; }
+  .team-social-btn { width: 44px; height: 44px; }
+}
+
+/* Section headings. These carry the page now that the italic display line is
+   gone, so they take Fraunces at headline weight but a much smaller size —
+   they are labels for what follows, not the page's opening statement. */
+.team-heading {
+  font-family: var(--font-fraunces);
+  font-size: clamp(1.75rem, 3.5vw, 2.4rem);
+  font-weight: 300;
+  font-style: italic;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 2rem;
+}
+
+/* The board sits under the founders, so its heading needs air above it or the
+   two sections read as one long grid. */
+.team-heading-sub { margin-top: 4rem; }
+
+/* Three across at full width, wrapping down as the viewport narrows. Board
+   cards are name-and-affiliation only, so they need far less width than a
+   founder card and auto-fit can pack them tighter. */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.board-card-outer { display: block; height: 100%; }
+
+/* Portrait beside the name rather than above it: at this size a stacked
+   photo would make each card as tall as a founder's and undo the hierarchy. */
+.board-card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(240, 237, 230, 0.04);
+  padding: 1rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.board-card[data-hover] {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* The board portrait sits inline, so it must not carry the founders' bottom
+   margin. */
+.board-card .team-portrait { margin-bottom: 0; }
+
+/* Board cutouts stay inline at 52px and take the halo, not the bleed: a
+   figure cropped this small is just a face, so the bleed buys nothing. */
+.board-cutout {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+}
+
+.board-cutout img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .team-heading-sub { margin-top: 2.5rem; }
+  .board-grid { grid-template-columns: 1fr; }
+}

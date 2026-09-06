@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+#
+# contact_to receives the contact form submissions. It is NOT published on the site — the
+# form posts to /api/contact and a Lambda relays it here, so the address stays private.
+#
+# SES is in sandbox mode on a new account, which means this address must confirm itself
+# before anything can be delivered. `terraform apply` triggers a verification email to it;
+# click the link in that email once, and the form works from then on.
+
+domain_name = "inevitablefrontier.org"
+contact_to  = "kavneerm@gmail.com"

@@ -94,3 +94,11 @@ Thumbs.db
 .superset/config.local.json
 *.jsonl.gz
 gen/APPROVED
+# Terraform: state contains resource metadata and must never be committed; tfvars may
+# contain account-specific values. The lock file IS committed, deliberately.
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log

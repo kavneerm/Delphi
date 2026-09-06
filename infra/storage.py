@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,6 +63,57 @@ CONTENT_TYPES = {
 }
 
 _DEFAULT_LOCAL_ROOT = ".wargame-local"
+
+# Two spellings of the same switch reached main in the same hour: this module and
+# engine/storage.py both read WARGAME_STORAGE (with opposite defaults), gen/storage.py
+# reads WARGAME_BACKEND. Rather than force a flag day, resolve_backend() honours both
+# and refuses to guess when they disagree. See infra/QUESTIONS.md Q1.
+BACKEND_ENV_VARS = ("WARGAME_STORAGE", "WARGAME_BACKEND")
+BACKENDS = ("s3", "local")
+
+# contracts/s3_layout.md §1: "Nothing else goes in the bucket."
+CONTRACT_PREFIXES = ("specs/", "lake/", "runs/", "checkpoints/", "validation/", "logs/")
+
+
+def resolve_backend(env: Mapping[str, str] | None = None) -> str:
+    """Which backend the environment selects: "s3" or "local".
+
+    Reads WARGAME_STORAGE and WARGAME_BACKEND, accepts either, and raises if they are
+    both set and disagree — a split where half the artefacts are in the bucket and half
+    are in a worktree-private directory is the failure this exists to prevent.
+
+    Unset means **s3**. Each agent has its own git worktree and therefore its own
+    ./.wargame-local, so a local default silently gives every agent a private lake that
+    no other agent can read; the bucket is the only storage the project actually shares.
+    """
+    env = os.environ if env is None else env
+    chosen: dict[str, str] = {}
+    for name in BACKEND_ENV_VARS:
+        raw = env.get(name)
+        if raw is None or raw == "":
+            continue
+        value = raw.strip().lower()
+        if value not in BACKENDS:
+            raise ValueError(f"{name}={raw!r} is not one of {BACKENDS}")
+        chosen[name] = value
+
+    distinct = set(chosen.values())
+    if len(distinct) > 1:
+        pairs = ", ".join(f"{k}={v}" for k, v in sorted(chosen.items()))
+        raise ValueError(
+            f"storage backend is ambiguous ({pairs}). Set both to the same value, or "
+            "unset one. Half the run in the bucket and half in .wargame-local is worse "
+            "than either."
+        )
+    return distinct.pop() if distinct else "s3"
+
+
+def contract_prefix_of(key: str) -> str | None:
+    """The contract prefix a key belongs to, or None if it belongs to none of them."""
+    for prefix in CONTRACT_PREFIXES:
+        if key.startswith(prefix):
+            return prefix
+    return None
 
 
 def content_type_for(key: str) -> str:
@@ -144,9 +195,13 @@ class Storage:
         local_root: str | Path | None = None,
         session: Any | None = None,
         region: str = "us-east-1",
+        strict_prefixes: bool = True,
     ) -> None:
         if (bucket is None) == (local_root is None):
             raise ValueError("pass exactly one of bucket= or local_root=")
+        #: Reject S3 writes outside the six contract prefixes. The local mirror is
+        #: dev scratch and is never checked; the bucket is what the contract governs.
+        self.strict_prefixes = strict_prefixes
         self.bucket = bucket
         self.local_root = Path(local_root) if local_root is not None else None
         self._session = session
@@ -159,10 +214,11 @@ class Storage:
     def from_env(cls) -> Storage:
         """S3 by default; local when WARGAME_STORAGE=local.
 
-        WARGAME_LOCAL_ROOT overrides the local directory and defaults to
-        ./.wargame-local, per contracts/s3_layout.md §6.
+        WARGAME_BACKEND is accepted as a synonym of WARGAME_STORAGE; see
+        resolve_backend(). WARGAME_LOCAL_ROOT overrides the local directory and
+        defaults to ./.wargame-local, per contracts/s3_layout.md §6.
         """
-        if os.environ.get("WARGAME_STORAGE", "s3").lower() == "local":
+        if resolve_backend() == "local":
             root = os.environ.get("WARGAME_LOCAL_ROOT", _DEFAULT_LOCAL_ROOT)
             return cls(local_root=root)
         return cls(
@@ -210,6 +266,14 @@ class Storage:
         content_type: str | None = None,
     ) -> str:
         versions.require(*require)
+        if not self.is_local and self.strict_prefixes and contract_prefix_of(key) is None:
+            raise ValueError(
+                f"key {key!r} is under none of the six contract prefixes "
+                f"{CONTRACT_PREFIXES}. contracts/s3_layout.md §1: nothing else goes in "
+                "the bucket, and a seventh prefix is a contract change. Write scratch to "
+                "the local mirror (WARGAME_STORAGE=local), or pass strict_prefixes=False "
+                "if a human has approved the new prefix."
+            )
         metadata = versions.to_metadata()
         ctype = content_type or content_type_for(key)
 

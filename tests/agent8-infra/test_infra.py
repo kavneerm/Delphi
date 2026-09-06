@@ -16,7 +16,15 @@ from pathlib import Path
 import pytest
 
 from infra import bootstrap
-from infra.storage import METADATA_KEYS, PROJECT_TAG, Storage, Versions, content_type_for
+from infra.storage import (
+    METADATA_KEYS,
+    PROJECT_TAG,
+    Storage,
+    Versions,
+    content_type_for,
+    contract_prefix_of,
+    resolve_backend,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 CONTRACT = REPO / "contracts" / "s3_layout.md"
@@ -269,3 +277,64 @@ def test_report_records_the_arns() -> None:
     report = (INFRA / "REPORT.md").read_text()
     assert "arn:aws:s3:::svalbard-wargame" in report
     assert "312f3b0f78754d25920d9b0f6482d2feWs3fPUjY" in report
+
+
+# ------------------------------------------------- the one-helper adjudication
+
+
+def test_backend_defaults_to_s3_when_nothing_is_set() -> None:
+    # Every agent has its own worktree and therefore its own ./.wargame-local; the
+    # bucket is the only storage they share. Unset must not mean "private lake".
+    assert resolve_backend({}) == "s3"
+
+
+@pytest.mark.parametrize("name", ["WARGAME_STORAGE", "WARGAME_BACKEND"])
+def test_either_spelling_selects_the_backend(name: str) -> None:
+    # engine/storage.py reads WARGAME_STORAGE, gen/storage.py reads WARGAME_BACKEND.
+    assert resolve_backend({name: "local"}) == "local"
+    assert resolve_backend({name: "s3"}) == "s3"
+    assert resolve_backend({name: "S3"}) == "s3"
+
+
+def test_agreeing_spellings_are_fine() -> None:
+    assert resolve_backend({"WARGAME_STORAGE": "local", "WARGAME_BACKEND": "local"}) == "local"
+
+
+def test_disagreeing_spellings_refuse_to_guess() -> None:
+    with pytest.raises(ValueError, match="ambiguous"):
+        resolve_backend({"WARGAME_STORAGE": "s3", "WARGAME_BACKEND": "local"})
+
+
+def test_an_unknown_backend_value_is_an_error() -> None:
+    with pytest.raises(ValueError, match="WARGAME_STORAGE"):
+        resolve_backend({"WARGAME_STORAGE": "bucket"})
+
+
+def test_empty_string_counts_as_unset() -> None:
+    assert resolve_backend({"WARGAME_STORAGE": "", "WARGAME_BACKEND": "local"}) == "local"
+
+
+@pytest.mark.parametrize("prefix", list(bootstrap.PREFIXES))
+def test_contract_prefixes_are_recognised(prefix: str) -> None:
+    assert contract_prefix_of(f"{prefix}anything/at/all.json") == prefix
+
+
+def test_a_seventh_prefix_is_refused_on_s3(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A local smoke run that writes smoke/ or tmp/ must not become a seventh bucket
+    # prefix the day someone flips the backend.
+    store = Storage(bucket="svalbard-wargame")
+    with pytest.raises(ValueError, match="seventh prefix"):
+        store.put_text("smoke/qwen25_7b.json", "{}", versions=Versions())
+    assert contract_prefix_of("smoke/x.json") is None
+    assert contract_prefix_of("tmp/x.jsonl") is None
+
+
+def test_the_local_mirror_is_scratch_and_takes_any_key(tmp_path: Path) -> None:
+    store = Storage(local_root=tmp_path)
+    store.put_text("smoke/x.json", "{}", versions=Versions())
+    assert store.exists("smoke/x.json")
+
+
+def test_strict_prefixes_can_be_waived_for_an_approved_prefix() -> None:
+    store = Storage(bucket="b", strict_prefixes=False)
+    assert store.strict_prefixes is False

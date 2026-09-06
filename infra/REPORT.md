@@ -47,6 +47,55 @@ test pins the prefix so the failure happens in CI rather than against AWS.
 | `infra/gpu_setup.sh` | node bring-up: CUDA check, venv, torch/PEFT/TRL/Unsloth/vLLM/bitsandbytes, GPU visibility assertion |
 | `infra/serve_vllm.sh <checkpoint_s3_uri>` | pulls an adapter from S3 and serves it as a named LoRA on an OpenAI-compatible endpoint; `--down` stops it |
 
+## Adjudication: three storage writers, one contract
+
+Asked to settle the two-writers claim, I found three. `contracts/s3_layout.md` §6 asks
+for one helper; `infra/storage.py`, `engine/storage.py` and `gen/storage.py` each open
+by claiming to be it, and they do not agree on what the switch is or what it defaults to:
+
+| helper | env switch | S3 when | default unset |
+|---|---|---|---|
+| `infra/storage.py` (merged `bf0403f`) | `WARGAME_STORAGE` | anything but `local` | **s3** |
+| `engine/storage.py` (merged `c0a3d46`) | `WARGAME_STORAGE` | `s3` exactly | **local** |
+| `gen/storage.py` (branch `agent3-gen`) | `WARGAME_BACKEND` | `s3` exactly | **local** |
+
+Two modules read the same variable with opposite defaults, and no single assignment
+puts all three on S3. The repo `.env` sets neither switch, so as merged: Engine writes
+`logs/` locally, Gen writes `lake/` locally, `infra.storage` writes to the bucket. The
+bucket holds six `.keep` markers; `Panoptes/.wargame-local` holds 24 files. Since
+`episode_id` is the join key between `logs/` and `lake/` (§3), a split backend breaks
+the join — and because each agent has its own worktree, `local` does not mean a shared
+lake, it means eight private ones.
+
+**Verdict.** The duplication is the violation, not any one module. `infra.storage`
+should be the implementation and the other two thin shims over it, with **`s3` as the
+unset default** — an argument from the worktree layout, not taste. Full reasoning,
+options and the two smaller divergences (sidecar placement inside vs. outside the
+mirror; `boto3.client("s3")` ignoring `AWS_PROFILE=panoptes`) are in
+`infra/QUESTIONS.md` Q1, for a human to ratify. Gen's `Store` has one thing worth
+keeping in whatever survives: it remembers the `VersionId` it wrote, so a transient
+part can be hard-deleted instead of lingering as a noncurrent version.
+
+I did not touch `engine/` or `gen/`. What I did do, in my own directory, is make the
+eventual merge cheap and make the current state safe:
+
+- `resolve_backend()` accepts **both** spellings, rejects an unknown value, and raises
+  when the two are set and disagree rather than silently splitting a run. Adopting it
+  is a one-line change in either module.
+- S3 writes outside the six contract prefixes now raise, quoting §1. Not hypothetical:
+  the local mirror already contains `smoke/` and `tmp/` keys that would have become a
+  seventh and eighth bucket prefix the first time someone flipped the backend.
+
+**On agent1-engine's original hazard line, separately: it was true, and it is now
+resolved.** `4b36e68` and `8acabb8` are reachable from `origin/agent4-train` and
+`origin/agent10-replays` and from neither `origin/main` nor `origin/agent1-engine`, so
+`main` is clean — the engine code on `main` arrived via `2bb8372`. One correction to
+the claim: the content is *not* engine-only. `4b36e68` also edits
+`docs/status/agent1-engine.md`, so a PR from either branch would carry another agent's
+status file, which is the one file AGENTS.md says is off limits. Both branches should
+rebase onto `main` and drop the two commits before opening a PR. There are now eight
+worktrees, one per active agent, so the shared-HEAD failure cannot recur.
+
 ## How to run it
 
 ```bash
@@ -121,7 +170,7 @@ pass as the `model` field.
 
 ```
 $ python -m pytest tests/agent8-infra -q
-35 passed
+51 passed
 
 $ ruff check infra/ tests/agent8-infra/
 All checks passed!
@@ -135,8 +184,9 @@ The tests deliberately touch no AWS. They cover the shape of the IAM policy (sco
 one bucket ARN, S3 actions only, deny on bucket deletion), the prefix list parsed out
 of `contracts/s3_layout.md` itself so contract drift fails a test, the §4 metadata
 contract (all nine keys always present, `""` for not-applicable, seed stringified,
-JSONL is `application/x-ndjson`), the local-mirror round trip, and the guardrails in
-the shell scripts (strict mode, `--yes` opt-in, tag filters, the quota gate).
+JSONL is `application/x-ndjson`), the local-mirror round trip, the backend-switch adjudication (both spellings, ambiguity refused, a seventh prefix
+refused on S3 but allowed on the scratch mirror), and the guardrails in the shell
+scripts (strict mode, `--yes` opt-in, tag filters, the quota gate).
 
 ## Versions produced (env / spec / lake / filter / judge)
 
@@ -156,6 +206,13 @@ object and refuses writes whose required version strings are empty.
   removes the inline policy with the role; there is no managed policy to leak.
 - `bootstrap.py` cannot recover if a bucket of that name exists in another account —
   it raises a clear error rather than retrying.
+- The three-helper split is *adjudicated, not fixed*: `engine/storage.py` and
+  `gen/storage.py` still default to the local mirror. Until someone ratifies
+  `infra/QUESTIONS.md` Q1 and lands the one-line change in each, a run started with no
+  `WARGAME_STORAGE` in the environment still writes its logs and its lake to a
+  worktree-private directory.
+- `.wargame-local/` is ignored only via `.git/info/exclude`, which is not committed.
+  `infra/QUESTIONS.md` Q2; humans own `.gitignore`.
 
 ## Quarantine check
 
@@ -171,4 +228,7 @@ quarantined incident name and for the general terms; no match. The repo's
   is live with all six prefixes; write immediately, no waiting.
 - `docs/HANDOFFS.md`, 2026-09-05 → **all agents**: `infra/storage.py` is the one helper
   for the S3/local-mirror switch and the §4 metadata contract.
+- `docs/HANDOFFS.md`, 2026-09-05 → **agent1-engine, agent3-gen, coordinator**: the
+  three-writers adjudication above, the `resolve_backend()` drop-in, and the two
+  branches carrying agent1-engine's stray commits.
 - `interfaces_ready: [s3_bucket, infra.storage]` in `docs/status/agent8-infra.md`.

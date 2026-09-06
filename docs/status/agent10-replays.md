@@ -1,7 +1,8 @@
 # agent10-replays
 state: AWAITING_HUMAN: replay_review
 branch: agent10-replays
-last_commit: cb36f66
+last_commit: 6f5c276
+pr: https://github.com/kavneerm/Delphi/pull/6
 interfaces_ready: []
 needs: []
 awaiting_human: replay_review — a human reviews eval/replays_draft/ and moves approved files to eval/replays/

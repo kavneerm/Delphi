@@ -1,8 +1,8 @@
 # agent1-engine
 state: AWAITING_HUMAN: env_lock
 branch: agent1-engine
-last_commit: ac33e19
-interfaces_ready: [engine.agent_api, engine.human_agent, engine.run, engine.replay, engine.storm_check, engine/samples/stub_run.jsonl]
+last_commit: pending
+interfaces_ready: [engine.agent_api, engine.human_agent, engine.bridge, engine.run, engine.replay, engine.storm_check, engine/samples/stub_run.jsonl]
 needs: [calib/attribution_lags.csv, specs/train/*.json]
 awaiting_human: env_lock — comparison table is in engine/ENV_LOCK.md; pick one of the three options and freeze env_v1
 updated: 2026-09-05
@@ -78,4 +78,27 @@ notes:
     ENV_LOCK.md with a recommendation; NOT choosing, because all three touch exactly what
     env_version exists to freeze and changing the storm after generation starts invalidates the
     lake. STAYING AT THE GATE.
+  - 2026-09-05 — read the board, then ran the engine against what other agents actually produced.
+    That was worth doing: IT FOUND A REAL BUG IN ALREADY-MERGED CODE. engine.specs.load_pool used
+    setdefault against a dict that already held a placeholder for every seat, so a populated
+    specs/train/ was silently ignored and every episode ran on placeholders — anyone who ran the
+    engine before 49b123f was not running agent9's specs. Fixed, regression test added. With the
+    fix: all 25 of agent9's specs load, validate and satisfy the authority invariants; a 72h
+    episode on them replays byte-identically; all 8 of their devset scenario files drive an
+    episode end to end through --replay (closes REPORT gap 6); and all 8 of agent10's replay files
+    parse and validate through load_replay (structural check only — no episodes, no names, since
+    running those is agent6's job).
+  - 2026-09-05 — delivered both of agent7-ui's asks and unblocked their websocket. action lines
+    now carry beliefs and reasoning so the log is self-sufficient for persona cards; a state_change
+    at t=0 carries every asset's initial two-body elements so they can propagate their own arcs and
+    drop the hand-copy of engine.world. New engine/bridge.py serves one seat live over a WebSocket
+    (newline-JSON TCP fallback), with pause/resume/snapshot/fork wired to the loop. Their
+    ui/server/PROTOCOL.md is referenced in their QUESTIONS.md but is not pushed, so I defined a
+    minimal message set and told them I will conform to theirs if they push it — they are the
+    consumer. THE DESIGN POINT: the event log is the god's-eye record, so a LIVE human-played
+    episode must not be rendered from it or the person at nsc sees what Red believes. The bridge
+    sends the seat's filtered view only, forwards just that seat's own traffic, and never streams
+    attribution_revealed before episode_end; there is a test asserting a live client is never sent
+    the hidden affiliation or any seat's private_type. 74 tests green. STILL AT THE env_lock GATE —
+    none of this touches the storm parameters that decision is about.
 

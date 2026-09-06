@@ -24,7 +24,8 @@ Built in the order `docs/agent_workstreams.md` specifies.
 | `engine/human_agent.py` | An `agent_api` agent whose `act()` blocks on an external event (the UI) and whose `observe()` returns the seat's filtered view. Default seat `nsc`. |
 | `engine/episode.py` | The orchestrator: both clock modes, both release policies, the world consequences of all fourteen rungs, the end-of-episode reveal. |
 | `engine/specs.py` | Nine placeholder specs under `spec_v0`, so the engine runs before `specs/train/` exists. Superseded per seat by any real spec on disk. |
-| `engine/run.py`, `replay.py`, `storm_check.py` | The three CLIs. |
+| `engine/bridge.py` | The live wire protocol for a human at a seat: a WebSocket (or newline-JSON TCP) server that runs one episode on a worker thread and serves one seat to one client. **Sends the seat's filtered view, never the event log** — see below. |
+| `engine/run.py`, `replay.py`, `storm_check.py`, `bridge.py` | The four CLIs. |
 
 ### The two axes that change the shape of a run
 
@@ -64,6 +65,9 @@ python -m engine.storm_check --profile may2024
 
 # A human at the NSC seat (scripted channel when no operator is attached)
 python -m engine.run --seed 3 --storm G4 --stubs --hours 24 --release human
+
+# A live human seat over a socket, for the UI
+python -m engine.bridge --seat nsc --port 8765 --seed 1 --storm G5 --hours 72
 
 # From a config file
 python -m engine.run --stubs --config contracts/examples/env_config_sweep_continuous_auto.json
@@ -150,20 +154,27 @@ The tests worth naming:
 3. **`calib/attribution_lags.csv` does not exist yet.** The four medians (jam 6 h,
    dazzle 18 h, ground_cyber 72 h, rpo 12 h) are placeholders chosen for their
    *ordering*, which the public record supports; the magnitudes are not evidence.
-4. **The specs are placeholders.** `specs/train/` is empty, so the nine specs in
-   `engine/specs.py` are exercising the engine, not being trained on. Every one
-   validates and satisfies the authority invariants, but their voices and
-   backstories are thin by design.
+4. **The specs are placeholders until `specs/train/` is populated.** Verified
+   against `agent9-specs`' real pool: all 25 parse, validate and satisfy the
+   authority invariants, and a 72-hour episode on them completes and replays
+   byte-identically. That cross-check found a real bug in already-merged code —
+   `load_pool` used `setdefault` against a dict that already held a placeholder
+   for every seat, so a populated `specs/train/` was **silently ignored** and
+   every episode ran on placeholders. Fixed and pinned by a regression test.
+   Anyone who ran the engine before `49b123f` was not running the real specs.
 5. **Stub behaviour is not a behavioural claim.** `aggressive` climbs on belief,
    time and observed rung; it produces a plausible trace for the UI and the lake
    plumbing and nothing more. No target in `contracts/targets.md` should be read
    off a stub run.
-6. **No scenario file has been run end to end.** `engine/injects.py` loads and
-   validates `inject_schema` files, and `--replay <file>` is wired, but
-   `eval/replays/` is empty in this branch, so only the synthetic timeline has
-   actually driven an episode.
-7. **`fork()` is untested at scale.** It is correct and reproducible on a small
-   queue; nobody has yet forked a mid-episode snapshot 50 ways.
+6. ~~No scenario file has been run end to end.~~ **Closed.** All eight of
+   `agent9-specs`' devset `scenario.json` files drive a full episode through
+   `--replay`, and all eight of `agent10-replays`' files parse and validate
+   through `load_replay` (structural check only — no episodes, no names, since
+   running those is Agent 6's job). A regression test drives a scenario file
+   end to end and asserts its ground truth reaches the reveal and no seat.
+7. **`fork()` is exercised but not at scale.** Reproducible on a small queue and
+   wired into the bridge's what-if path, which forks a mid-episode snapshot and
+   runs each branch to completion. Nobody has forked 50 ways.
 8. **The world model is coarse where the contract allows it.** Constellations are
    aggregated, pass windows are square waves, and the ground-cyber target match
    is a substring test against ground-segment ids. All adequate for the
@@ -224,10 +235,35 @@ emit the `attribution_revealed` line at episode end.
 2. **→ agent2-calib**: the exact columns `engine/storm.py` and
    `engine/attacks.py` read, and the note that everything is optional with a
    `TODO_CALIB` fallback.
-3. **→ agent3-gen, agent4-train, agent5-selfplay, agent6-eval**:
+3. **→ agent7-ui, again**: both their follow-up asks. `action` lines now carry
+   `payload.beliefs` and `payload.reasoning`, so the log is self-sufficient for
+   a persona card; and a `state_change` at t=0 carries every asset's initial
+   two-body elements, so they can propagate their own arcs instead of
+   interpolating 30-minute samples and hand-copying `engine.world`. Plus
+   `engine/bridge.py` for the live human seat, with the protocol documented at
+   the top of the file and an explicit offer to conform to theirs instead.
+
+   **With one caution, which is the reason the bridge exists.** The event log is
+   the god's-eye record. Rendering a *live* human-played episode from it would
+   show the person at NSC what Red believes. The bridge sends `engine/seats.py`
+   output only, filters the events it forwards to that seat's own traffic, and
+   never forwards `attribution_revealed` before `episode_end`. There is a test
+   asserting a live client is never sent the hidden affiliation or any seat's
+   `private_type`.
+
+4. **→ agent9-specs**: their pool loads and runs, plus the `load_pool` bug their
+   work uncovered, plus a note that `exemplar_card_schema.json` sits among the
+   specs and will land in `specs/train/` if `promote.py` is not selective.
+
+5. **→ agent6-eval**: their replay-loading path is exercised, and new
+   `PANOPTES_SPECS_DIR` / `PANOPTES_CALIB_DIR` overrides let a perturbation run
+   (`env_v1_perturbed`) point at a different spec pool or calibration table
+   without touching the checkout.
+
+6. **→ agent3-gen, agent4-train, agent5-selfplay, agent6-eval**:
    `engine.agent_api` — `BaseAgent`, `WakePolicy`, `default_params_for()` and
    `coerce_decision()`. Stop mocking it.
-4. **→ coordinator/human**: the shared-checkout hazard. The twelve agents are
+7. **→ coordinator/human**: the shared-checkout hazard. The twelve agents are
    sharing one git checkout and one HEAD rather than a worktree each, so a branch
    switch by one agent moves everyone; two of my commits landed on whichever
    branch was current and had to be rebuilt on `agent1-engine`. I have moved to a

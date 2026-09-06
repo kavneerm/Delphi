@@ -7,6 +7,7 @@ between them is one environment variable and not a code path per module.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import threading
@@ -59,6 +60,8 @@ class Store:
         self.backend = config.backend
         self._client = None
         self._lock = threading.Lock()
+        #: key -> VersionId for objects this process wrote. See `discard`.
+        self._versions: dict[str, str] = {}
 
     # -- backend plumbing ---------------------------------------------------
 
@@ -87,7 +90,7 @@ class Store:
         self, key: str, body: bytes, *, tags: VersionTags, content_type: str = JSON
     ) -> str:
         if self.backend == "s3":  # pragma: no cover - exercised only against real S3
-            self.client.put_object(
+            response = self.client.put_object(
                 Bucket=self.config.require_bucket(),
                 Key=key,
                 Body=body,
@@ -95,6 +98,13 @@ class Store:
                 Tagging=_TAGGING,
                 ContentType=content_type,
             )
+            # The bucket has versioning enabled, so a plain delete only writes a delete
+            # marker and the object lingers as a noncurrent version. Remembering the
+            # version id lets `discard()` remove a transient part outright.
+            version_id = response.get("VersionId")
+            if version_id:
+                with self._lock:
+                    self._versions[key] = version_id
         else:
             path = self._local_path(key)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,13 +132,43 @@ class Store:
         body = "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
         return self.put_text(key, body, tags=tags, content_type=NDJSON)
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str, *, version_id: str | None = None) -> None:
         if self.backend == "s3":  # pragma: no cover
-            self.client.delete_object(Bucket=self.config.require_bucket(), Key=key)
+            kwargs = {"Bucket": self.config.require_bucket(), "Key": key}
+            if version_id:
+                kwargs["VersionId"] = version_id
+            self.client.delete_object(**kwargs)
         else:
             path = self._local_path(key)
             path.unlink(missing_ok=True)
             path.with_suffix(path.suffix + ".meta.json").unlink(missing_ok=True)
+
+    def discard(self, key: str) -> None:
+        """Remove a transient object this process wrote, leaving no delete marker.
+
+        `lake/<lake_version>/_parts/` exists only between a decision completing and its
+        episode closing. On a versioned bucket a plain delete would leave both a
+        noncurrent version and a delete marker for every one of ~50k decisions, so the
+        exact version written is removed instead.
+        """
+        with self._lock:
+            version_id = self._versions.pop(key, None)
+        self.delete(key, version_id=version_id)
+
+    # -- async offload ------------------------------------------------------
+
+    async def put_json_async(self, key: str, obj: Any, *, tags: VersionTags) -> str:
+        """`put_json` off the event loop, so 64 concurrent episodes are not serialised
+        behind a blocking socket write."""
+        return await asyncio.to_thread(self.put_json, key, obj, tags=tags)
+
+    async def put_jsonl_async(
+        self, key: str, rows: list[dict[str, Any]], *, tags: VersionTags
+    ) -> str:
+        return await asyncio.to_thread(self.put_jsonl, key, rows, tags=tags)
+
+    async def discard_async(self, key: str) -> None:
+        await asyncio.to_thread(self.discard, key)
 
     # -- reads --------------------------------------------------------------
 

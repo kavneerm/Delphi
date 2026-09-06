@@ -6,6 +6,8 @@ import argparse
 import asyncio
 import dataclasses
 import random
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from engine.config import EnvConfig
@@ -13,7 +15,7 @@ from engine.episode import Episode
 from gen.agent import GenAgent
 from gen.config import GenConfig
 from gen.contracts import validation_errors, validator
-from gen.keys import episode_records_key, run_summary_key
+from gen.keys import episode_records_key, part_key, run_summary_key
 from gen.llm import LLMClient
 from gen.specs import seat_assignment_pool
 from infra.storage import Storage, Versions
@@ -26,6 +28,8 @@ FULL_BUDGET_CAP_USD = 1500.0
 # and all bridges blocked). Eight completes through the same bridge and retains
 # substantial TPM headroom, so use the fastest setting that is actually proven.
 FULL_CONCURRENCY = 8
+ADAPTED_EPISODE_S = 54 * 3600
+GRID_SEVERITIES = ("quiet", "G1", "G3", "G5")
 
 
 def episode_config(config: GenConfig, seed: int, *, cost_check: bool) -> EnvConfig:
@@ -52,30 +56,45 @@ def episode_config(config: GenConfig, seed: int, *, cost_check: bool) -> EnvConf
     )
 
 
-def full_episode_config(config: GenConfig, seed: int) -> EnvConfig:
-    """One production 72-hour continuous-clock episode.
+def full_episode_config(
+    config: GenConfig, seed: int, *, duration_s: int = ADAPTED_EPISODE_S
+) -> EnvConfig:
+    """One production continuous-clock episode from the balanced Red/storm grid.
 
-    The continuous clock produces 1,008 decisions with the approved nine-seat
-    persona clocks.  Thirty-six episodes therefore make a 36,288-record initial
-    lake: inside Agent 3's 30–50k definition-of-done range while retaining a
-    conservative $1.5k ceiling derived from the live Terra probe.
+    The continuous clock reads each selected persona's own poll interval and
+    keeps wake-on-inject enabled. New work is 54 simulated hours; existing
+    in-flight 72-hour episodes are not reconstructed or shortened.
     """
     grouped = seat_assignment_pool(config.specs_root)
     chooser = random.Random(seed)
     assignment = {
         seat: chooser.choice(specs)["spec_id"] for seat, specs in sorted(grouped.items()) if specs
     }
+    # The Red type belongs to Northern Fleet; the independent Red psyche belongs
+    # to Kremlin. Cycling their real, approved persona cards is a grid over both
+    # axes without synthesising or editing a spec. A 3×3×4 grid is 36 cells.
+    fleet = sorted(grouped["northern_fleet"], key=lambda spec: str(spec["private_type"]))
+    kremlin = sorted(grouped["kremlin"], key=lambda spec: str(spec["psyche"]))
+    cell = seed - 1
+    fleet_spec = fleet[cell % len(fleet)]
+    psyche_spec = kremlin[(cell // len(fleet)) % len(kremlin)]
+    severity = GRID_SEVERITIES[(cell // (len(fleet) * len(kremlin))) % len(GRID_SEVERITIES)]
+    assignment["northern_fleet"] = str(fleet_spec["spec_id"])
+    assignment["kremlin"] = str(psyche_spec["spec_id"])
+    scenario_id = (
+        f"lake_grid_{severity.lower()}_{fleet_spec['private_type']}_{psyche_spec['psyche']}"
+    )
     return EnvConfig.from_dict(
         {
             "env_version": config.env_version,
             "spec_version": config.spec_version,
             "seed": seed,
-            "duration_s": 72 * 3600,
-            "scenario_id": "lake_v1_continuous",
+            "duration_s": duration_s,
+            "scenario_id": scenario_id,
             "seats": assignment,
             "clock_mode": {"mode": "continuous", "tick_s": 60},
             "release_policy": {"policy": "auto", "approval_probability": 0.5},
-            "storm": {"profile": "may2024", "severity": "G5", "onset_sim_time_s": 0},
+            "storm": {"profile": "may2024", "severity": severity, "onset_sim_time_s": 0},
         }
     )
 
@@ -118,12 +137,70 @@ def records_for(episode: Episode, config: GenConfig) -> list[dict[str, Any]]:
             "clock_mode": episode.config.mode,
             "release_policy": episode.config.policy,
             "release_outcome": "not_required",
+            "grid_cell": {
+                "storm_severity": episode.config.storm.get("severity", ""),
+                "red_private_type": episode.specs["northern_fleet"].get("private_type", ""),
+                "red_psyche": episode.specs["kremlin"].get("psyche", ""),
+                "synthetic_hold": item.synthetic_hold,
+                "view_hash": item.view_hash,
+            },
         }
         errors = validation_errors(validator("lake_record_schema.json"), record)
         if errors:
             raise ValueError(f"invalid lake record {record['record_id']}: {errors[:3]}")
         records.append(record)
     return records
+
+
+def streaming_sink(
+    *,
+    episode: Episode,
+    config: GenConfig,
+    store: Storage,
+) -> Callable[[Any, Mapping[str, Any], Mapping[str, Any]], None]:
+    """Durably flush an unfinalised decision part immediately after it is chosen.
+
+    The contract's immutable `.jsonl` records require final episode utility, so
+    they close at episode end. These `.json` parts are deliberately outside the
+    record prefix: they give progress visibility and survive an interrupted batch
+    without letting a consumer train on an incomplete outcome.
+    """
+    versions = Versions(
+        env_version=config.env_version,
+        spec_version=config.spec_version,
+        lake_version=config.lake_version,
+        seed=episode.config.seed,
+        episode_id=episode.episode_id,
+    )
+
+    def sink(item: Any, view: Mapping[str, Any], output: Mapping[str, Any]) -> None:
+        record_id = f"{episode.episode_id}-{item.seat}-{int(item.sim_time_s)}"
+        payload = {
+            "record_id": record_id,
+            "episode_id": episode.episode_id,
+            "seed": episode.config.seed,
+            "seat": item.seat,
+            "sim_time_s": item.sim_time_s,
+            "filtered_state": dict(view),
+            "output": dict(output),
+            "synthetic_hold": bool(item.synthetic_hold),
+            "view_hash": item.view_hash,
+            "tokens": item.tokens,
+            "written_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+            "grid_cell": {
+                "storm_severity": episode.config.storm.get("severity", ""),
+                "red_private_type": episode.specs["northern_fleet"].get("private_type", ""),
+                "red_psyche": episode.specs["kremlin"].get("psyche", ""),
+            },
+        }
+        store.put_json(
+            part_key(config.lake_version, episode.episode_id, item.decision_index, record_id),
+            payload,
+            versions=versions,
+            require=("env_version", "spec_version", "lake_version", "episode_id"),
+        )
+
+    return sink
 
 
 def write_episode(episode: Episode, config: GenConfig, store: Storage) -> str:
@@ -193,7 +270,9 @@ async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
         await client.aclose()
 
 
-async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str, Any]:
+async def run_full(
+    config: GenConfig, episodes: int = FULL_EPISODES, *, start_seed: int = 1
+) -> dict[str, Any]:
     """Generate the budget-capped initial lake, stopping only at episode boundaries.
 
     Eight calls are in flight at most. This stays below Luna's 2M TPM ceiling
@@ -201,8 +280,8 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
     full-prompt bridge stall, while the fixed episode count is conservative even
     if prompt caching vanishes.
     """
-    if episodes != FULL_EPISODES:
-        raise ValueError(f"full run is budget-capped at exactly {FULL_EPISODES} episodes")
+    if episodes < 1 or start_seed < 1 or start_seed + episodes - 1 > FULL_EPISODES:
+        raise ValueError(f"run must stay inside the budget-capped seeds 1..{FULL_EPISODES}")
     if not config.approved():
         raise PermissionError("create gen/APPROVED after the human generation gate")
     config = dataclasses.replace(config, concurrency=min(config.concurrency, FULL_CONCURRENCY))
@@ -214,6 +293,7 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
         cfg = full_episode_config(config, seed)
 
         def factory(episode: Episode) -> dict[str, GenAgent]:
+            sink = streaming_sink(episode=episode, config=config, store=store)
             return {
                 seat: GenAgent(
                     seat,
@@ -222,6 +302,7 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
                     client=client,
                     loop=loop,
                     episode_id=episode.episode_id,
+                    record_sink=sink,
                 )
                 for seat, spec in episode.specs.items()
             }
@@ -240,8 +321,9 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
         # this event loop. A batch of eight worker threads therefore keeps eight
         # requests in flight (rather than accidentally serialising 1,008 calls per
         # episode), while the batch boundary is a safe, observable budget checkpoint.
-        for first_seed in range(1, episodes + 1, config.concurrency):
-            seeds = range(first_seed, min(first_seed + config.concurrency, episodes + 1))
+        stop_seed = start_seed + episodes
+        for first_seed in range(start_seed, stop_seed, config.concurrency):
+            seeds = range(first_seed, min(first_seed + config.concurrency, stop_seed))
             batch = await asyncio.gather(*(asyncio.to_thread(one, seed) for seed in seeds))
             for episode in batch:
                 keys.append(write_episode(episode, config, store))
@@ -257,6 +339,7 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
                 )
         summary = {
             "episodes": episodes,
+            "start_seed": start_seed,
             "expected_decisions": episodes * FULL_DECISIONS_PER_EPISODE,
             "keys": keys,
             "usage": client.usage.as_dict(),
@@ -282,6 +365,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cost-check", action="store_true")
     parser.add_argument("--full", action="store_true", help="run the human-approved initial lake")
     parser.add_argument("--episodes", type=int, default=10)
+    parser.add_argument("--start-seed", type=int, default=1)
     args = parser.parse_args(argv)
     if args.cost_check == args.full:
         parser.error("pass exactly one of --cost-check or --full")
@@ -290,9 +374,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("the human gate requires exactly ten episodes")
         print(asyncio.run(run_cost_check(GenConfig(), args.episodes)))
     else:
-        if args.episodes != FULL_EPISODES:
-            parser.error(f"the $1.5k budget cap permits exactly {FULL_EPISODES} episodes")
-        print(asyncio.run(run_full(GenConfig(), args.episodes)))
+        print(asyncio.run(run_full(GenConfig(), args.episodes, start_seed=args.start_seed)))
     return 0
 
 

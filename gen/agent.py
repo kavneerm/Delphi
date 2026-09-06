@@ -23,8 +23,10 @@ schema-validity rate off it.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any
@@ -55,6 +57,8 @@ class DecisionTelemetry:
     prompt_chars: int = 0
     failed: bool = False
     failure: str = ""
+    view_hash: str = ""
+    synthetic_hold: bool = False
 
 
 class GenAgent(BaseAgent):
@@ -77,6 +81,8 @@ class GenAgent(BaseAgent):
         loop: asyncio.AbstractEventLoop,
         episode_id: str,
         checkpoint_index: Any = None,
+        record_sink: Callable[[DecisionTelemetry, Mapping[str, Any], Mapping[str, Any]], None]
+        | None = None,
     ) -> None:
         super().__init__(seat, spec)
         self.config = config
@@ -86,7 +92,9 @@ class GenAgent(BaseAgent):
         #: Callable or None; the engine's checkpoint counter, read at decision time.
         self._checkpoint_index = checkpoint_index
         self.last_beliefs: dict[str, Any] | None = None
+        self.last_view_hash: str | None = None
         self.telemetry: list[DecisionTelemetry] = []
+        self._record_sink = record_sink
 
     # -- the bridge ---------------------------------------------------------
 
@@ -97,11 +105,52 @@ class GenAgent(BaseAgent):
 
     # -- the interface ------------------------------------------------------
 
+    @staticmethod
+    def _view_hash(view: Mapping[str, Any]) -> str:
+        """Hash material the seat can act on, excluding clock-only motion.
+
+        Sim time, time remaining, next-poll bookkeeping and deterministic ground
+        track propagation change on every tick without delivering any new
+        information. Keeping them would make an "unchanged view" optimisation
+        a no-op. All feeds, injects, messages, effects and degradation remain.
+        """
+        payload = json.loads(json.dumps(view, sort_keys=True, default=str))
+        clock = payload.get("clock")
+        if isinstance(clock, dict):
+            for key in ("sim_time_s", "sim_hours_elapsed", "hours_remaining", "next_poll_s"):
+                clock.pop(key, None)
+        for asset in payload.get("own_assets", []):
+            if isinstance(asset, dict):
+                asset.pop("ground_track", None)
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    def _emit(
+        self, telemetry: DecisionTelemetry, view: Mapping[str, Any], decision: Mapping[str, Any]
+    ) -> None:
+        self.telemetry.append(telemetry)
+        if self._record_sink is not None:
+            self._record_sink(telemetry, view, decision)
+
     def act(self, view: Mapping[str, Any]) -> dict[str, Any]:
         index = len(self.telemetry)
         clock = view.get("clock") or {}
         sim_time_s = float(clock.get("sim_time_s", 0.0))
         checkpoint = self._checkpoint_index() if callable(self._checkpoint_index) else None
+        view_hash = self._view_hash(view)
+
+        telemetry = DecisionTelemetry(
+            decision_index=index,
+            seat=self.seat,
+            sim_time_s=sim_time_s,
+            view_hash=view_hash,
+        )
+        if view_hash == self.last_view_hash:
+            telemetry.synthetic_hold = True
+            telemetry.gen_model = self.client.model
+            decision = hold_decision("No material change in the filtered view; holding.")
+            self._emit(telemetry, view, decision)
+            return decision
 
         try:
             prompt = build_prompt(
@@ -117,13 +166,8 @@ class GenAgent(BaseAgent):
             # episode for, because it is invisible once it is in the lake.
             raise
 
-        telemetry = DecisionTelemetry(
-            decision_index=index,
-            seat=self.seat,
-            sim_time_s=sim_time_s,
-            prompt_chars=len(prompt.text),
-            prompt_version=prompt.prompt_version,
-        )
+        telemetry.prompt_chars = len(prompt.text)
+        telemetry.prompt_version = prompt.prompt_version
 
         try:
             completion = self._run(self.client.complete_decision(prompt))
@@ -132,7 +176,11 @@ class GenAgent(BaseAgent):
             telemetry.failure = str(failure)
             telemetry.schema_retries = failure.attempts
             telemetry.gen_model = self.client.model
-            self.telemetry.append(telemetry)
+            decision = hold_decision(
+                "The staff work did not come back in a usable form in the time available. "
+                "Holding until the next update."
+            )
+            self._emit(telemetry, view, decision)
             log.warning(
                 "%s/%s at T+%.2fh: %s; holding",
                 self.episode_id,
@@ -140,15 +188,13 @@ class GenAgent(BaseAgent):
                 sim_time_s / 3600.0,
                 failure,
             )
-            return hold_decision(
-                "The staff work did not come back in a usable form in the time available. "
-                "Holding until the next update."
-            )
+            return decision
         except Exception as error:  # noqa: BLE001 - one decision point, not the episode
             telemetry.failed = True
             telemetry.failure = f"{type(error).__name__}: {error}"
             telemetry.gen_model = self.client.model
-            self.telemetry.append(telemetry)
+            decision = hold_decision("No staff input available this cycle. Holding.")
+            self._emit(telemetry, view, decision)
             log.warning(
                 "%s/%s at T+%.2fh: %s; holding",
                 self.episode_id,
@@ -156,19 +202,20 @@ class GenAgent(BaseAgent):
                 sim_time_s / 3600.0,
                 telemetry.failure,
             )
-            return hold_decision("No staff input available this cycle. Holding.")
+            return decision
 
         telemetry.tokens = completion.tokens()
         telemetry.schema_retries = completion.schema_retries
         telemetry.transport_retries = completion.transport_retries
         telemetry.latency_s = completion.latency_s
         telemetry.gen_model = completion.model
-        self.telemetry.append(telemetry)
+        self.last_view_hash = view_hash
 
         decision = completion.payload
         beliefs = decision.get("beliefs")
         if isinstance(beliefs, dict):
             self.last_beliefs = beliefs
+        self._emit(telemetry, view, decision)
         return decision
 
     def decide_release(

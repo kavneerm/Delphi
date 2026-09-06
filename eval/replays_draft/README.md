@@ -62,14 +62,22 @@ definition the target gives it.
 
 ```
 python - <<'PY'
-import json, pathlib, jsonschema   # jsonschema is a dev dependency
-store = {s["$id"]: s for s in
-         (json.loads(p.read_text()) for p in pathlib.Path("contracts").glob("*.json"))}
-schema = store["https://panoptes.wargame/contracts/v1/inject_schema.json"]
-res = jsonschema.RefResolver.from_schema(schema, store={
-    k.rsplit("/", 1)[-1]: v for k, v in store.items()} | store)
+import json, pathlib
+from referencing import Registry, Resource
+from jsonschema import Draft202012Validator
+
+res = []
+for p in pathlib.Path("contracts").glob("*.json"):
+    s = json.loads(p.read_text())
+    r = Resource.from_contents(s)
+    res.extend([(s["$id"], r), (p.name, r)])   # $id and bare-filename $refs
+schema = json.loads(pathlib.Path("contracts/inject_schema.json").read_text())
+v = Draft202012Validator(schema, registry=Registry().with_resources(res))
+
 for p in sorted(pathlib.Path("eval/replays_draft").glob("*.json")):
-    jsonschema.validate(json.loads(p.read_text()), schema, resolver=res)
-    print("ok", p.name)
+    errs = list(v.iter_errors(json.loads(p.read_text())))
+    print("FAIL" if errs else "ok  ", p.name)
+    for err in errs:
+        print("   ", list(err.path), err.message)
 PY
 ```

@@ -22,3 +22,12 @@ notes: |
   keeps the entropy target honest; (b) the Kosmos-2558 close approach is
   2022-08-04 ~14:16 UTC at ~67 km, not the ~75 km first published. Next:
   write eval/replays_draft/ scaffolding and the Kosmos-2558 inject timeline.
+
+  2026-09-05 — eval/replays_draft/ created: dir README (authoring conventions) plus
+  the kosmos_2558 replay — 12 injects with source_url on every one, a ground-truth
+  file, and a scoring.md mapping to contracts/targets.md. Both JSON files validate
+  against contracts/inject_schema.json. Deliberately omitting the optional `feed`
+  key everywhere: the schema drops an inject for any recipient whose spec lacks the
+  named feed, and specs/ has not published a feed vocabulary, so naming feeds now
+  would silently delete injects. Routing uses recipients + source_class instead.
+  Next: viasat_ka_sat and dozor_teleport.

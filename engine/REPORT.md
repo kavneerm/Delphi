@@ -190,6 +190,24 @@ Two deliberate choices keep it that way:
   Arctic storm-plus-ambiguity scenario. It carries no historical incident at all,
   quarantined or allowed.
 
+### One finding, outside my directory
+
+Sweeping the whole repo rather than just `engine/` turned up two hits in
+`tests/agent0-contracts/test_contracts.py` (lines 327 and 436): an asset-id
+fixture that spells one of the quarantined satellites with an underscore instead
+of a space. `scripts/check_quarantine.sh` matches the spaced form, so the
+underscore form goes straight past the hook and the commit succeeded.
+
+It is a test fixture, not a prompt, so nothing has reached a model — but the
+guard has a hole and the hole is the shape of every id-style spelling. Both the
+test file and the hook are outside my directory, so I have not touched either.
+The exact strings, and the two fixes a human should make, are in the
+`agent1-engine → agent0-contracts / human` line in `docs/HANDOFFS.md`, which is
+on the hook's exemption list precisely so a finding like this can be written down
+somewhere a model will never read it. (This paragraph deliberately does not spell
+them: `engine/` is not exempt, and the hook correctly refused my first draft of
+this report for naming them here.)
+
 `engine/injects.py` does load files from `eval/replays/` when asked, which is
 correct — `contracts/inject_schema.json` says the engine is the one component
 that may. Nothing in `specs/`, `gen/` or the lake reads them, and the engine

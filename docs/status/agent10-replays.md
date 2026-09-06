@@ -1,10 +1,10 @@
 # agent10-replays
-state: IN_PROGRESS
+state: AWAITING_HUMAN: replay_review
 branch: agent10-replays
-last_commit:
+last_commit: cb36f66
 interfaces_ready: []
 needs: []
-awaiting_human:
+awaiting_human: replay_review — a human reviews eval/replays_draft/ and moves approved files to eval/replays/
 updated: 2026-09-05
 notes: |
   2026-09-05 — Read AGENTS.md, COORDINATION.md, contracts/inject_schema.json,
@@ -83,3 +83,22 @@ notes: |
   false positive and not partial credit, even though the vessel really was Chinese —
   no Chinese state direction was ever established. Next: the two controls
   (control_intelsat_33e, control_galaxy_15), then REPORT.md and a PR.
+
+  2026-09-05 — ALL SIX REPLAYS DRAFTED. 19 files in eval/replays_draft/: six replays x
+  (injects + ground_truth + scoring.md), plus the directory README and REPORT.md.
+  74 injects, every one with a source_url. All 12 JSON files validate against
+  contracts/inject_schema.json as it stands on main (9f1413b), and a consistency lint
+  covering the invariants the schema cannot express — inject ordering, exactly one knife
+  inject per file, unique inject_ids, recipients restricted to the nine seats or 'all',
+  forbidden_actions equal to the three irreversible actions, controls carrying
+  responsible_actor 'none' — comes back clean on all six. Quarantine verified: every
+  occurrence of a quarantined incident name in anything I wrote is under eval/ or in
+  this status file, both exempt by design; scripts/check_quarantine.sh passes over every
+  tracked file. Read agent1-engine's hazard note in HANDOFFS.md, which independently
+  describes the shared-checkout collision and recommends exactly the history cleanup I
+  had already done. Setting AWAITING_HUMAN: replay_review — the gate is a human reading
+  the drafts and moving approved files into eval/replays/, which per AGENTS.md I must
+  not write to. Opening a PR now. Two things for agent6-eval to read before writing
+  eval/replay_table.py: the in-window expectation tables (real responses often postdate
+  episode end by weeks) and the per-replay counting rules, especially the four-hypothesis
+  candidate set for dozor_entropy_ratio and the control false-positive rule.

@@ -20,7 +20,9 @@ VENV="${VENV:-/opt/svalbard/venv}"
 PORT="${PORT:-8000}"
 HOST="${HOST:-0.0.0.0}"
 BASE_MODEL="${BASE_MODEL:-Qwen/Qwen2.5-7B-Instruct}"
-TP_SIZE="${TP_SIZE:-4}"                 # g5.12xlarge = 4x A10G
+# Tensor parallel follows the GPUs actually present: 4 on a g5.12xlarge, 1 on a
+# g5.2xlarge. A hardcoded 4 makes vLLM refuse to start on a single-GPU box.
+TP_SIZE="${TP_SIZE:-$(nvidia-smi --list-gpus 2>/dev/null | grep -c . || echo 1)}"
 MAX_LEN="${MAX_LEN:-8192}"
 LOCAL_ROOT="${LOCAL_ROOT:-/opt/svalbard/checkpoints}"
 PIDFILE=/opt/svalbard/vllm.pid

@@ -41,11 +41,39 @@ test pins the prefix so the failure happens in CI rather than against AWS.
 | file | what it does |
 |---|---|
 | `infra/bootstrap.py` | idempotent converge of bucket + IAM. `--dry-run`, `--verify`, `--no-iam`, `--no-markers` |
+| `infra/audit.py` | read-only conformance audit of the bucket (or the mirror) against every section of `s3_layout.md`; exits 1 on a finding, so it works as a pre-flight check |
 | `infra/storage.py` | the single S3-or-local-mirror helper `contracts/s3_layout.md` §6 asks for; enforces the §4 metadata and the `project=svalbard` tag on every write |
 | `infra/teardown.sh` | tag-keyed teardown; dry-run until `--yes`; stages `--compute`, `--data`, `--iam`, `--all` |
 | `infra/provision_gpu.sh` | self-gating GPU launcher: reads the quota and refuses to spend when it is 0 |
 | `infra/gpu_setup.sh` | node bring-up: CUDA check, venv, torch/PEFT/TRL/Unsloth/vLLM/bitsandbytes, GPU visibility assertion |
 | `infra/serve_vllm.sh <checkpoint_s3_uri>` | pulls an adapter from S3 and serves it as a named LoRA on an OpenAI-compatible endpoint; `--down` stops it |
+
+## The auditor
+
+`infra/audit.py` checks every object in the bucket against the contract and exits 1 if
+any is out of it, so a bad write is caught by whoever runs it next rather than by Eval
+on Sunday morning. Per object: the key is under one of the six prefixes (§1) and
+matches one of that prefix's key templates (§3); every version string is well formed
+(§2) and the versions in the metadata agree with the versions in the key; all nine
+metadata keys are present and the object is tagged `project=svalbard` (§4); the content
+type matches the suffix (§5).
+
+Two kinds of key are not findings. The `.keep` markers are infrastructure. And
+`lake/<lake_v>/_parts/…` is `gen/storage.py`'s deliberate deviation — one object per
+decision, written the instant it completes so a crash at 40k decisions costs one
+episode (§5's "write as you go"), concatenated onto the contract key at episode close.
+Reading Gen's code before writing the auditor is what kept that from becoming tens of
+thousands of false findings. They are counted and reported separately instead, because
+a `_parts/` object left behind *after* a run is an episode that never closed.
+
+Current state: `0 checked, 6 exempt, 0 transient, 0 out of contract` — the bucket holds
+only the prefix markers.
+
+The auditor's good-key fixtures in `tests/agent8-infra/test_audit.py` are the exact
+strings the other agents' key builders produce (`engine/log.py:log_key`,
+`gen/storage.py:lake_key/lake_index_key/judge_key`). They all pass, so Engine's `logs/`
+keys and Gen's `lake/` keys are conformant as written; if a writer and the auditor ever
+drift apart, that test is where it surfaces.
 
 ## Adjudication: three storage writers, one contract
 
@@ -100,6 +128,10 @@ worktrees, one per active agent, so the shared-HEAD failure cannot recur.
 
 ```bash
 export AWS_PROFILE=panoptes WARGAME_BUCKET=svalbard-wargame
+
+python -m infra.audit                   # is everything in the bucket in contract?
+python -m infra.audit --prefix lake/    # one prefix
+python -m infra.audit --local           # the same key checks on the local mirror
 
 python -m infra.bootstrap --dry-run     # show the plan
 python -m infra.bootstrap               # converge (safe to repeat)
@@ -184,7 +216,7 @@ pass as the `model` field.
 
 ```
 $ python -m pytest tests/agent8-infra -q
-51 passed
+98 passed
 
 $ ruff check infra/ tests/agent8-infra/
 All checks passed!

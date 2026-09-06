@@ -46,4 +46,15 @@ notes: |
   worktrees). main is clean; 4b36e68 and 8acabb8 sit only on agent4-train and
   agent10-replays, and 4b36e68 also carries a foreign docs/status edit — both
   branches should rebase onto main and drop them before opening a PR.
-  51 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.
+  2026-09-05 — Added infra/audit.py: read-only conformance audit of the bucket (and
+  the mirror) against every section of s3_layout.md — prefix, key template, version
+  patterns, key/metadata agreement, the nine metadata keys, the project tag, content
+  type — exiting 1 on a finding so it can gate a run. Bucket audits clean. Read the
+  other agents' writers first, which paid for itself twice: gen/storage.py writes a
+  deliberately transient lake/<v>/_parts/ key that is NOT in §3 (write-as-you-go per
+  §5, deleted at episode close), so the auditor counts those separately instead of
+  emitting tens of thousands of false findings; and the good-key fixtures are the
+  exact strings engine/log.py and gen/storage.py produce, so Engine's logs/ and Gen's
+  lake/ keys are confirmed conformant as written. The auditor also flags the smoke/
+  and tmp/ keys already sitting in the main checkout's mirror.
+  98 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.

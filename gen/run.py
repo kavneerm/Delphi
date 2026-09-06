@@ -21,7 +21,11 @@ from infra.storage import Storage, Versions
 FULL_EPISODES = 36
 FULL_DECISIONS_PER_EPISODE = 1008
 FULL_BUDGET_CAP_USD = 1500.0
-FULL_CONCURRENCY = 16
+# Sixteen concurrent full-size structured-output requests can stall indefinitely
+# in the current client/provider path (verified 2026-09-06: no socket activity
+# and all bridges blocked). Eight completes through the same bridge and retains
+# substantial TPM headroom, so use the fastest setting that is actually proven.
+FULL_CONCURRENCY = 8
 
 
 def episode_config(config: GenConfig, seed: int, *, cost_check: bool) -> EnvConfig:
@@ -192,9 +196,10 @@ async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
 async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str, Any]:
     """Generate the budget-capped initial lake, stopping only at episode boundaries.
 
-    Sixteen calls are in flight at most. This stays below Luna's 2M TPM ceiling
-    with the observed 12k-token prompt shape, while the fixed episode count is
-    conservative even if prompt caching vanishes.
+    Eight calls are in flight at most. This stays below Luna's 2M TPM ceiling
+    with the observed 12k-token prompt shape and avoids the observed 16-way
+    full-prompt bridge stall, while the fixed episode count is conservative even
+    if prompt caching vanishes.
     """
     if episodes != FULL_EPISODES:
         raise ValueError(f"full run is budget-capped at exactly {FULL_EPISODES} episodes")
@@ -232,7 +237,7 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
     try:
         keys: list[str] = []
         # Episode.run is synchronous, but each GenAgent hands its request back to
-        # this event loop. A batch of sixteen worker threads therefore keeps sixteen
+        # this event loop. A batch of eight worker threads therefore keeps eight
         # requests in flight (rather than accidentally serialising 1,008 calls per
         # episode), while the batch boundary is a safe, observable budget checkpoint.
         for first_seed in range(1, episodes + 1, config.concurrency):

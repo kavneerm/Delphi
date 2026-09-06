@@ -65,7 +65,7 @@ In model terms, the persona is the system prompt; fine-tuning teaches the model 
 
 **Training tiers (do in order, stop where time runs out):**
 1. *Prompt-only baseline* (1 hr). Spec in system prompt, frontier model. This is the control condition; the demo shows it collapsing.
-2. *Distillation SFT* (~6 hrs, the core). Generate ~200 games × 6 seats × 10 turns with a frontier model playing every seat from its spec. Each example: system = spec; user = state + intel + messages; assistant = short reasoning + JSON messages/action. Score each on realized utility (persona's own weights over outcome) and fidelity (LLM judge, 1–5 against spec). Keep top ~40%. Train via OpenAI fine-tuning API, Together/Fireworks hosted LoRA, or Unsloth (LoRA r=16–32, 2–3 epochs, lr 2e-4). Hold out personas never seen in training; build counterfactual pairs (same state, one spec field flipped) to prove the model reads specs, not role names.
+2. *Distillation SFT* (~6 hrs, the core). Generate ~200 games × 6 seats × 10 turns with a frontier model playing every seat from its spec. Each example: system = spec; user = state + intel + messages; assistant = short reasoning + JSON messages/action. Score each on realized utility (persona's own weights over outcome) and fidelity (LLM judge, 1–5 against spec). Keep top ~40%. Train via Fireworks hosted LoRA (SFT, DPO, continue-from-LoRA; one on-demand multi-LoRA deployment for serving); LoRA r=16–32, 2–3 epochs, lr 2e-4. Hold out personas never seen in training; build counterfactual pairs (same state, one spec field flipped) to prove the model reads specs, not role names.
 3. *Rejection-sampling round 2* (overnight). Tier-2 model plays every seat, opponents sampled from the full persona pool (never twins). Score, filter, fine-tune from the tier-2 checkpoint. This is expert iteration — self-play's benefit without RL infrastructure.
 4. *DPO* (only if tier 3 finishes early). Pair best/worst sampled responses per state, one epoch.
 
@@ -117,7 +117,7 @@ Not the first to put LLMs in wargames (Rivera, Lamparth, WarAgent, Snow Globe). 
 
 ## 12. Open decisions
 
-- Fine-tuning host: OpenAI API vs. Together/Fireworks vs. Unsloth on rented GPU (depends on who's done it before).
+- Fine-tuning host: Fireworks hosted LoRA (SFT, DPO, continue-from-LoRA; one on-demand multi-LoRA deployment for serving).
 - 3D globe (three.js) vs. 2D ground-track map for the orbit view.
 - Whether the human-in-Blue-seat demo runs live or recorded.
 - Project name.

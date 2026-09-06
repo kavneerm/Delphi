@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import glob
 import json
 from pathlib import Path
 
@@ -19,9 +20,13 @@ async def run(shard: int = 0, shards: int = 1) -> None:
     config = GenConfig()
     config = config.__class__(**{**config.__dict__, "judge_model": "gpt-5.6-terra"})
     done: set[str] = set()
-    output = OUTPUT.with_name(f"{OUTPUT.stem}.{shard}{OUTPUT.suffix}")
+    output = OUTPUT.with_name(f"{OUTPUT.stem}.s{shards}.{shard}{OUTPUT.suffix}")
     if output.exists():
-        done = {json.loads(line)["record_id"] for line in OUTPUT.read_text().splitlines() if line}
+        done = {json.loads(line)["record_id"] for line in output.read_text().splitlines() if line}
+    for path in glob.glob(str(OUTPUT.with_name(f"{OUTPUT.stem}.*{OUTPUT.suffix}"))):
+        done.update(
+            json.loads(line)["record_id"] for line in Path(path).read_text().splitlines() if line
+        )
     client = LLMClient(config, model=config.judge_model)
     try:
         with INPUT.open() as source, output.open("a") as sink:
@@ -43,15 +48,22 @@ async def run(shard: int = 0, shards: int = 1) -> None:
                         "output",
                     )
                 }
-                completion = await client.complete_json(
-                    instructions=INSTRUCTIONS,
-                    input_messages=[
-                        {"role": "user", "content": json.dumps(prompt, separators=(",", ":"))}
-                    ],
-                    schema=SCHEMA,
-                    schema_name="track_a_judgement",
-                    max_output_tokens=512,
-                )
+                try:
+                    completion = await client.complete_json(
+                        instructions=INSTRUCTIONS,
+                        input_messages=[
+                            {"role": "user", "content": json.dumps(prompt, separators=(",", ":"))}
+                        ],
+                        schema=SCHEMA,
+                        schema_name="track_a_judgement",
+                        max_output_tokens=512,
+                    )
+                except Exception as exc:
+                    print(
+                        json.dumps({"error": str(exc), "record_id": record["record_id"]}),
+                        flush=True,
+                    )
+                    continue
                 record["judge_scores"] = completion.payload["scores"]
                 record["judge_rationale"] = completion.payload["rationale"]
                 record["judge_model"] = completion.model

@@ -12,7 +12,7 @@ into `finisher` yet.
 | contracts | `agent0-contracts` / `bcc5c16` | yes | none | `contracts_v1` is approved; schemas are present and no `DRAFT` marker remains. |
 | engine | `agent1-engine` / `279f08c` | no | [#2](https://github.com/kavneerm/Delphi/pull/2) | 12 commits ahead; deterministic engine, bridge, human agent, both clocks and env-lock analysis. |
 | calibration | `agent2-calib` / `b171648` | partly | [#5](https://github.com/kavneerm/Delphi/pull/5) | Main has storm/rate/series baseline; branch adds attribution lags, holdout isolation, citations and tests. |
-| generation | `agent3-gen` / `1f34596` | no | none | 13 commits ahead; prompt, strict schema projection, async `GenAgent`, and real-engine integration. `sweep/run/judge/cost_check/sample_review` are absent. |
+| generation | `agent3-gen` / `1f34596` | integrated on `finisher` | none | Prompt, strict schema projection, async `GenAgent`, real-engine integration, plus now-promoted `specs/train` and exemplars. `sweep/run/judge/cost_check/sample_review` still need implementation. |
 | training | `agent4-train` / `1d0d67d` | no | none | 5 commits ahead; Fireworks smoke path, filtering, gates, serving, DPO/continue and tests. |
 | self-play | none | no | none | not started; explicitly non-critical until all required demo work is done. |
 | evaluation | none | no | none | not started; must only run after human `eval_trigger`. |

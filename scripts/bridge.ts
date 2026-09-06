@@ -74,6 +74,88 @@ async function main(): Promise<void> {
       await ctx.close();
     }
 
+    // --- the setup dialog configures a real run --------------------------------------
+    {
+      const page = await browser.newPage();
+      await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
+      await page.waitForSelector('.setup-card');
+
+      // The clock and the fleet are held until Begin, or the reader is configuring a run
+      // that is already two minutes old.
+      const heldAt = await page.evaluate(() => document.getElementById('clock')?.textContent);
+      await page.waitForTimeout(700);
+      report.assert(
+        (await page.evaluate(() => document.getElementById('clock')?.textContent)) === heldAt,
+        'the scenario clock runs while the setup dialog is still open',
+      );
+
+      // The demo button must actually write the prompt — it is the only affordance that
+      // fills it, and an empty box behind a pressed button is indistinguishable from broken.
+      report.assert(
+        (await page.inputValue('#setupPrompt')) === '',
+        'system prompt is pre-filled before the demo button is pressed',
+      );
+      await page.click('#setupDemo');
+      const demo = await page.inputValue('#setupPrompt');
+      report.assert(demo.length > 80, `demo prompt is ${demo.length} chars — the button wrote nothing useful`);
+      report.assert(
+        /electromagnetic|geomagnetic/i.test(demo) && /satellite/i.test(demo) &&
+          /communications/i.test(demo) && /\bUS\b|United States/.test(demo),
+        `demo prompt does not describe the storm scenario: "${demo.slice(0, 70)}…"`,
+      );
+      report.assert(
+        (await page.getAttribute('#setupDemo', 'aria-pressed')) === 'true',
+        'demo button does not report its pressed state',
+      );
+
+      // Pressing it again must not destroy text the reader typed themselves.
+      await page.click('#setupDemo');
+      await page.fill('#setupPrompt', 'Hand-written situation.');
+      await page.click('#setupDemo');
+      await page.click('#setupDemo');
+      report.assert(
+        (await page.inputValue('#setupPrompt')) === 'Hand-written situation.',
+        'toggling the demo button destroyed a prompt the reader had typed',
+      );
+
+      // What is entered has to reach the run.
+      await page.fill('#setupSim', 'Barents contingency');
+      await page.fill('#setupOp', 'Majhail');
+      await page.fill('#setupPrompt', 'A test situation the actors wake up into.');
+      await page.click('.setup-go');
+      await page.waitForSelector('.setup', { state: 'hidden' });
+
+      report.assert(
+        (await page.textContent('#feedTitle'))?.trim() === 'Barents contingency',
+        'simulation name did not reach the feed heading',
+      );
+      report.assert(
+        (await page.textContent('#feedOperator'))?.trim() === 'Majhail',
+        'operator name did not reach the feed',
+      );
+      report.assert(
+        (await page.getAttribute('#cmd', 'placeholder'))?.includes('Majhail') === true,
+        'operator name did not reach the compose box',
+      );
+      report.assert(
+        (await page.textContent('#stream'))?.includes('A test situation the actors wake up into.') === true,
+        'system prompt was not pushed into the feed',
+      );
+      report.assert(
+        (await page.title()).startsWith('Barents contingency'),
+        `document title is "${await page.title()}" — the run name did not reach it`,
+      );
+
+      // ...and the run must actually start.
+      const t0 = await page.evaluate(() => document.getElementById('clock')?.textContent);
+      await page.waitForTimeout(900);
+      report.assert(
+        (await page.evaluate(() => document.getElementById('clock')?.textContent)) !== t0,
+        'the scenario clock is still held after Begin',
+      );
+      await page.close();
+    }
+
     // --- reduced motion skips the clip entirely -----------------------------------------
     {
       const ctx = await browser.newContext({ reducedMotion: 'reduce' });

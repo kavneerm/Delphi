@@ -56,6 +56,27 @@
      CSS lifts it regardless after 1.8s. */
   @keyframes arrival-failsafe{to{opacity:0;visibility:hidden}}
   @media (prefers-reduced-motion:reduce){.arrival{display:none}}
+  /* Setup dialog. Sits above the arrival veil so the two resolve together rather than
+     showing black, then the theatre, then a box on top of it. */
+  .setup{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(4,10,20,.72);backdrop-filter:blur(3px)}
+  .setup[hidden]{display:none}
+  .setup-card{width:min(520px,100%);max-height:calc(100vh - 40px);overflow-y:auto;background:#0d1930;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+  .setup-card h2{margin:0 0 4px;font-size:17px;font-weight:500;color:var(--cream)}
+  .setup-sub{margin:0 0 16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+  .setup-field{display:block;margin-bottom:12px}
+  .setup-field>span{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .setup-field input,.setup-field textarea{width:100%;box-sizing:border-box;background:#08142b;border:1px solid rgba(255,255,255,.16);border-radius:5px;color:var(--text);font:inherit;font-size:13px;padding:8px 10px;resize:vertical}
+  .setup-field textarea{line-height:1.5;min-height:118px}
+  .setup-field input:focus,.setup-field textarea:focus{outline:2px solid var(--amber);outline-offset:-1px;border-color:transparent}
+  .setup-field input::placeholder,.setup-field textarea::placeholder{color:#6f7d92}
+  .setup-row{display:flex;gap:10px;align-items:center;margin-top:16px}
+  .setup-demo{flex:none;height:34px;padding:0 14px;border:1px solid rgba(255,255,255,.22);border-radius:6px;background:none;color:var(--text);font:inherit;font-size:12.5px;cursor:pointer}
+  .setup-demo:hover{background:var(--hover)}
+  .setup-demo[aria-pressed=true]{background:var(--amber);border-color:var(--amber);color:#14213d;font-weight:500}
+  .setup-go{margin-left:auto;height:34px;padding:0 20px;border:0;border-radius:6px;background:var(--cream);color:#0f1a2e;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+  .setup-go:hover{background:#fff}
+  .setup-demo:focus-visible,.setup-go:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @media (max-width:560px){.setup-row{flex-wrap:wrap}.setup-go{margin-left:0;width:100%}}
   .unit{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:default}
   .unit .glyph{display:block;width:100%;height:100%;transform-origin:50% 50%}
   .unit .glyph svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,.75));display:block}
@@ -76,6 +97,7 @@
   .feed-head{display:flex;align-items:center;gap:8px;height:48px;padding:0 8px 0 16px;border-bottom:1px solid var(--line);flex:none}
   .feed-head h1{margin:0;font-size:16px;font-weight:500;display:flex;align-items:center;gap:6px;flex:1}
   .feed-head h1 svg{width:20px;height:20px;fill:currentColor}
+  .feed-op{flex:none;font-size:11px;color:var(--muted);letter-spacing:.03em;white-space:nowrap}
   .icon-btn{width:40px;height:40px;border:0;background:none;color:var(--text);border-radius:50%;display:grid;place-items:center;cursor:pointer;padding:0}
   .icon-btn svg{width:24px;height:24px;fill:currentColor}
   .icon-btn:hover{background:var(--hover)}
@@ -152,6 +174,37 @@
 </head>
 <body>
 <div class="arrival" id="arrival" aria-hidden="true"></div>
+
+<!-- Shown on arrival, over the theatre. The scenario clock and the fleet are held until
+     Begin, so the reader configures a run rather than catching one already in progress. -->
+<div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+  <form class="setup-card" id="setupForm">
+    <h2 id="setupTitle">Configure the simulation</h2>
+    <p class="setup-sub">Name the run, name yourself, and describe the situation the actors wake up into.</p>
+
+    <label class="setup-field">
+      <span>Simulation</span>
+      <input id="setupSim" name="sim" type="text" autocomplete="off" placeholder="Svalbard orbital dependency" />
+    </label>
+
+    <label class="setup-field">
+      <span>Operator</span>
+      <input id="setupOp" name="op" type="text" autocomplete="off" placeholder="Your name or callsign" />
+    </label>
+
+    <label class="setup-field">
+      <span>System prompt</span>
+      <textarea id="setupPrompt" name="prompt" rows="5"
+        placeholder="Describe the situation. What has just happened, and what do the actors know about it?"></textarea>
+    </label>
+
+    <div class="setup-row">
+      <button type="button" class="setup-demo" id="setupDemo" aria-pressed="false">Use demo scenario</button>
+      <button type="submit" class="setup-go">Begin</button>
+    </div>
+  </form>
+</div>
+
 <div class="app">
 
   <section class="theatre" aria-label="Operational theatre">
@@ -185,7 +238,7 @@
 
   <aside class="feed" aria-label="Live feed">
     <div class="feed-head">
-      <h1>Live feed</h1>
+      <h1 id="feedTitle">Live feed</h1><span class="feed-op" id="feedOperator" hidden></span>
     </div>
     <div class="filters" role="group" aria-label="Filter feed">
       <button class="chip" aria-pressed="true" data-f="all">All</button>
@@ -986,11 +1039,102 @@ function setSim(t){ sim=Math.max(0,Math.min(3600,t)); scrub.value=sim; scrub.sty
 scrub.oninput=()=>setSim(+scrub.value);
 document.getElementById('back').onclick=()=>setSim(sim-300);
 document.getElementById('fwd').onclick=()=>setSim(sim+300);
+/* ---------- setup ----------
+ * The dialog configures a run before it starts. Everything entered here is used: the
+ * simulation name titles the document and the feed, the operator name is who the compose
+ * box issues orders as, and the system prompt is pushed into the feed at t=0 as the
+ * situation the actors wake up into. A dialog whose fields went nowhere would be scenery.
+ */
+const DEMO_PROMPT =
+  'A severe geomagnetic storm has degraded or disabled commercial satellites carrying US ' +
+  'communications assets across the high Arctic. Transponders on the affected spacecraft ' +
+  'are unresponsive or intermittent, and the operators cannot yet say which failures are ' +
+  'permanent. Svalbard has lost most civil communications and its position and timing ' +
+  'services are unreliable. No actor knows whether this is weather or interference, and ' +
+  'nobody can prove it either way.';
+const DEMO_NAME = 'Svalbard — geomagnetic storm';
+
+const setup = document.getElementById('setup');
+const setupForm = document.getElementById('setupForm');
+const setupSim = document.getElementById('setupSim');
+const setupOp = document.getElementById('setupOp');
+const setupPrompt = document.getElementById('setupPrompt');
+const setupDemo = document.getElementById('setupDemo');
+
 const playBtn=document.getElementById('play');
 playBtn.onclick=()=>{playing=!playing; document.getElementById('playIcon').setAttribute('d',playing?'M6 5h4v14H6zM14 5h4v14h-4z':'M7 5v14l12-7z'); playBtn.setAttribute('aria-label',playing?'Pause':'Play'); playBtn.setAttribute('aria-pressed',playing);};
 const SPEEDS=[0.5,1,1.5,2,3]; const speedBtn=document.getElementById('speedBtn');
 speedBtn.onclick=()=>{ speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%SPEEDS.length]; speedBtn.textContent=speed+'×'; };
 document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT'||e.target.classList.contains('sat'))return; if(e.code==='Space'){e.preventDefault();playBtn.click();} });
+
+/* Icon and label live on the button, so both paths that change `playing` go through here
+   rather than each setting the path data themselves. */
+function setPlaying(on){
+  playing = on;
+  document.getElementById('playIcon').setAttribute('d', on ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M7 5v14l12-7z');
+  playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+  playBtn.setAttribute('aria-pressed', String(on));
+}
+
+setPlaying(false);                       // held until Begin
+setup.hidden = false;
+
+/* Whatever the reader had typed before the demo was loaded, so turning it off puts them
+   back where they were. Clearing to empty instead loses their work to a mis-click, and
+   only writing when the field is empty makes the button silently do nothing. */
+let priorPrompt = '', priorName = '';
+
+setupDemo.addEventListener('click', () => {
+  const on = setupDemo.getAttribute('aria-pressed') !== 'true';
+  setupDemo.setAttribute('aria-pressed', String(on));
+  setupDemo.textContent = on ? 'Demo scenario loaded' : 'Use demo scenario';
+  if (on) {
+    priorPrompt = setupPrompt.value;
+    priorName = setupSim.value;
+    setupPrompt.value = DEMO_PROMPT;
+    if (!setupSim.value.trim()) setupSim.value = DEMO_NAME;
+  } else {
+    setupPrompt.value = priorPrompt;
+    if (setupSim.value === DEMO_NAME) setupSim.value = priorName;
+  }
+  /* focus() puts the caret at the end, which scrolls a filled textarea past its own first
+     line — the reader sees the middle of the brief and no beginning. */
+  setupPrompt.focus();
+  setupPrompt.setSelectionRange(0, 0);
+  setupPrompt.scrollTop = 0;
+});
+
+setupForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = setupSim.value.trim() || 'Svalbard orbital dependency';
+  const operator = setupOp.value.trim();
+  const prompt = setupPrompt.value.trim();
+
+  document.title = `${name} — Inevitable Frontier`;
+  document.getElementById('feedTitle').textContent = name;
+  /* The operator names the person at the console, not the actor. Rewriting `me` would put
+     that name on every event attributed to the actor and into the picker, which is a
+     different claim than the one being made here. */
+  if (operator) {
+    document.getElementById('cmd').placeholder = `Issue an order as ${operator}…`;
+    document.getElementById('feedOperator').textContent = operator;
+    document.getElementById('feedOperator').hidden = false;
+  }
+  /* At t=0 so it sits above every scripted event and reads as the brief, not as something
+     that happened two minutes in. */
+  if (prompt) push('system', 'Situation', prompt, '', 0);
+
+  setup.hidden = true;
+  setPlaying(true);
+  playBtn.focus();
+});
+
+/* Escape starts the run with whatever is filled in. The dialog is a setup step, not a
+   gate — nobody should be trapped in it. */
+setup.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); setupForm.requestSubmit(); }
+});
+setupSim.focus();
 
 /* 1 real second = 30 scenario seconds at 1x */
 function loop(now){ const dt=(now-lastReal)/1000; lastReal=now; if(playing&&sim<3600) setSim(sim+dt*30*speed); requestAnimationFrame(loop); }

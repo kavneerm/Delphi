@@ -23,8 +23,21 @@
  *      every patrol leg are sampled, with motion held still for the base measurement.
  */
 
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { Report, serveDist } from './lib.ts';
+
+/**
+ * The run opens on a setup dialog, which covers the theatre. Every measurement here is of
+ * the map behind it, and `elementFromPoint` would otherwise report the dialog as the owner
+ * of every unit's centre — so dismiss it exactly as a reader does.
+ */
+async function dismissSetup(page: Page): Promise<void> {
+  const go = page.locator('.setup-go');
+  if (await go.isVisible().catch(() => false)) {
+    await go.click();
+    await page.waitForSelector('.setup', { state: 'hidden' });
+  }
+}
 
 /** Where each class can legally sit. Coastal types are exempt: that is their whole nature. */
 const DOMAIN: Record<string, 'sea' | 'land' | 'coast' | 'air'> = {
@@ -152,6 +165,7 @@ async function main(): Promise<void> {
       page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
       await page.waitForSelector('.unit');
+      await dismissSetup(page);
 
       const samples = await page.evaluate(COLLECT);
       report.assert(errors.length === 0, `page errors: ${errors.join('; ')}`);
@@ -249,6 +263,7 @@ async function main(): Promise<void> {
       const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, reducedMotion: 'reduce' });
       await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
       await page.waitForSelector('.unit');
+      await dismissSetup(page);
       const samples = await page.evaluate(COLLECT);
       const gone = samples.filter((u) => !u.onScreen).map((u) => u.name);
       report.assert(
@@ -263,6 +278,7 @@ async function main(): Promise<void> {
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 }, reducedMotion: 'reduce' });
       await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
       await page.waitForSelector('.unit');
+      await dismissSetup(page);
       const before = await page.evaluate(COLLECT);
       await page.setViewportSize({ width: 1100, height: 780 });
       await page.waitForTimeout(150);

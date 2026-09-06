@@ -1,23 +1,16 @@
 # Finisher decisions
 
-## 1. env_lock — fix the low-Kp / high-density storm failure before generation
+## 1. RESOLVED — env_lock
 
 **Evidence:** after integrating the engine and calibrated attribution tables,
-`python -m engine.storm_check --profile feb2022 --seeds 20` reports 0.0 tracking
-hours and a median of 0 safe modes.  The cited calibration rows report 36 tracking
-hours and 38 satellites lost.  The engine currently keys this outcome to Kp and
-does not consume the calibrated density/drag terms.  Both 72-hour clock modes
-replay byte-identically; 201 tests and the quarantine check pass.
+the prior check reported 0.0 tracking hours and a median of 0 safe modes.
+The fix now consumes calibrated density/drag terms and calibration-backed
+persistence. The February rerun reports 36.0 tracking hours and a median of 28
+safe modes; the May rerun clips its cited operational windows to the 72-hour
+episode. Both clock modes replay byte-identically; 202 tests and quarantine pass.
 
-**Recommendation:** do the bounded engine fix now (density/drag hazard plus
-calibration-backed persistence, and interval-extremum Dst sampling), rerun the
-two storm checks, then approve `env_v1`.  This should take about an hour and
-avoids producing a lake under a storm model that makes moderate-Kp damage strong
-evidence of hostility.
-
-**Fast alternative:** approve the current implementation as `env_v1` and accept
-the stated February mismatch.  That unblocks the 10-episode generation cost check
-immediately, but results will be tied to the known limitation.
+The user approved the fix; `env_v1` is frozen and generation may proceed to its
+required 10-episode cost check.
 
 ## 2. Holdout file admission before evaluation only
 

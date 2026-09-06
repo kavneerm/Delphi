@@ -144,6 +144,13 @@ def test_storm_check_reports_the_numbers_the_env_lock_gate_needs() -> None:
     assert report["safe_mode_max"] >= report["safe_mode_median"] >= report["safe_mode_min"]
 
 
+def test_calibrated_low_kp_density_storm_keeps_tracking_degraded_and_harms_leo() -> None:
+    """A density/drag event must not be treated as quiet merely because Kp is G1."""
+    report = storm_report("feb2022", hours=72, seeds=20)
+    assert report["tracking_degraded_hours"] == 36.0
+    assert report["safe_mode_median"] > 0
+
+
 # --- attacks ------------------------------------------------------------------
 
 

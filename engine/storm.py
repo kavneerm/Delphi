@@ -162,6 +162,8 @@ class StormProfile:
     tracking_degradation_hours: float
     screening_suspension_hours: float
     satellites_lost: int = 0
+    density_enhancement_factor: float = 1.0
+    drag_increase_factor: float = 1.0
     series: list[tuple[float, float, float]] = field(default_factory=list)
     sources: dict[str, str] = field(default_factory=dict)
 
@@ -381,6 +383,15 @@ def _apply_long_format(base: StormProfile, rows: list[dict[str, str]]) -> None:
         elif metric == "satellites_lost" and number == number:
             base.satellites_lost = int(number)
             base.sources["satellites_lost"] = cite
+        elif metric == "density_enhancement_factor" and number == number:
+            base.density_enhancement_factor = max(1.0, number)
+            base.sources["density_enhancement_factor"] = cite
+        elif (
+            metric in {"drag_increase_operator_reported", "decay_rate_increase_factor"}
+            and number == number
+        ):
+            base.drag_increase_factor = max(base.drag_increase_factor, number)
+            base.sources["drag_increase_factor"] = cite
         elif metric == "safe_mode_events_documented" and number == number:
             safe_mode_counts[asset_class or "unspecified"] = number
             base.sources["safe_mode_rates"] = cite
@@ -505,6 +516,16 @@ class StormLayer:
         self.tracking_windows: list[list[float | None]] = []
         self.screening_windows: list[list[float | None]] = []
         self.safe_mode_entries: int = 0
+        self._tracking_forced_until_s = (
+            self.onset_s + profile.tracking_degradation_hours * 3600.0
+            if profile.tracking_degradation_hours > 0
+            else None
+        )
+        self._screening_forced_until_s = (
+            self.onset_s + profile.screening_suspension_hours * 3600.0
+            if profile.screening_suspension_hours > 0
+            else None
+        )
         self.update(0)
 
     @property
@@ -524,6 +545,8 @@ class StormLayer:
             TRACKING_DEGRADE_ON_KP,
             TRACKING_DEGRADE_OFF_KP,
             sim_time_s,
+            forced_hours=self.profile.tracking_degradation_hours,
+            forced_until_attr="_tracking_forced_until_s",
         )
         self._window(
             self.screening_windows,
@@ -531,6 +554,8 @@ class StormLayer:
             SCREENING_SUSPEND_ON_KP,
             SCREENING_SUSPEND_OFF_KP,
             sim_time_s,
+            forced_hours=self.profile.screening_suspension_hours,
+            forced_until_attr="_screening_forced_until_s",
         )
         return self.payload()
 
@@ -541,12 +566,23 @@ class StormLayer:
         on_kp: float,
         off_kp: float,
         sim_time_s: int,
+        *,
+        forced_hours: float = 0.0,
+        forced_until_attr: str,
     ) -> None:
         active = bool(getattr(self, flag))
-        if not active and self.kp >= on_kp:
+        forced_until = getattr(self, forced_until_attr)
+        # Cited operational disruption persists after Kp recovers. A calibrated
+        # profile starts at storm onset, so its asserted window opens at t=0 and
+        # is clipped naturally by the episode end.
+        if forced_until is None and forced_hours > 0 and self.kp >= 4.0:
+            forced_until = float(sim_time_s) + forced_hours * 3600.0
+            setattr(self, forced_until_attr, forced_until)
+        forced_active = forced_until is not None and float(sim_time_s) < forced_until
+        if not active and (self.kp >= on_kp or forced_active):
             setattr(self, flag, True)
             windows.append([float(sim_time_s), None])
-        elif active and self.kp < off_kp:
+        elif active and self.kp < off_kp and not forced_active:
             setattr(self, flag, False)
             if windows and windows[-1][1] is None:
                 windows[-1][1] = float(sim_time_s)
@@ -595,7 +631,22 @@ class StormLayer:
         otherwise.
         """
         rate = self.profile.safe_mode_rates.get(asset_class, 0.0)
-        scaled = rate * max(0.0, (self.kp - 4.0) / 5.0) ** 2
+        kp_driver = max(0.0, (self.kp - 4.0) / 5.0) ** 2
+        # February 2022 demonstrates that a modest Kp event can be dangerous
+        # to low-orbit fleets when density and drag are elevated.  The cited
+        # multipliers are a floor on the hazard driver, not an assertion that
+        # every storm causes loss; this preserves the Kp shape when no such
+        # calibration is present.
+        density_driver = (
+            max(
+                0.0,
+                (self.profile.density_enhancement_factor * self.profile.drag_increase_factor - 1.0)
+                / 2.0,
+            )
+            if self.profile.peak_kp < TRACKING_DEGRADE_ON_KP
+            else 0.0
+        )
+        scaled = rate * max(kp_driver, density_driver)
         return 1.0 - math.exp(-scaled * max(0.0, hours))
 
     def window_hours(self, which: str, now_s: float) -> float:
@@ -619,6 +670,8 @@ class StormLayer:
             "screening_windows": [list(w) for w in self.screening_windows],
             "safe_mode_entries": self.safe_mode_entries,
             "onset_s": self.onset_s,
+            "tracking_forced_until_s": self._tracking_forced_until_s,
+            "screening_forced_until_s": self._screening_forced_until_s,
         }
 
     def restore(self, snap: dict[str, Any]) -> None:
@@ -632,3 +685,5 @@ class StormLayer:
         self.screening_windows = [list(w) for w in snap["screening_windows"]]
         self.safe_mode_entries = int(snap["safe_mode_entries"])
         self.onset_s = float(snap["onset_s"])
+        self._tracking_forced_until_s = snap.get("tracking_forced_until_s")
+        self._screening_forced_until_s = snap.get("screening_forced_until_s")

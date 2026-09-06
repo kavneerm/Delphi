@@ -74,3 +74,23 @@ contracts example is part of the pool or only an illustration.
 
 **What I did meanwhile:** `validate_drafts.py` fails on any duplicate `spec_id` within the drafts
 tree, so a collision cannot reach `specs/train/` silently.
+
+---
+
+## 5. The spread metric in `contracts/targets.md` cannot be named outside `docs/` and `eval/`
+
+`contracts/targets.md` keys its attribution-spread metric on the name of one of the quarantined
+replays. `scripts/check_quarantine.sh` exempts `contracts/targets.md` itself, but nothing else —
+so a spec, a prompt, a devset scenario, or any file under `gen/` or `train/` that refers to that
+metric **by its key** fails the pre-commit hook. Mine did, in a `notes` field; caught by the hook
+before anything was committed, and noted here per AGENTS.md.
+
+This is not only my problem: `train/devset.py` and `eval/report.py` both have to emit a column
+with that name, and `eval/` is exempt but `train/` is not.
+
+**Recommendation:** rename the machine-readable key to something incident-free —
+`attribution_entropy_ratio` — keeping the human-readable heading as it is. That is a contracts
+change, so it goes through agent0-contracts rather than through me.
+
+**What I did meanwhile:** referred to it as "the end-of-episode attribution-entropy target in
+contracts/targets.md" wherever a draft needs to point at it, and left `contracts/` untouched.

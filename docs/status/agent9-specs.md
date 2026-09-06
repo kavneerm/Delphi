@@ -11,17 +11,21 @@ notes: |
   action_schema.json, inject_schema.json, targets.md, docs/quarantine.md. Launch prompt still
   says 12 seats / 30 specs; contracts_v1 folded to 9, so targeting ~25 train + 4 holdout.
 
-  2026-09-05 — 12 of ~25 specs drafted and validating: northcom x3, usspacecom x3, nsc x3
-  (headless, for runs with no human at the release seat), norway x3 (ground segment =
-  SvalSat/Andoya/Vardo/two Svalbard cables per seats.md). Wrote specs/drafts/validate_drafts.py
-  — spec_schema plus the authority invariants the schema states only in prose (pairwise
-  disjoint, subset of the ladder's allowed_seats), the priors sum, duplicate spec_ids, and
-  scripts/check_quarantine.sh over the exemplar bank.
+  2026-09-05 — 12 specs (northcom, usspacecom, nsc headless, norway) + validate_drafts.py,
+  which checks spec_schema plus the authority invariants the schema states only in prose,
+  the priors sum, duplicate spec_ids, and runs scripts/check_quarantine.sh over the exemplars.
+  Two surprises: (1) requires_release names releasing seats for Blue and Red only, so an ally
+  seat like norway has no release route — Q1 in specs/drafts/QUESTIONS.md with a fallback;
+  (2) I was sharing the primary worktree with other agents and a commit of mine briefly landed
+  under someone else's branch checkout — moved to a dedicated worktree at
+  ../Panoptes-agent9-specs and recommitted. Nothing of mine reached another agent's branch.
 
-  2026-09-05 — Two surprises. (1) spec_schema's requires_release names releasing seats only
-  for Blue (NSC) and Red (Kremlin), so an ally seat like norway has no release route — Q1 in
-  specs/drafts/QUESTIONS.md, with a fallback so the seat is never wholly blocked. (2) I was
-  sharing the primary worktree with other agents and my first commit landed under someone
-  else's branch checkout; moved to a dedicated worktree at ../Panoptes-agent9-specs on
-  agent9-specs and recommitted. Nothing of mine reached another agent's branch.
-  Next: northern_fleet x3, kremlin x3, china x3, starlink x2, iridium x2.
+  2026-09-05 — Train pool complete at 25 specs, all validating: 3 each for northcom,
+  usspacecom, nsc, norway, northern_fleet, kremlin, china; 2 each for starlink, iridium.
+  Coverage checks pass — all three northern_fleet private_types, all three china private_types,
+  all four psyches present so eval/holdout_mix.py can sweep the axis without touching holdout.
+  Red variance is visibly tighter than Blue by construction: Red risk_posture spans two steps
+  (cautious-balanced) against Blue's five (risk_averse-risk_acceptant), Red utility weights
+  differ by <=0.10 within a seat against Blue swings of 0.3-0.6, and the three china variants
+  are identical on every field another seat can observe.
+  Next: 4 holdout specs, then exemplars/ (10 cards), then devset/ (8 scenarios).

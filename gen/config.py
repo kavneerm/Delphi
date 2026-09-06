@@ -7,8 +7,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from engine import ENV_VERSION
 from gen.version import (
-    DEFAULT_ENV_VERSION,
     DEFAULT_SPEC_VERSION,
     JUDGE_VERSION,
     LAKE_VERSION,
@@ -77,21 +77,21 @@ class GenConfig:
     request_timeout_s: float = field(default_factory=lambda: _float_env("GEN_TIMEOUT_S", 180.0))
 
     # --- storage -----------------------------------------------------------
-    bucket: str | None = field(default_factory=lambda: os.environ.get("WARGAME_BUCKET"))
-    local_root: Path = field(
-        default_factory=lambda: Path(os.environ.get("WARGAME_LOCAL_ROOT", ".wargame-local"))
-    )
-    #: "s3" writes to the bucket; "local" writes the identical key layout under
-    #: local_root, per s3_layout.md section 6.
-    backend: str = field(default_factory=lambda: os.environ.get("WARGAME_BACKEND", "local"))
+    # There is no backend switch here on purpose. agent8-infra adjudicated three
+    # competing storage writers (docs/HANDOFFS.md): `infra.storage` is the
+    # implementation, it reads WARGAME_STORAGE / WARGAME_BACKEND / WARGAME_LOCAL
+    # itself, and **unset means s3**. A second reader of those variables here is how a
+    # run ends up half in the bucket and half in a worktree-private .wargame-local —
+    # and `logs/` (engine) joins `lake/` (gen) on episode_id, so a split breaks the
+    # join. Call `gen.lake.store()`; never read the variables.
 
     # --- versions ----------------------------------------------------------
     lake_version: str = LAKE_VERSION
     judge_version: str = JUDGE_VERSION
     prompt_version: str = PROMPT_VERSION
-    env_version: str = field(
-        default_factory=lambda: os.environ.get("ENV_VERSION", DEFAULT_ENV_VERSION)
-    )
+    # The engine owns this: it is frozen at the env_lock gate and every lake record
+    # carries whatever the engine was actually running under.
+    env_version: str = field(default_factory=lambda: os.environ.get("ENV_VERSION", ENV_VERSION))
     spec_version: str = field(
         default_factory=lambda: os.environ.get("SPEC_VERSION", DEFAULT_SPEC_VERSION)
     )
@@ -119,12 +119,6 @@ class GenConfig:
     price_output_per_mtok: float = field(
         default_factory=lambda: _float_env("GEN_PRICE_OUTPUT_PER_MTOK", 10.0)
     )
-
-    def require_bucket(self) -> str:
-        """KeyError is the correct failure, per s3_layout.md section 1."""
-        if self.backend == "s3":
-            return os.environ["WARGAME_BUCKET"]
-        return self.bucket or "svalbard-wargame"
 
     def approved(self) -> bool:
         return APPROVAL_FILE.exists()

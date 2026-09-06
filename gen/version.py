@@ -18,5 +18,7 @@ PROMPT_VERSION = "prompt_v1"
 
 # Frozen by other agents; defaults only until they publish.
 CONTRACTS_VERSION = "contracts_v1"
-DEFAULT_ENV_VERSION = "env_v0"  # env_v1 once agent1-engine passes the env_lock gate
+# env_version is NOT defaulted here: it comes from `engine.ENV_VERSION`, frozen at the
+# env_lock gate, so a lake record can only ever carry the version the engine actually
+# ran under. A default in this file would be a second source of truth for it.
 DEFAULT_SPEC_VERSION = "spec_v1"

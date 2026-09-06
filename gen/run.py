@@ -30,6 +30,21 @@ FULL_BUDGET_CAP_USD = 1500.0
 FULL_CONCURRENCY = 8
 ADAPTED_EPISODE_S = 54 * 3600
 GRID_SEVERITIES = ("quiet", "G1", "G3", "G5")
+_LAKE_INJECT_FIELDS = frozenset(
+    {
+        "sim_time_s",
+        "recipients",
+        "content",
+        "confidence",
+        "source",
+        "inject_id",
+        "feed",
+        "source_class",
+        "source_url",
+        "truthful",
+        "is_knife_inject",
+    }
+)
 
 
 def episode_config(config: GenConfig, seed: int, *, cost_check: bool) -> EnvConfig:
@@ -121,7 +136,13 @@ def records_for(episode: Episode, config: GenConfig) -> list[dict[str, Any]]:
             "seat": seat,
             "sim_time_s": decision["sim_time_s"],
             "filtered_state": decision["filtered_state"],
-            "injects_seen": decision["injects_seen"],
+            # Seat delivery retains engine-only provenance (delivery timestamp,
+            # actor) used for scheduling.  The frozen lake contract intentionally
+            # stores only the original inject shape, so project it before write.
+            "injects_seen": [
+                {key: value for key, value in inject.items() if key in _LAKE_INJECT_FIELDS}
+                for inject in decision["injects_seen"]
+            ],
             "messages_seen": decision["messages_seen"],
             "output": decision["output"],
             "outcome_utility": episode.utilities.get(seat),

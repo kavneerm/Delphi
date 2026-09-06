@@ -13,7 +13,7 @@ You are one of ~12 parallel coding agents (Codex, via Superset) building a real-
 - **Never edit** `contracts/`, `calib/holdout_2025_2026.csv`, `eval/replays/`, or `docs/quarantine.md`. Propose changes in `<your-dir>/QUESTIONS.md`; a human merges them.
 - **Quarantine**: the incidents in `docs/quarantine.md` must not appear in specs, exemplars, prompts, or training data. If you find one, remove it and flag it in `REPORT.md`.
 - Work only inside your workstream's directory (plus `tests/<your-dir>/`) and your own `docs/status/<agent>.md`. Do not touch other agents' directories.
-- Python 3.11, type hints, `pyproject.toml`, `ruff` clean, `pytest`. No notebooks.
+- Python 3.12, type hints, `pyproject.toml`, `ruff` clean, `pytest`. No notebooks.
 - Secrets from env only (`OPENAI_API_KEY`, `WARGAME_BUCKET`, `GEN_MODEL`, AWS via CLI profile). Never write keys to disk or commit `.env`.
 - Every S3 object carries `env_version`, `spec_version`, `lake_version`, `seed` per `contracts/s3_layout.md`.
 - Commit small and often; message prefix `[agentN-name]`. Push your branch after every meaningful milestone.

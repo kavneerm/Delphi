@@ -12,7 +12,7 @@ Repo assumed at `~/svalbard-wargame`. Adjust paths if different.
 You are one of several parallel coding agents building a real-time wargame simulation for a hackathon due Sunday 12:00 p.m. Read `docs/execution_plan_v2.md` and `docs/agent_workstreams.md` first; they are authoritative. Then read everything in `contracts/` — these are frozen interface definitions. **Never edit anything in `contracts/`, `calib/holdout_2025_2026.csv`, `eval/replays/`, or `docs/quarantine.md`.** If `contracts/` does not exist yet, stop and report; do not invent schemas.
 
 Rules:
-- Python 3.11, type hints, `pyproject.toml`, `ruff` clean, tests under `tests/` with `pytest`. No notebooks.
+- Python 3.12, type hints, `pyproject.toml`, `ruff` clean, tests under `tests/` with `pytest`. No notebooks.
 - Every artifact written to S3 carries `env_version`, `spec_version`, `lake_version`, and `seed` per `contracts/s3_layout.md`. AWS CLI is configured; use `boto3`.
 - Secrets from environment variables only (`OPENAI_API_KEY`, AWS creds via the CLI profile). Never write keys to disk.
 - Quarantine: the incidents in `docs/quarantine.md` (Kosmos-2558, Viasat KA-SAT, Dozor-Teleport, Balticconnector, Intelsat-33e, Galaxy 15, and all 2025–26 counterspace events) must not appear in specs, exemplars, prompts, or training data. If you find one, remove it and flag it in your final report.

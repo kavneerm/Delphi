@@ -88,3 +88,8 @@ runs/
 .Spotlight-V100
 .Trashes
 Thumbs.db
+
+# ---- Superset / run artifacts ----
+.superset/config.local.json
+*.jsonl.gz
+gen/APPROVED

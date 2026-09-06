@@ -131,3 +131,27 @@ def test_attribution_incidents_back_every_fitted_parameter() -> None:
 def test_attribution_incidents_exclude_the_holdout_years() -> None:
     for row in read("attribution_incidents.csv"):
         assert row["effect_date"] < "2025-01-01", row["incident_id"]
+
+
+def test_holdout_matches_red_action_rates_columns() -> None:
+    # eval/holdout_mix.py compares the two directly; divergent columns break it.
+    assert list(read("holdout_2025_2026.csv")[0]) == list(read("red_action_rates.csv")[0])
+
+
+def test_holdout_window_is_disjoint_from_the_training_window() -> None:
+    for row in read("holdout_2025_2026.csv"):
+        assert row["window_start"] >= "2025-01-01", row
+        assert row["window_end"] <= "2026-12-31", row
+
+
+def test_holdout_is_write_protected() -> None:
+    import stat
+
+    mode = (CALIB / "holdout_2025_2026.csv").stat().st_mode
+    assert not (mode & stat.S_IWUSR), "holdout must stay chmod 444"
+
+
+def test_holdout_covers_the_same_grid() -> None:
+    holdout = {(r["actor"], r["category"]) for r in read("holdout_2025_2026.csv")}
+    train = {(r["actor"], r["category"]) for r in read("red_action_rates.csv")}
+    assert holdout == train

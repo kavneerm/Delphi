@@ -21,3 +21,10 @@ repos:
         pass_filenames: true
         # Text only: the script skips binaries anyway, but no sense feeding it weights.
         types: [text]
+
+      - id: holdout-isolation
+        name: the held-out year must not be read outside eval/
+        entry: scripts/check_holdout_isolation.sh
+        language: script
+        pass_filenames: true
+        types: [text]

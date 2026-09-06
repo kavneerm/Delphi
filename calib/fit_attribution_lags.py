@@ -76,6 +76,7 @@ NOTES: dict[str, str] = {
 
 COLUMNS = [
     "attack_type",
+    "distribution",
     "median_hours",
     "sigma",
     "floor_hours",
@@ -145,6 +146,7 @@ def build() -> list[dict[str, object]]:
         rows.append(
             {
                 "attack_type": kind,
+                "distribution": "lognormal",
                 "median_hours": median_hours,
                 "sigma": sigma,
                 "floor_hours": floor_hours,

@@ -61,11 +61,7 @@ class GenConfig:
     fallback_model: str = field(
         default_factory=lambda: os.environ.get("GEN_MODEL_FALLBACK", "gpt-5.6-luna")
     )
-    judge_model: str = field(
-        default_factory=lambda: os.environ.get(
-            "JUDGE_MODEL", os.environ.get("GEN_MODEL", "gpt-5.6-luna")
-        )
-    )
+    judge_model: str = field(default_factory=lambda: os.environ.get("JUDGE_MODEL", "gpt-6-astra"))
     max_output_tokens: int = field(default_factory=lambda: _int_env("GEN_MAX_OUTPUT_TOKENS", 4096))
 
     # --- concurrency and retry --------------------------------------------

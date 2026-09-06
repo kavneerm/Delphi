@@ -136,3 +136,49 @@ gates fail.
 3. **34 tab stops.** Every unit is focusable, which is how a keyboard reader gets a name,
    but it puts 34 stops between the ground stations and the playback controls.
 4. **`gs-bjo` floats in open water** — pre-existing, described above.
+
+
+## Retirement — the site becomes the simulation
+
+Both the Vite letter site and the never-deployed Next.js app were retired, and
+inevitablefrontier.org is now the simulation and nothing else. Both codebases are
+preserved on tags: `retired/vite-wargame-2026-09-06` and `retired/nextjs-2026-08-30`.
+
+- `/` is the entrance — the intro clip, handing off to `/wargame/`. The letter, `/writing/`
+  and `/thanks/` were removed from the build and deleted from S3 by hand, because
+  `deploy.ts` syncs HTML *without* `--delete` and they would otherwise have stayed live
+  forever.
+- `check:content` and `check:layout` were removed rather than repointed. Their subject —
+  the letter's copy deck, its `.hero-statement`/`.passage-head`/`.horizon-line` geometry —
+  no longer ships. `check:shell` carries over the assertions that still mean something:
+  no sideways overflow across eight widths, no third-party requests, every internal link
+  resolves, and the entrance works without JavaScript.
+- The simulation no longer loads Roboto from Google. It is the whole of a site whose
+  argument is about who controls access to things; a webfont handed every reader's request
+  to a third party to make the UI slightly nicer.
+
+## Later changes
+
+- **Chips fit.** The five feed filters overflowed their column and "Your actor" sat off the
+  edge behind a hidden scrollbar. Smaller type, tighter padding, and wrapping instead of
+  horizontal scroll.
+- **`cover` -> `contain`.** The plate is now shown whole instead of cropped, which is the
+  "zoom out" — open water on every side of Svalbard. It also fixes the pre-existing
+  `gs-bjo` bug for free: Bjørnøya is on screen at last, and its ground station sits on the
+  island rather than floating in the Norwegian Sea. `mapGeom` and `check:laydown` both
+  switched from `Math.max` to `Math.min` to match.
+- **Ownership is the whole body.** Actor colour was a pennant on a grey hull, which was
+  legible only if you already knew to look. Every structural gradient stop is now mixed
+  toward the owner's colour, so a Northern Fleet destroyer is visibly red and a KSAT
+  station visibly green, while the light-to-dark ramp still gives each sprite its form.
+- **Everything that can move, moves.** Ships, submarines and aircraft patrol a short leg
+  along their own course and turn at each end. Motion follows the scenario clock, so the
+  pause button pauses the fleet, and readers who ask for reduced motion get the static
+  laydown.
+
+The terrain classifier had to get smarter to keep up. Brightness alone cannot separate the
+coastline from the map's own place-names — both are pale — and a patch wide enough to
+outvote a letterform is wider than Kong Karls Land. It now tests brightness *and* warmth:
+Svalbard is printed in cream (R-B of +18 to +33), the labels are neutral white (-5 to -34).
+Both ends of every patrol leg are asserted, because a destroyer authored in open water can
+still run aground thirty seconds later.

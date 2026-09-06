@@ -15,9 +15,12 @@
  *      *rendered* box and the image's *own* natural size, so the page's constants are
  *      under test rather than trusted.
  *
- *   2. It does not test one viewport. The map paints `center/cover`, so the element crops
- *      rows out of the plate as it gets wider — at 3440x720 only the middle third of the
- *      image survives. A unit can be correctly placed and still not be on the page.
+ *   2. It does not test one viewport. The plate is scaled to the element, and a unit can be
+ *      correctly placed and still be unreadable or off the page at some window size.
+ *
+ *   3. It does not test only where units *start*. They patrol, so a destroyer can be
+ *      authored in open water and still run aground thirty seconds later. Both ends of
+ *      every patrol leg are sampled, with motion held still for the base measurement.
  */
 
 import { chromium, type Browser } from 'playwright';
@@ -51,7 +54,7 @@ const VISIBILITY_VPS = [
 
 interface Sample {
   name: string; type: string; actor: string;
-  lum: number; fx: number; fy: number; onScreen: boolean; covered: string | null;
+  lum: number; warm: number; fx: number; fy: number; onScreen: boolean; covered: string | null;
 }
 
 /**
@@ -74,9 +77,9 @@ const COLLECT = async (): Promise<Sample[]> => {
   ctx.drawImage(img, 0, 0);
   const px = ctx.getImageData(0, 0, cv.width, cv.height).data;
 
-  // The browser's own cover arithmetic, from the element box and the real image size.
+  // The browser's own `contain` arithmetic, from the element box and the real image size.
   const ew = map.clientWidth, eh = map.clientHeight;
-  const sc = Math.max(ew / img.naturalWidth, eh / img.naturalHeight);
+  const sc = Math.min(ew / img.naturalWidth, eh / img.naturalHeight);
   const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
   const ox = (ew - dw) / 2, oy = (eh - dh) / 2;
 
@@ -94,19 +97,25 @@ const COLLECT = async (): Promise<Sample[]> => {
     const cx = Math.min(cv.width - 1, Math.max(0, Math.round(fx * cv.width)));
     const cy = Math.min(cv.height - 1, Math.max(0, Math.round(fy * cv.height)));
 
-    // Median of a small cross, not a single pixel. The map's own place-names are set in the
-    // same cream as the coastline, so one sample inside the "S" of Storfjorden reports open
-    // water as land. A thin glyph stroke cannot win a median.
-    const R = 4;
-    const lums = [[0, 0], [-R, 0], [R, 0], [0, -R], [0, R], [-R, -R], [R, R]]
-      .map(([dx, dy]) => {
-        const sx = Math.min(cv.width - 1, Math.max(0, cx + dx!));
-        const sy = Math.min(cv.height - 1, Math.max(0, cy + dy!));
-        const k = (sy * cv.width + sx) * 4;
-        // Rec. 601 luma: the cream/ocean split is a brightness split, not a hue one.
-        return 0.299 * px[k]! + 0.587 * px[k + 1]! + 0.114 * px[k + 2]!;
-      })
-      .sort((a, b) => a - b);
+    /* Two signals, because brightness alone cannot separate the coastline from the map's
+       own place-names — both are pale. Svalbard is printed in cream (R-B of +18 to +33);
+       the labels are neutral white or grey (-5 to -34). Requiring warmth as well as
+       brightness makes "BARENTS SEA" unmistakably not a beach.
+
+       The sample is a small cross, not a wide patch: a patch big enough to outvote a
+       letterform is also bigger than Kong Karls Land, and swallows every small island. */
+    const lums: number[] = [], warms: number[] = [];
+    for (const [dx, dy] of [[0, 0], [-4, 0], [4, 0], [0, -4], [0, 4], [-4, -4], [4, 4]]) {
+      const sx = Math.min(cv.width - 1, Math.max(0, cx + dx!));
+      const sy = Math.min(cv.height - 1, Math.max(0, cy + dy!));
+      const k = (sy * cv.width + sx) * 4;
+      // Rec. 601 luma: the cream/ocean split is a brightness split, not a hue one.
+      lums.push(0.299 * px[k]! + 0.587 * px[k + 1]! + 0.114 * px[k + 2]!);
+      warms.push(px[k]! - px[k + 2]!);
+    }
+    lums.sort((a, b) => a - b);
+    warms.sort((a, b) => a - b);
+    const warm = warms[Math.floor(warms.length / 2)]!;
 
     // Wholly outside the map box means the reader never sees it, however right the data is.
     const onScreen =
@@ -122,7 +131,7 @@ const COLLECT = async (): Promise<Sample[]> => {
     return {
       name: el.dataset['name'] ?? '?', type: el.dataset['type'] ?? '?',
       actor: el.dataset['actor'] ?? '?',
-      lum: lums[Math.floor(lums.length / 2)]!, fx, fy, onScreen, covered,
+      lum: lums[Math.floor(lums.length / 2)]!, warm, fx, fy, onScreen, covered,
     };
   });
 };
@@ -137,7 +146,8 @@ async function main(): Promise<void> {
 
     // --- terrain -----------------------------------------------------------------------
     {
-      const page = await browser.newPage({ viewport: TERRAIN_VP });
+      // reducedMotion stops the patrol, so the base sample measures the authored station.
+      const page = await browser.newPage({ viewport: TERRAIN_VP, reducedMotion: 'reduce' });
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
@@ -147,9 +157,9 @@ async function main(): Promise<void> {
       report.assert(errors.length === 0, `page errors: ${errors.join('; ')}`);
       report.assert(samples.length >= 30, `expected a populated laydown, got ${samples.length}`);
 
-      // Cream land sits near 230, open ocean near 40, shelf blue near 75. Nothing on this
-      // map lands between 110 and 190, so that gap is the classifier's dead band.
-      const LAND = 150;
+      // Cream land near 230 at warmth +18 or better; open ocean near 40 at -50; the map's
+      // labels are pale but neutral. Both conditions, or a place-name reads as a coast.
+      const LAND = (u: { lum: number; warm: number }) => u.lum > 150 && u.warm > 8;
       for (const u of samples) {
         const domain = DOMAIN[u.type];
         report.assert(domain !== undefined, `${u.name}: unknown unit type "${u.type}"`);
@@ -166,15 +176,69 @@ async function main(): Promise<void> {
         );
         if (!domain || domain === 'air' || domain === 'coast') continue;
 
-        const onLand = u.lum > LAND;
+        const onLand = LAND(u);
         report.assert(
           onLand === (domain === 'land'),
           `${u.name} (${u.type}) is a ${domain} unit but renders on ${onLand ? 'land' : 'water'} ` +
-            `at ${(u.fx * 100).toFixed(1)}%,${(u.fy * 100).toFixed(1)}% (luma ${u.lum.toFixed(0)})`,
+            `at ${(u.fx * 100).toFixed(1)}%,${(u.fy * 100).toFixed(1)}% (luma ${u.lum.toFixed(0)}, warmth ${u.warm.toFixed(0)})`,
         );
         report.assert(
           u.lum < 110 || u.lum > 190,
           `${u.name}: ambiguous terrain sample (luma ${u.lum.toFixed(0)}) — move it clear of the coastline`,
+        );
+      }
+
+      /* Both ends of every patrol. A unit authored in clear water is not enough: it spends
+         most of its time somewhere else, and "somewhere else" is what the reader sees. */
+      const legs = await page.evaluate(async () => {
+        const map = document.getElementById('map') as HTMLElement;
+        const url = /url\("?(.+?)"?\)/.exec(getComputedStyle(map).backgroundImage)?.[1]!;
+        const img = new Image(); img.src = url; await img.decode();
+        const cv = document.createElement('canvas');
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        const ctx = cv.getContext('2d')!; ctx.drawImage(img, 0, 0);
+        const px = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        const lumAt = (fx: number, fy: number) => {
+          const x = Math.min(cv.width - 1, Math.max(0, Math.round(fx * cv.width)));
+          const y = Math.min(cv.height - 1, Math.max(0, Math.round(fy * cv.height)));
+          const v: number[] = [], w: number[] = [];
+          for (const [dx, dy] of [[0, 0], [-4, 0], [4, 0], [0, -4], [0, 4], [-4, -4], [4, 4]]) {
+            const sx = Math.min(cv.width - 1, Math.max(0, x + dx!));
+            const sy = Math.min(cv.height - 1, Math.max(0, y + dy!));
+            const k = (sy * cv.width + sx) * 4;
+            v.push(0.299 * px[k]! + 0.587 * px[k + 1]! + 0.114 * px[k + 2]!);
+            w.push(px[k]! - px[k + 2]!);
+          }
+          v.sort((a, b) => a - b); w.sort((a, b) => a - b);
+          return { lum: v[Math.floor(v.length / 2)]!, warm: w[Math.floor(w.length / 2)]! };
+        };
+        const aspect = img.naturalWidth / img.naturalHeight;
+        return [...document.querySelectorAll<HTMLElement>('.unit')]
+          .filter((el) => el.dataset['leg'])
+          .flatMap((el) => {
+            const bx = parseFloat(el.dataset['ix']!), by = parseFloat(el.dataset['iy']!);
+            const h = parseFloat(el.dataset['h']!), leg = parseFloat(el.dataset['leg']!);
+            const rad = -h * Math.PI / 180;
+            return [1, -1].map((end) => ({
+              name: el.dataset['name'] ?? '?', type: el.dataset['type'] ?? '?',
+              kind: el.dataset['kind'] ?? '?', end,
+              fx: bx + Math.cos(rad) * leg * end,
+              fy: by + Math.sin(rad) * leg * end * aspect,
+              ...lumAt(bx + Math.cos(rad) * leg * end, by + Math.sin(rad) * leg * end * aspect),
+            }));
+          });
+      });
+
+      for (const e of legs) {
+        if (e.kind === 'air') continue;                       // aircraft overfly anything
+        report.assert(
+          !(e.lum > 150 && e.warm > 8),
+          `${e.name} runs aground at the ${e.end > 0 ? 'far' : 'near'} end of its patrol ` +
+            `(${(e.fx * 100).toFixed(1)}%,${(e.fy * 100).toFixed(1)}%, luma ${e.lum.toFixed(0)}, warmth ${e.warm.toFixed(0)})`,
+        );
+        report.assert(
+          e.fx > 0.01 && e.fx < 0.99 && e.fy > 0.01 && e.fy < 0.99,
+          `${e.name} patrols off the edge of the plate at ${(e.fx * 100).toFixed(1)}%,${(e.fy * 100).toFixed(1)}%`,
         );
       }
       await page.close();
@@ -182,7 +246,7 @@ async function main(): Promise<void> {
 
     // --- visibility across the sizes people actually use -------------------------------
     for (const vp of VISIBILITY_VPS) {
-      const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
+      const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, reducedMotion: 'reduce' });
       await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
       await page.waitForSelector('.unit');
       const samples = await page.evaluate(COLLECT);
@@ -196,7 +260,7 @@ async function main(): Promise<void> {
 
     // --- units hold station across a resize --------------------------------------------
     {
-      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 }, reducedMotion: 'reduce' });
       await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
       await page.waitForSelector('.unit');
       const before = await page.evaluate(COLLECT);

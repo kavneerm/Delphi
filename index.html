@@ -3,179 +3,182 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Inevitable Frontier</title>
+    <title>Inevitable Frontier — Svalbard orbital dependency wargame</title>
     <meta
       name="description"
-      content="Inevitable Frontier is a research and policy organization working to shape the future of emerging technology. We believe AI has two paths ahead: in the hands of everyone, or in the hands of few."
+      content="A brief transition into the Svalbard orbital dependency wargame, an interactive simulation of how a satellite outage cascades through an Arctic archipelago."
     />
-    <meta name="theme-color" content="#fbf9f6" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0e1013" media="(prefers-color-scheme: dark)" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fbf9f6'/%3E%3Cpath d='M2 20h28' stroke='%23b8542a' stroke-width='2'/%3E%3Cpath d='M16 20V8' stroke='%2316181c' stroke-width='2'/%3E%3C/svg%3E"
-    />
+    <!--
+      The front door. The letter site it used to bridge from is retired; this is now the
+      whole of inevitablefrontier.org above /wargame/.
 
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Inevitable Frontier" />
-    <meta
-      property="og:description"
-      content="A research and policy organization working to shape the future of emerging technology."
-    />
+      It replaces itself in history rather than pushing, so the clip does not sit between
+      the reader and Back — from the simulation, Back leaves the site rather than replaying
+      three seconds of video.
+    -->
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; background: #000; }
+      body { display: grid; place-items: center; overflow: hidden; }
 
-    <link rel="stylesheet" href="/src/styles.css" />
+      .bridge {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Starts hidden and is revealed once playback actually begins. A poster-less video
+           that has not decoded its first frame paints white in some engines, which reads
+           as a flash of blank page between two black documents. */
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+      .bridge.playing { opacity: 1; }
+
+      /* The last beat: fade to black so the cut into the theatre has somewhere to land. */
+      .veil {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 320ms ease;
+      }
+      .veil.on { opacity: 1; }
+
+      .skip {
+        position: fixed;
+        right: clamp(1rem, 4vw, 2.5rem);
+        bottom: clamp(1rem, 4vw, 2.5rem);
+        z-index: 3;
+        padding: 0.55rem 1.1rem;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 2px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #f1f1f1;
+        font: 500 0.8rem/1 ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .skip:hover, .skip:focus-visible { background: rgba(255, 255, 255, 0.16); }
+
+      /* Without JavaScript the clip is simply the page, and the link below it is the way
+         on. Nothing here is required to reach the simulation. */
+      .fallback {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2;
+        color: #f1f1f1;
+        font: 400 1rem/1.6 ui-serif, Georgia, serif;
+        text-align: center;
+      }
+      .fallback a { color: #f1f1f1; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .bridge, .veil { transition: none; }
+      }
+    </style>
   </head>
   <body>
-    <a class="skip" href="#main">Skip to content</a>
+    <!-- A real element in the markup, not built in script: Vite only fingerprints assets it
+         can see in the HTML, and a src assembled at runtime would ship unhashed. -->
+    <video
+      class="bridge"
+      id="bridge"
+      src="./media/intro.mp4"
+      muted
+      playsinline
+      preload="auto"
+      aria-hidden="true"
+    ></video>
+    <div class="veil" id="veil" aria-hidden="true"></div>
 
-    <header class="masthead">
-      <a class="wordmark" href="/" aria-label="Inevitable Frontier, home">
-        <span class="wordmark-mark" aria-hidden="true"></span>
-        <span>Inevitable&nbsp;Frontier</span>
-      </a>
-      <nav class="nav" aria-label="Primary">
-        <a href="/writing/">Writing</a>
-      </nav>
-    </header>
+    <p class="fallback" id="fallback">
+      <a href="/wargame/">Continue to the simulation</a>
+    </p>
 
-    <main id="main">
-      <section class="hero">
-        <div class="hero-inner">
-          <p class="eyebrow">Our belief</p>
-          <h1 class="hero-statement">
-            We believe AI has two paths ahead. In the hands of <em>everyone</em>, it creates
-            a future where all humans flourish. In the hands of <em>few</em>, it threatens
-            totalitarian control to prevent everyone from accessing its benefits.
-          </h1>
-        </div>
+    <a class="skip" href="/wargame/" id="skip">Skip</a>
 
-        <!-- In flow, deliberately. Positioned at a percentage of the hero it landed through
-             the middle of the headline; sitting between the statement and the cue it is
-             structurally incapable of crossing text at any viewport. -->
-        <div class="horizon" aria-hidden="true">
-          <span class="horizon-glow"></span>
-          <span class="horizon-line"></span>
-        </div>
-      </section>
+    <script>
+      (function () {
+        var NEXT = '/wargame/';
+        var video = document.getElementById('bridge');
+        var veil = document.getElementById('veil');
+        var fallback = document.getElementById('fallback');
+        var done = false;
 
-      <div class="letter">
-      <section class="passage" aria-labelledby="who-h">
-        <h2 class="passage-head" id="who-h">Who we are</h2>
-          <p>
-            Inevitable Frontier is a research and policy organization working to shape the
-            future of emerging technology.
-          </p>
-          <p>
-            We are students, researchers, policymakers, and founders from across the United
-            States.
-          </p>
-      </section>
+        /* replace(), not assign(): the bridge must not sit in history, or Back from the
+           simulation replays the clip and the reader is stuck in a loop. */
+        function go() {
+          if (done) return;
+          done = true;
+          /* Left for check:bridge to read after the navigation: how far the clip actually
+             got. Without it the gate cannot tell a played transition from a dead one. */
+          try {
+            sessionStorage.setItem('bridge:progress', String(video.currentTime || 0));
+            sessionStorage.setItem('bridge:revealed', video.classList.contains('playing') ? '1' : '0');
+          } catch (e) { /* private mode; the transition still works */ }
+          location.replace(NEXT);
+        }
 
-      <section class="passage" aria-labelledby="vision-h">
-        <h2 class="passage-head" id="vision-h">What we envision</h2>
-          <p>
-            A future where human flourishing is not a question of <em>if</em>, but
-            <em>when</em>.
-          </p>
-          <p>
-            Technological innovation can transform human health, education, security,
-            prosperity, and eventually humanity's reach into the cosmos.
-          </p>
-          <p>
-            We believe extraordinary advancements are possible across artificial intelligence,
-            biotechnology, defense, national security, health, education, and space.
-          </p>
-      </section>
+        /* Start the wargame document downloading while the clip plays, so the handoff at
+           the last frame lands on a warm cache rather than a blank page. */
+        var pre = document.createElement('link');
+        pre.rel = 'prefetch';
+        pre.href = NEXT;
+        document.head.appendChild(pre);
 
-      <section class="passage" aria-labelledby="work-h">
-        <h2 class="passage-head" id="work-h">Our work</h2>
-          <p>
-            Our work focuses on artificial intelligence.
-          </p>
-          <p>
-            Technological progress in AI should remain open to competition and experimentation
-            — not directed exclusively by incumbent corporations, policymakers, or any single
-            ideological faction.
-          </p>
-          <p>
-            The companies building the most powerful technologies should not be able to use
-            regulation to insulate themselves from competition — whether by raising compliance
-            costs, gatekeeping access, or restricting what others may publish.
-          </p>
-          <p>
-            Achieving this requires an environment where new companies and independent
-            researchers can build, compete, and succeed.
-          </p>
-      </section>
+        var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduced) { go(); return; }
 
-      <section class="passage" aria-labelledby="sim-h">
-        <h2 class="passage-head" id="sim-h">The simulation</h2>
-          <p>
-            Concentrated control is easy to state and hard to feel. So we built something you
-            can hold: an Arctic archipelago whose shipping, rescue, and communications all run
-            through a handful of satellites owned by someone else — and a clock that starts
-            when those satellites stop answering.
-          </p>
-          <p>
-            It runs in your browser. Nothing is recorded.
-          </p>
-          <p class="enter-cue">
-            <a class="enter-link" href="/enter/">Enter the simulation</a>
-          </p>
-      </section>
+        fallback.hidden = true;
 
-      <section class="passage" id="join" aria-labelledby="join-h">
-        <h2 class="passage-head" id="join-h">Get involved</h2>
-        <p>
-          We are looking for students, researchers, policymakers, and founders who want to
-          help shape how this technology is governed. Tell us who you are and we will be in
-          touch.
-        </p>
+        /* Fade out slightly before the end and navigate on the fade, not on 'ended'. The
+           last frames of a short clip are where a stall is most likely, and arriving via a
+           timeout that never fires is worse than arriving a beat early. */
+        video.addEventListener('timeupdate', function () {
+          if (video.duration && video.currentTime > video.duration - 0.45) veil.classList.add('on');
+        });
+        video.addEventListener('playing', function () { video.classList.add('playing'); });
+        video.addEventListener('ended', go);
+        video.addEventListener('error', go);
 
-        <!--
-          A native form POST — no JavaScript, by design.
+        /* Autoplay can be refused even muted, and a cold connection can accept play() and
+           then buffer nothing. `paused` cannot tell those apart from playing — it goes
+           false the instant play() resolves — so the test is whether the clip has actually
+           advanced. Without this the reader sat on black for the full hard ceiling. */
+        var watchdog = setTimeout(function () {
+          if (video.currentTime === 0 || video.readyState < 3) go();
+        }, 1200);
 
-          /api/contact is same-origin: CloudFront routes /api/* to an API Gateway origin,
-          so there is no CORS preflight and no second hostname. The Lambda behind it sends
-          one email through SES and answers 303 back to /thanks/, which is why the visitor
-          never sees an API response. See infra/contact.tf.
-        -->
-        <form class="signup" action="/api/contact" method="POST">
-          <div class="field">
-            <label for="f-name">Name</label>
-            <input id="f-name" name="name" type="text" autocomplete="name" required />
-          </div>
+        /* Having started is not having kept going. If the clip stops advancing mid-way,
+           leave rather than waiting out the ceiling on a frozen frame. */
+        var seen = 0, stalled = 0;
+        var pulse = setInterval(function () {
+          if (done) { clearInterval(pulse); return; }
+          if (video.currentTime > seen + 0.01) { seen = video.currentTime; stalled = 0; clearTimeout(watchdog); }
+          else if (seen > 0 && ++stalled >= 4) { go(); }
+        }, 250);
 
-          <div class="field">
-            <label for="f-email">Email</label>
-            <input id="f-email" name="email" type="email" autocomplete="email" required />
-          </div>
+        /* A hard ceiling. Whatever happens to the media element, nobody is held here. */
+        setTimeout(go, 6000);
 
-          <div class="field">
-            <label for="f-note">What are you working on? <span class="optional">Optional</span></label>
-            <textarea id="f-note" name="note" rows="3"></textarea>
-          </div>
+        var p = video.play();
+        if (p && p.catch) p.catch(go);
 
-          <!-- Honeypot. A bot fills every field it finds; a person never sees this one. Off
-               the tab order and hidden from screen readers, so it costs no one anything. -->
-          <div class="trap" aria-hidden="true">
-            <label for="f-company">Company</label>
-            <input id="f-company" name="_gotcha" type="text" tabindex="-1" autocomplete="off" />
-          </div>
-
-          <button class="submit" type="submit">Send</button>
-        </form>
-      </section>
-      </div>
-    </main>
-
-    <footer class="colophon">
-      <div class="colophon-inner">
-        <p class="colophon-mark">Inevitable Frontier</p>
-        <p class="colophon-line">
-          A research and policy organization working to shape the future of emerging
-          technology.
-        </p>
-      </div>
-    </footer>
+        document.getElementById('skip').addEventListener('click', function (e) {
+          e.preventDefault();
+          go();
+        });
+        addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') go();
+        });
+        addEventListener('pointerdown', go);
+      })();
+    </script>
   </body>
 </html>

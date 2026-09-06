@@ -4,7 +4,7 @@ The `env_lock` gate in `docs/COORDINATION.md` §9: *"storm check numbers vs.
 `calib/storm_effects.csv`; then bump `env_v1`."* This is that comparison, run
 against the calibration merged to `main` in `9f1413b`.
 
-**Status: not frozen. Two mismatches need a decision that is not mine to make.**
+**Status: not frozen. Two storm mismatches and one attribution-lag question need a decision that is not mine to make.**
 
 Reproduce with:
 
@@ -152,8 +152,54 @@ freeze, and everything Gen, Train and Eval produce is stamped with it. Changing
 the storm after generation starts invalidates the lake. That is a gate decision,
 so it stays with you.
 
-**What is not blocked either way.** `calib/attribution_lags.csv` does not exist
-yet, so the four attack attribution lags are still placeholders chosen for their
-ordering (jam < dazzle < rpo < ground_cyber), which the public record supports;
-the magnitudes are not evidence. They are independent of the storm layer and of
-this decision.
+---
+
+## E. A second gate item, raised by agent2-calib: the attribution-lag level
+
+`calib/attribution_lags.csv` has since landed, and it is not the free win I
+expected when I wrote the section above. All five profiles load `CALIBRATED`:
+
+| attack type | median | sigma | floor |
+|---|---|---|---|
+| kinetic | 1 h | 1.924 | 0.1 h |
+| rpo | 6 h | 1.967 | 0.5 h |
+| jam | 18 h | 1.761 | 1.0 h |
+| dazzle | 96 h | 1.200 | 6.0 h |
+| ground_cyber | 240 h | 1.348 | 12.0 h |
+
+Three things a human needs to know before freezing:
+
+1. **My placeholders were wrong about the order, not just the size.** I claimed
+   the ordering jam < dazzle < rpo < ground_cyber was "supported by the public
+   record". It is not: RPO is attributed *faster* than jamming, not slower. Any
+   intuition of mine baked into the engine deserves the same scepticism.
+
+2. **The median LEVEL is `agent2-calib`'s modelling choice, not a measurement.**
+   `sigma` is fitted from 19 incidents; the medians are first-indication rather
+   than public attribution. The measured public figures are far longer — 74 days
+   for jam, 747 days for ground_cyber — which inside a 72-hour episode would mean
+   3.4 % and 0 % of incidents ever attributed, making `belief_lag_injects` and
+   `response_match` in `contracts/targets.md` unreachable. They chose the
+   first-indication regime deliberately and wrote it up in `calib/QUESTIONS.md`
+   Q1. **This is a gate decision, and it is theirs and yours, not mine** — but
+   the engine is what makes it bite, so it belongs on this page.
+
+3. **`ground_cyber` at a 240 h median is essentially never attributed in
+   episode.** That is the correct modelling of the deniable rung, and it is a
+   trap for Eval: a population that fails to attribute a cyber effect inside 72
+   hours is behaving correctly, not failing. `agent2-calib` flags the same thing
+   about the held-out year, where both cyber rows are `CENSORED`, not absent.
+
+Adopting the file also surfaced an engine bug, now fixed: `kinetic` had no
+profile in `engine/attacks.py`, so their kinetic row was silently skipped and a
+kinetic strike — the single most consequential act on the ladder — was **never
+attributed at all**.
+
+## Cross-check: agent2-calib reached the same conclusion independently
+
+Their handoff flags the same May 2024 tracking/screening disagreement from the
+other side, calls it "unresolved by design", and notes that `storm_check` prints
+both rather than reconciling them. They also warn — correctly — that the ~40
+safe modes `storm_check` draws for May 2024 is **the engine's population model,
+not a measurement**, and must not be presented as one at this gate. Section C
+above says the same thing; two independent arrivals at it is worth something.

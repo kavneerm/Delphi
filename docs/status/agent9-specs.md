@@ -40,6 +40,23 @@ notes: |
   cannot legally name. QUESTIONS.md Q5 recommends renaming the key; contracts change, so it
   goes through agent0-contracts.
 
+  2026-09-05 — Read the other agents' branches instead of declaring done. Found a real
+  integration break nobody had reported: train/gates.py:load_json_dir globs non-recursively and
+  train/devset.py reads a flat scenario["expected"]["action"], so the devset — which follows
+  contracts/inject_schema.json, one directory per scenario with the key held separately — would
+  load ZERO scenarios and exit with "agent9-specs has not landed". That failure message reads as
+  me being late rather than as a shape mismatch, which is how it would have survived to Sunday.
+  Kept the contract shape (inject_schema documents ground_truth.expected_beliefs as the thing
+  train/devset.py scores against) and shipped specs/drafts/devset_view.py, which projects the
+  contract files into exactly the dicts run_scenario already expects — 54 (scenario, seat) rows,
+  verified. One import line on agent4's side, or two characters in load_json_dir. QUESTIONS.md Q6.
+  Also filled ground_truth.real_responses across all eight expected.json files; it was empty,
+  which meant response_match — one of only four targets a synthetic devset can honestly measure —
+  had nothing to score against. Seats expected to hold are deliberately absent from that map,
+  which is what the contract says an absent seat means.
+  Downgraded Q5: train/devset.py already parses targets.md at runtime to avoid naming a
+  quarantined replay, which is a good workaround and lowers the urgency of the rename.
+
   PR: https://github.com/kavneerm/Delphi/pull/4
 
   Blocked on nothing. Downstream agents can read specs/drafts/ directly before promotion if the

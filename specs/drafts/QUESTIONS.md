@@ -94,3 +94,45 @@ change, so it goes through agent0-contracts rather than through me.
 
 **What I did meanwhile:** referred to it as "the end-of-episode attribution-entropy target in
 contracts/targets.md" wherever a draft needs to point at it, and left `contracts/` untouched.
+
+---
+
+## 6. `train/devset.py` cannot load the devset as `contracts/inject_schema.json` describes it
+
+Found by reading `origin/agent4-train`, not by anyone reporting it. Two mismatches, either of
+which alone makes the dev set silently unusable:
+
+1. `train/gates.py:load_json_dir` uses a **non-recursive** `path.glob("*.json")`. The devset is
+   one directory per scenario (`specs/devset/<id>/{scenario,expected}.json`), so the loader
+   finds zero files and `train/devset.py` exits with
+   `"no dev scenarios in specs/devset; agent9-specs has not landed"` — which reads as my
+   workstream being late rather than as a shape mismatch.
+2. `run_scenario` reads a flat `scenario["expected"]["action"]` and tests
+   `expected["cause"] == "natural"`. The contract puts the key in `ground_truth`, with a
+   richer `cause` enum (`natural_space_weather`, `technical_failure`, ...) and per-seat
+   `real_responses` rather than one action per scenario.
+
+I have kept the contract shape. `contracts/inject_schema.json` describes the split
+(`ground_truth.expected_beliefs` is documented as the thing "train/devset.py scores against"),
+`kind: devset` is part of the enum, and a scenario file that does not validate against the
+inject schema is not something a human should be promoting into `specs/devset/`.
+
+**Recommendation, in order of preference.** (a) `train/devset.py` imports
+`specs/drafts/devset_view.py::flat_scenarios`, which projects the contract files into exactly
+the dicts `run_scenario` already expects — one row per (scenario, seat), with
+`expected.action`, `expected.cause == "natural"` for controls, the belief band and the
+forbidden-action list. That is a one-line change on their side and no change to the files.
+(b) Failing that, change `load_json_dir` to `rglob` and read `ground_truth` directly.
+
+**What I did meanwhile:** wrote `specs/drafts/devset_view.py` and verified it emits 54
+(scenario, seat) rows across the eight scenarios. Also populated `ground_truth.real_responses`
+in all eight `expected.json` files, which was empty before and meant `response_match` — one of
+only four targets a synthetic dev set can honestly measure — had nothing to score against.
+Seats expected to hold are deliberately absent from that map, which is what the contract says
+an absent seat means.
+
+**Note on Q5 above:** `train/devset.py` already parses the machine-readable table out of
+`contracts/targets.md` at runtime rather than copying the metric names, specifically to avoid
+naming a quarantined replay. That is a good workaround and it lowers the urgency of the
+rename, but it does not remove the problem — any results table, column header or report that
+prints the metric name still carries it.

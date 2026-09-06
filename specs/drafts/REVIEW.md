@@ -2,7 +2,7 @@
 
 47 files. You should not have to read 47 files to approve them.
 
-This sheet is built so that reviewing is a **move**: five decisions that are genuinely
+This sheet is built so that reviewing is a **move**: six decisions that are genuinely
 yours, each with a default and the exact command to reverse it, and a promoter that does
 the file moving once you have decided. Everything else has already been checked
 mechanically and is listed at the bottom only so you can see what exists.
@@ -28,7 +28,7 @@ Anything held back stays in `specs/drafts/` and can be promoted later with the s
 
 ---
 
-## The five decisions that are actually yours
+## The six decisions that are actually yours
 
 Each has a default I have already applied. If you agree, do nothing.
 
@@ -64,6 +64,10 @@ the cached prefix, so I wrote a draft-local one.
 
 ### 4. A metric in `contracts/targets.md` cannot be named outside `docs/` and `eval/`
 
+*(Lower urgency than it looked: `train/devset.py` already parses the metric names out of
+`targets.md` at runtime rather than copying them, precisely to avoid this. The rename is still
+cleaner, because any printed column header still carries the name.)*
+
 Not a spec decision, but it will bite someone else today. The attribution-spread metric is
 keyed on the name of a quarantined replay. `scripts/check_quarantine.sh` exempts
 `contracts/targets.md` and `eval/`, and nothing else — so `train/devset.py` has to emit a
@@ -73,7 +77,22 @@ column it cannot legally name. My draft hit this and the hook caught it pre-comm
 the human-readable heading. Contracts change, so it goes through agent0-contracts, not me.
 `QUESTIONS.md` Q5.
 
-### 5. `spec_id` collision with the contracts example — affects 0 files as drafted
+### 5. The devset shape does not match what `train/devset.py` loads — affects 16 files
+
+Found by reading `origin/agent4-train`. `train/gates.py:load_json_dir` uses a non-recursive
+`glob("*.json")`, so it finds **zero** files in `specs/devset/<id>/` and `train/devset.py` exits
+with "agent9-specs has not landed" — which reads as me being late rather than as a shape
+mismatch. It also expects a flat `scenario["expected"]["action"]`, not `ground_truth`.
+
+**Default:** I kept the contract shape. `contracts/inject_schema.json` documents
+`ground_truth.expected_beliefs` as the thing "train/devset.py scores against", and a scenario
+that does not validate against the inject schema should not be promoted. I also shipped
+`specs/drafts/devset_view.py`, which projects the contract files into exactly the dicts
+`run_scenario` already expects — 54 (scenario, seat) rows, verified.
+**To resolve:** one import line in `train/devset.py`, or change `load_json_dir` to `rglob`.
+`QUESTIONS.md` Q6. This one needs a decision today; the others can wait.
+
+### 6. `spec_id` collision with the contracts example — affects 0 files as drafted
 
 `contracts/examples/spec_northern_fleet_cautious.json` uses `spec_id northern_fleet_cautious`.
 My three Northern Fleet variants use different ids so both can coexist.
@@ -166,6 +185,12 @@ actions), both validating against `contracts/inject_schema.json`.
 | `dazzle_then_denial` | denial resistance, partial irreversibility | attributed, belief unmoved by a true-in-every-clause denial |
 | `storm_plus_real_isr` | posture vs mechanism | hostile **low** despite real hostile activity |
 | `deniable_ground_cyber` | confident hostility, uncertain actor | hostile >=0.75 **and** attribution split |
+
+---
+
+**Tools in `specs/drafts/` that do not get promoted:** `validate_drafts.py` (the test),
+`promote.py` (the mover), `devset_view.py` (the flat projection for `train/devset.py`),
+`REVIEW.md`, `REPORT.md`, `QUESTIONS.md`.
 
 ---
 

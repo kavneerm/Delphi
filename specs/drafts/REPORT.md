@@ -22,6 +22,9 @@ rather than a reading exercise.
 - **`specs/drafts/validate_drafts.py`** — validates everything and checks the invariants the
   schemas state only in prose.
 - **`specs/drafts/promote.py`** — moves approved drafts into `specs/train|holdout|exemplars|devset`.
+- **`specs/drafts/devset_view.py`** — projects the contract-shaped devset into the flat
+  per-(scenario, seat) dicts `train/devset.py` expects, so that module needs one import line
+  rather than a rewrite. See QUESTIONS.md Q6.
 - **`specs/drafts/REVIEW.md`** — the review sheet: five decisions with defaults and the command
   to reverse each, rather than 47 files to read.
 - **`specs/drafts/QUESTIONS.md`** — five open questions, each with a recommendation and what I
@@ -78,6 +81,10 @@ pool; I did not add one because `docs/VERSIONS.md` is outside my directory.
   produced a decision. Feed latencies, `deliberation_minutes` and `poll_minutes` are reasoned
   from the seat descriptions, not tuned against episode behaviour, and I expect the clock
   numbers to be the first thing that needs revision once `gen/run.py` produces real episodes.
+- **`train/devset.py` cannot currently load the devset** (QUESTIONS.md Q6). Its loader is
+  non-recursive and it reads a flat `expected.action`. `devset_view.py` bridges it; the
+  alternative is a two-character change to `load_json_dir`. Until one of those lands, the dev
+  set is inert and the failure looks like "agent9-specs has not landed".
 - **The devset belief bands are authored, not calibrated.** They encode what I think competent
   behaviour looks like. `storm_plus_real_isr` is the one I would most expect to be argued with
   and it is flagged in REVIEW.md as such.

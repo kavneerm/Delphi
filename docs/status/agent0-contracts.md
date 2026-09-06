@@ -21,4 +21,5 @@ notes: |
   (Dozor, Intelsat-33e, Galaxy 15). Structured outputs send description text to the model,
   so a quarantined name in action_schema.json would have been in every generation prompt.
   All four scrubbed; grep list is in contracts/REPORT.md, re-run it after any contract edit.
-  Ten open questions in contracts/QUESTIONS.md, none blocking. Next: open PR to main.
+  Ten open questions in contracts/QUESTIONS.md, none blocking.
+  PR: https://github.com/kavneerm/Delphi/pull/1

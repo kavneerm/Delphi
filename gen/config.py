@@ -116,13 +116,13 @@ class GenConfig:
     # overridable and cost_check prints them next to every dollar figure it reports.
     # See gen/QUESTIONS.md Q1.
     price_input_per_mtok: float = field(
-        default_factory=lambda: _float_env("GEN_PRICE_INPUT_PER_MTOK", 1.25)
+        default_factory=lambda: _float_env("GEN_PRICE_INPUT_PER_MTOK", 2.0)
     )
     price_cached_input_per_mtok: float = field(
-        default_factory=lambda: _float_env("GEN_PRICE_CACHED_INPUT_PER_MTOK", 0.125)
+        default_factory=lambda: _float_env("GEN_PRICE_CACHED_INPUT_PER_MTOK", 0.2)
     )
     price_output_per_mtok: float = field(
-        default_factory=lambda: _float_env("GEN_PRICE_OUTPUT_PER_MTOK", 10.0)
+        default_factory=lambda: _float_env("GEN_PRICE_OUTPUT_PER_MTOK", 12.0)
     )
 
     def approved(self) -> bool:

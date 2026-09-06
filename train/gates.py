@@ -25,56 +25,36 @@ from __future__ import annotations
 import argparse
 import json
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from engine.agent_api import validate_decision as engine_validate_decision
 from train import filter as filt
 from train import storage
 from train.fireworks import Client
 from train.serve import ServedAgent, sweep_adapters
 from train.versions import Versions, git_sha
 
-CONTRACTS = Path("contracts")
-
-
 # ----------------------------------------------------------------- validation
+#
+# `engine.agent_api.validate_decision` is the project's single definition of
+# "is this decision contract-valid", including the beliefs-sum-to-1.0 rule the
+# JSON schema cannot express. train/ had its own copy; using the engine's means a
+# gate here and the engine's own coercion can never disagree about whether a
+# decision was valid.
 
 
-def decision_validator():
-    """Validator for `action_schema.json#/$defs/decision`, with the contract
-    directory wired up as a resolution registry so the cross-file `$ref`s to
-    `spec_schema.json` resolve."""
-    from jsonschema import Draft202012Validator
-    from referencing import Registry, Resource
+def validate_decision(decision: Any, validator: object = None) -> list[str]:
+    """Contract errors in one decision. Empty list means valid.
 
-    resources = []
-    for path in sorted(CONTRACTS.glob("*.json")):
-        contents = json.loads(path.read_text(encoding="utf-8"))
-        resource = Resource.from_contents(contents)
-        resources.append((path.name, resource))
-        if "$id" in contents:
-            resources.append((contents["$id"], resource))
-    registry = Registry().with_resources(resources)
-    schema = {"$ref": "action_schema.json#/$defs/decision"}
-    return Draft202012Validator(schema, registry=registry)
-
-
-def validate_decision(decision: Any, validator=None) -> list[str]:
-    """Contract errors in one decision. Empty list means valid."""
-    validator = validator or decision_validator()
-    if not isinstance(decision, dict):
+    `validator` is accepted and ignored, so callers that used to pass a prebuilt
+    jsonschema validator keep working.
+    """
+    if not isinstance(decision, Mapping):
         return ["decision is not an object"]
-    errors = [e.message for e in validator.iter_errors(decision)]
-    beliefs = decision.get("beliefs") or {}
-    if isinstance(beliefs, dict):
-        try:
-            total = sum(float(beliefs[k]) for k in ("hostile", "natural", "unknown"))
-        except (KeyError, TypeError, ValueError):
-            total = None
-        if total is not None and abs(total - 1.0) > 0.01:
-            errors.append(f"beliefs hostile+natural+unknown = {total:.3f}, must be 1.0 +/- 0.01")
-    return errors
+    return engine_validate_decision(decision)
 
 
 # --------------------------------------------------------------------- results
@@ -113,11 +93,10 @@ class GateResult:
 
 
 def gate_schema_validity(decisions: list[Any], threshold: float) -> GateResult:
-    validator = decision_validator()
     reasons: Counter[str] = Counter()
     valid = 0
     for decision in decisions:
-        errors = validate_decision(decision, validator)
+        errors = validate_decision(decision)
         if errors:
             reasons[errors[0][:120]] += 1
         else:
@@ -248,11 +227,10 @@ def run_gates_online(
 
 
 def _ask(adapter: str, spec: dict[str, Any], state: dict[str, Any], client: Client) -> Any:
+    """One decision from the served adapter. `act()` never raises; a drifting
+    model comes back as a hold, and the gate counts it as a schema failure."""
     agent = ServedAgent(spec.get("seat", "nsc"), adapter, client=client, spec=spec)
-    try:
-        return agent.decide(state)
-    except (ValueError, KeyError) as exc:
-        return {"_error": str(exc)[:200], "_raw": (agent.last_raw or "")[:400]}
+    return agent.act(state)
 
 
 def run_gates_offline(records: list[dict[str, Any]], config: dict[str, Any]) -> list[GateResult]:

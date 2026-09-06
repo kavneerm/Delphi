@@ -78,14 +78,20 @@ def test_round_trip_on_the_local_mirror(local: Path, versions: Versions) -> None
     assert key in storage.list_keys("runs/sweep-x/")
 
 
-def test_local_mirror_records_metadata_alongside_the_object(
-    local: Path, versions: Versions
-) -> None:
-    """The mirror has no x-amz-meta, so provenance goes in a sidecar or it is lost."""
+def test_metadata_reads_back_off_either_backend(local: Path, versions: Versions) -> None:
+    """The mirror has no x-amz-meta, so provenance lives in an `_meta/` sidecar.
+    `head()` is the backend-agnostic way to get it back, and is what a consumer
+    should use rather than reaching for a path."""
     storage.put_json("runs/a/b.json", {"x": 1}, versions.as_metadata(seed=3))
-    sidecar = json.loads((local / "runs/a/b.json.meta.json").read_text())
-    assert sidecar["seed"] == "3"
-    assert not REQUIRED_METADATA_KEYS - set(sidecar)
+    meta = storage.head("runs/a/b.json")
+    assert meta["seed"] == "3"
+    assert not REQUIRED_METADATA_KEYS - set(meta)
+
+
+def test_the_metadata_sidecar_stays_out_of_prefix_listings(local: Path, versions: Versions) -> None:
+    """A listing of the mirror must match a listing of the bucket exactly."""
+    storage.put_json("runs/a/b.json", {"x": 1}, versions.as_metadata())
+    assert storage.list_keys("runs/") == ["runs/a/b.json"]
 
 
 def test_jsonl_round_trip(local: Path, versions: Versions) -> None:

@@ -116,11 +116,10 @@ def run_scenario(
     expected = scenario.get("expected") or {}
     state = scenario.get("filtered_state", scenario)
     agent = ServedAgent(spec.get("seat", "nsc"), adapter, client=client, spec=spec)
-    try:
-        decision = agent.decide(state)
-        schema_ok = not validate_decision(decision)
-    except (ValueError, KeyError):
-        decision, schema_ok = {}, False
+    decision = dict(agent.act(state))
+    # act() coerces anything invalid into a hold, so the honest schema signal is
+    # the adapter's own failure counter, not whether the returned object validates.
+    schema_ok = agent.schema_failures == 0 and not validate_decision(decision)
     action = (decision.get("action") or {}).get("type") if decision else None
     hostile = (decision.get("beliefs") or {}).get("hostile") if decision else None
     return ScenarioOutcome(

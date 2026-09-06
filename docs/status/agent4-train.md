@@ -110,4 +110,33 @@ notes: |
   QUESTIONS.md #2 — preflight now checks both halves and launch.py still refuses
   to start without --approve-base-swap.
   GPU total 15.0 H100-minutes, 0 live deployments.
-  Next: serve/devset/dpo tests, then the sweep once #2 is answered.
+  2026-09-06 02:50 — Synced and read the board; three real dependencies had
+  landed and I was still running against mocks. Swapped all three.
+  (a) engine/agent_api.py is ON MAIN, so train/agent_api_shim.py is deleted.
+      The real interface differs from my mock in the direction that matters:
+      act(view) RETURNS a decision, where my mock took one and stored it. Also
+      bind(view_provider), a WakePolicy dataclass, on_episode_end, and
+      decide_release — which I had missed entirely. ServedAgent now subclasses
+      the real BaseAgent, and tests assert isinstance(agent, engine Agent).
+      Two behavioural consequences: act() never raises, because agent_api is
+      explicit that a drifting model should cost one decision point and not a
+      sweep cell, so a refusal / bad JSON / network error all come back as a
+      contract-valid hold with schema_failures incremented; and decide_release
+      is implemented rather than inherited, because BaseAgent denies by default
+      and a releasing seat that always denies makes every requires_release
+      action unreachable — the sweep would never see one.
+  (b) infra/storage.py is ON MAIN and agent8 published it to all agents as THE
+      bucket helper. train/storage.py was a second independent writer; it is now
+      a thin adapter that delegates every byte to infra.storage.Storage. What is
+      left is the bit infra deliberately does not do — validating the version
+      string patterns from s3_layout §2. Note infra puts local sidecars under
+      _meta/ so a mirror listing matches the bucket exactly; my test now reads
+      metadata through head() instead of a path, which is the right way anyway.
+  (c) gates.py had its own copy of "is this decision valid"; it now calls
+      engine.agent_api.validate_decision, so a gate and the engine's own
+      coercion can never disagree.
+  89 tests green, including 21 new ones driving ServedAgent through the real
+  engine protocol with a stubbed Fireworks client (no network, no GPU).
+  Still waiting on: specs/ is EMPTY on main (agent9 not merged), so gates.py
+  --online and devset.py cannot run; no lake yet from agent3.
+  Next: dpo/continue tests, then the sweep once QUESTIONS.md #2 is answered.

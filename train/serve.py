@@ -26,13 +26,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from engine.agent_api import BaseAgent, coerce_decision
 from train import filter as filt
 from train import storage
-from train.agent_api_shim import Agent
 from train.fireworks import BASE_MODELS, Client, FireworksError, resource_id
 from train.versions import git_sha
 
@@ -183,12 +184,19 @@ def status(*, sweep_id: str, base: str, config: dict[str, Any], client: Client) 
 # ---------------------------------------------------------------- served agent
 
 
-class ServedAgent(Agent):
-    """`engine.agent_api` over one adapter on the shared deployment.
+class ServedAgent(BaseAgent):
+    """`engine.agent_api.Agent` over one adapter on the shared deployment.
 
     The adapter is chosen per instance, not per deployment, which is the whole
     point of multi-LoRA: nine seats can be nine different sweep adapters against
     one billed GPU.
+
+    `act()` never raises. `engine/agent_api.py` is explicit that "an invalid
+    decision becomes a logged `hold` rather than a crashed episode — a served
+    model that drifts should cost one decision point, not a sweep cell", so a
+    malformed completion, a refusal, or a network error all come back as a hold
+    that says why. `schema_failures` counts them, and `train/gates.py` reads that
+    count as the schema-validity gate rather than inferring it.
     """
 
     def __init__(
@@ -198,11 +206,11 @@ class ServedAgent(Agent):
         *,
         deployment: str | None = None,
         client: Client | None = None,
-        spec: dict[str, Any] | None = None,
+        spec: Mapping[str, Any] | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
     ) -> None:
-        super().__init__(seat, spec)
+        super().__init__(seat, dict(spec or {}))
         self.client = client or Client.from_env()
         # An adapter on a dedicated deployment must be addressed as
         # <model>#<deployment>, or inference 404s despite the adapter being loaded.
@@ -215,38 +223,98 @@ class ServedAgent(Agent):
         self.max_tokens = max_tokens
         self.last_raw: str | None = None
         self.schema_failures = 0
+        self.calls = 0
+
+    # ------------------------------------------------------------------ prompt
 
     def system_turn(self) -> str:
+        """The same system turn `filter.py` trained on. Identical rendering or the
+        served model sees a prompt shape it never saw in training."""
         if self.spec:
-            return filt.render_spec(self.spec)
+            return filt.render_spec(dict(self.spec))
         return filt.SPEC_STUB.format(
-            seat=self.seat, spec_id=self.spec.get("spec_id", "unknown"), spec_version="unknown"
+            seat=self.seat,
+            spec_id=self.spec.get("spec_id", "unknown"),
+            spec_version=self.spec.get("spec_version", "unknown"),
         )
 
-    def decide(self, filtered_state: dict[str, Any] | None = None) -> dict[str, Any]:
-        """One decision from the served adapter, in the same shape as training."""
+    def user_turn(self, view: Mapping[str, Any]) -> str:
         record = {
-            "filtered_state": filtered_state if filtered_state is not None else self.observe(),
-            "injects_seen": (filtered_state or {}).get("injects_seen", []),
-            "messages_seen": (filtered_state or {}).get("messages_seen", []),
+            "filtered_state": dict(view),
+            "injects_seen": view.get("injects_seen") or [],
+            "messages_seen": view.get("messages_seen") or [],
         }
-        reply = self.client.chat(
-            model=self.adapter,
-            messages=[
-                {"role": "system", "content": self.system_turn()},
-                {"role": "user", "content": filt.user_turn(record)},
-            ],
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            response_format={"type": "json_object"},
-        )
-        self.last_raw = reply["choices"][0]["message"]["content"]
-        decision = parse_decision(self.last_raw)
-        if decision is None:
+        return filt.user_turn(record)
+
+    # ------------------------------------------------------------------- act
+
+    def act(self, view: Mapping[str, Any]) -> Mapping[str, Any]:
+        """One decision from the served adapter. Always contract-valid."""
+        self.calls += 1
+        try:
+            reply = self.client.chat(
+                model=self.adapter,
+                messages=[
+                    {"role": "system", "content": self.system_turn()},
+                    {"role": "user", "content": self.user_turn(view)},
+                ],
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                response_format={"type": "json_object"},
+            )
+            self.last_raw = reply["choices"][0]["message"]["content"]
+        except (FireworksError, KeyError, IndexError) as exc:
             self.schema_failures += 1
-            raise ValueError(f"adapter {self.adapter} returned unparseable JSON")
-        self.act(decision)
+            return hold(f"Served adapter {self.adapter} did not answer: {str(exc)[:200]}")
+
+        parsed = parse_decision(self.last_raw)
+        decision, errors = coerce_decision(parsed, seat=self.seat)
+        if errors:
+            self.schema_failures += 1
         return decision
+
+    def decide_release(
+        self, request: Mapping[str, Any], view: Mapping[str, Any]
+    ) -> tuple[bool, str]:
+        """Ask the adapter to answer a release request, in the persona's voice.
+
+        `BaseAgent` denies by default, which is the right default for silence but
+        the wrong one for a seat that is supposed to be exercising judgement: a
+        releasing seat that always denies makes every `requires_release` action
+        unreachable and the sweep would never see one. Anything that does not
+        parse falls back to the deny.
+        """
+        prompt = (
+            "A release request has been routed to you.\n\n"
+            f"{json.dumps(dict(request), indent=2, sort_keys=True)}\n\n"
+            "Answer with a JSON object: "
+            '{"granted": true|false, "rationale": "one sentence in your own voice"}'
+        )
+        try:
+            reply = self.client.chat(
+                model=self.adapter,
+                messages=[
+                    {"role": "system", "content": self.system_turn()},
+                    {"role": "user", "content": self.user_turn(view) + "\n\n" + prompt},
+                ],
+                temperature=self.temperature,
+                max_tokens=256,
+                response_format={"type": "json_object"},
+            )
+            answer = parse_decision(reply["choices"][0]["message"]["content"]) or {}
+        except (FireworksError, KeyError, IndexError):
+            return super().decide_release(request, view)
+        if "granted" not in answer:
+            return super().decide_release(request, view)
+        rationale = str(answer.get("rationale") or "").strip()
+        return bool(answer["granted"]), rationale or "No rationale given."
+
+
+def hold(reasoning: str) -> dict[str, Any]:
+    """A contract-valid hold. Thin wrapper so the import site reads clearly."""
+    from engine.agent_api import hold_decision
+
+    return hold_decision(reasoning)
 
 
 def parse_decision(text: str) -> dict[str, Any] | None:

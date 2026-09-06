@@ -1,0 +1,43 @@
+{
+  "env_version": "env_v1",
+  "duration_s": 259200,
+  "seed": 1041,
+  "scenario_id": "g4_ambiguous_signature",
+  "spec_version": "spec_v1",
+  "clock_mode": {
+    "mode": "continuous",
+    "tick_s": 60
+  },
+  "release_policy": {
+    "policy": "auto",
+    "approval_probability": 0.6,
+    "per_action_probability": {
+      "counter_rpo": 0.25,
+      "kinetic": 0.02,
+      "terrestrial_response": 0.05
+    },
+    "delay_minutes": 120
+  },
+  "storm": {
+    "profile": "may2024",
+    "severity": "G4",
+    "onset_sim_time_s": 0
+  },
+  "hacktivist_injects": {
+    "enabled": true,
+    "affiliation_weights": { "russian_directed": 0.3, "freelance": 0.5, "opportunistic": 0.2 },
+    "claim_rate_per_hour": 0.08,
+    "true_claim_probability": 0.35
+  },
+  "seats": {
+    "northcom": "northcom_impatient",
+    "usspacecom": "usspacecom_evidence_first",
+    "nsc": "nsc_deliberate",
+    "norway": "norway_treaty_bound",
+    "northern_fleet": "northern_fleet_cautious",
+    "kremlin": "kremlin_denial_first",
+    "china": "china_broker",
+    "starlink": "starlink_founder_led",
+    "iridium": "iridium_liability_averse"
+  }
+}

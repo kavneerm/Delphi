@@ -25,6 +25,12 @@ if [ -f pyproject.toml ]; then
   pip install -q -e ".[dev]" || true
 fi
 
+# Quarantine + ruff hooks. Never fatal: a workspace that cannot reach GitHub to
+# build the hook environments should still come up.
+if [ -f .pre-commit-config.yaml ]; then
+  pre-commit install || true
+fi
+
 git fetch origin --quiet || true
 
 echo "workspace ${SUPERSET_WORKSPACE_NAME:-unnamed} ready — read AGENTS.md first"

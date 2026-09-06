@@ -1,0 +1,116 @@
+# QUESTIONS — agent0-contracts
+
+Nothing here blocked me; I made a call on each and shipped it. All of these are cheap to change now and expensive to change after Wave 1 starts, so they want ten minutes of human attention before the merge.
+
+---
+
+## Q1: ~~contract files marked DRAFT~~ — resolved
+
+**Status:** done. The marker was deleted from all ten files at merge, per `REPO_SETUP.md` §3: the six JSON schemas (`spec`, `action`, `event_log`, `inject`, `lake_record`, `env_config`) and the four markdown files (`README`, `s3_layout`, `seats`, `targets`). `contracts_v1` is approved and frozen. Changes from here go through an agent's `QUESTIONS.md` and a human, not through an edit.
+
+## Q2: ~~no `pyproject.toml` at the repo root~~ — resolved
+
+**Status:** done. A root `pyproject.toml` now exists (`svalbard-wargame`, `requires-python >=3.12`, setuptools backend, namespace-package discovery over `engine* gen* train* selfplay* eval* calib* infra*` so the editable install succeeds against the `.gitkeep` placeholders). Runtime and `[dev]` dependencies are pinned there, `ruff` is configured at line length 100 / `py312`, and `pytest` at `testpaths = ["tests"]`, `asyncio_mode = "auto"`.
+
+`.superset/setup.sh` also runs `pre-commit install || true` after the pip install, so every worktree comes up with the hooks in place. Verified end to end in a throwaway copy of the tree: `pip install -e ".[dev]"` succeeds and `pre-commit run --all-files` passes.
+
+**One consequence for everyone:** `ruff` is now line length **100**, not the default 88. If you formatted anything before this landed, re-run `ruff format` after your next rebase.
+
+## Q3: `WARGAME_LOCAL_ROOT` needs a line in the root `.gitignore`
+
+**Context:** `s3_layout.md` §6 defines a local mirror at `$WARGAME_LOCAL_ROOT`, default `./.wargame-local`, so agents can develop offline against the same key layout. The root `.gitignore` is human-owned and does not cover it.
+
+**Options:** (a) add `.wargame-local/` to `.gitignore`; (b) drop the local-mirror convention.
+
+**My recommendation:** (a). One line. Without it the first agent to run offline commits a directory of episode logs.
+
+**What I did meanwhile:** Documented the path and pointed at this question from `s3_layout.md` §6 rather than editing a file I do not own.
+
+---
+
+## Q4: enum values I had to invent, because the plan names the field but not its values
+
+**Context:** The launch prompt specifies `risk_posture (enum)` and `time_horizon (enum)` without listing members. Both are load-bearing: `risk_posture` is one of the two fields flipped to build counterfactual pairs, and `counterfactual_sensitivity ≥ 0.90` in `targets.md` is measured across those flips.
+
+**What I chose:**
+- `risk_posture`: `risk_averse | cautious | balanced | assertive | risk_acceptant` — five, ordered, so a flip can be one step or polar and Agent 9 can vary temperament without changing psyche.
+- `time_horizon`: `immediate | days | weeks | months | years`, where `immediate` means inside the 72-hour episode and anything past `days` means the persona will trade in-episode cost for later position.
+- `information.clearance`: `open | commercial_proprietary | restricted | secret | top_secret_sci`, ordered, with `commercial_proprietary` added because three of the twelve seats are companies and their information ceiling is not a government one.
+- `message.channel`: `diplomatic | mil_to_mil | liaison | commercial | press | internal | back_channel | hotline`. Channel drives delivery delay and who else observes the traffic, so this list is really an engine parameter table; Agent 1 should push back if it wants different ones.
+
+**My recommendation:** Accept, or tell me which to change. If `risk_posture` should be three values rather than five, now is the moment — Agent 9 drafts 30 specs against it in Wave 1.
+
+**What I did meanwhile:** Documented the intended meaning of each value in the schema `description` so Agent 9 is not guessing.
+
+---
+
+## Q5: `utility_weights` are magnitudes, and the engine owns the signs
+
+**Context:** The eight weights are listed without a sign convention. If specs carry signs, two personas can express the same preference in two ways and no filter or judge can compare them.
+
+**What I chose:** all eight are in `[0,1]`, and `engine/utility.py` applies a fixed convention — `asset_loss`, `escalation_risk` and `liability` are negated; the other five are positive. It is written into the schema `description` for `utility_weights`.
+
+**My recommendation:** Accept, and have Agent 1 implement exactly that. If Engine wants signed weights instead, say so before Agent 9 writes 30 specs.
+
+**What I did meanwhile:** Wrote the convention into the schema and into the example spec's `notes`.
+
+---
+
+## Q6: ~~hacktivist `public_attribution`~~ — resolved by the nine-seat fold
+
+**Status:** moot. The hacktivist is no longer a seat; it is the `hacktivist_injects` rule actor, which emits claimed attacks with a per-run hidden affiliation and takes no menu actions. Nothing on the ladder can now make a false claim of responsibility.
+
+**What is left of it:** `control_false_positive_rate` in `targets.md` still needs a stated scope, because `kremlin` and `china` can both use `public_attribution` and neither is a false positive when it does. My reading is that Agent 6 computes it over **Blue and ally seats only** — `northcom`, `usspacecom`, `nsc`, `norway`. Confirm and I will write the scope into `targets.md`.
+
+## Q7: `ground_truth.real_responses` accepts two shapes
+
+**Context:** The launch prompt writes `real_responses: {seat: action}`. A bare action name loses when it happened and who really did it, which `eval/replay_table.py` needs for the attribution-lag table.
+
+**What I chose:** `oneOf` — a bare action-type string, or an object `{action, sim_time_s, real_actor, notes, source_url}`. Agent 10 can write the short form where the record is thin and the long form where it is not.
+
+**My recommendation:** Accept. If you would rather have one shape, make it the object form and I will tighten it.
+
+**What I did meanwhile:** Both shapes are covered by the schema and the long form is documented as preferred.
+
+---
+
+## Q8: things I deliberately did **not** put in the contracts
+
+Flagging these so nobody assumes they exist:
+
+- **No release-mechanism schema.** `authority.requires_release` says an action needs release; it does not say what a release message looks like. I left that to Agent 1, since it is engine state, not an interface between agents. If Gen needs to *see* pending releases in `filtered_state`, that is a contract change.
+- **No `filtered_state` inner shape.** `lake_record_schema.json` names six keys Engine should populate and lets Engine own the rest. Freezing it now, before `engine/world.py` exists, would freeze the wrong thing.
+- **No judge rubric.** `judge_scores` fixes the four dimensions and the 1–5 range; the rubric text is Agent 3's and versioned as `judge_vN`.
+- **`targets.md` is untouched.** The numbers still hold under nine seats. The one edit I would make is writing the Q6 metric scope into it, and that is a human call.
+- **`seats.md` was rewritten** on the human scope change to nine personas and six rule actors, with a Design notes section on the folds. That is the one contract file I changed on instruction rather than authored fresh.
+
+---
+
+## Q9: what the nine-seat fold changed, and the two calls inside it I had to make
+
+**Context:** The scope change arrived after `contracts_v1` was committed: nine seats, `nsc` human-playable, `release_policy`, `clock_mode`, five new event types, `seats.md` rewritten. All of it is applied. Two things inside it were not specified and I chose:
+
+**(a) Where the folded rungs went.** Dropping `ksat` and `hacktivist` left three rungs with holes in them:
+- `geofence_or_throttle` — I gave it to **norway** alongside `starlink` and `iridium`. Norway now owns the Svalbard ground segment, so the downlink chokepoint has to be somebody's decision, and it is the only mechanism the KSAT fold would otherwise have lost. It also makes Norway the one seat that can degrade everyone's picture including its own, which is the interesting version of that seat.
+- `ground_cyber` — now `usspacecom` and `northern_fleet` only. The deniable version of it survives as `hacktivist_injects` claims.
+- `request_commercial_priority` — `provider` is now `starlink | iridium`. Asking Norway for downlink priority is a `private_demarche`, not a commercial request, because Norway is a state.
+
+**(b) `env_config_schema.json` is a new contract file.** `clock_mode` and `release_policy` are engine configuration, and there was no engine-config contract to put them in. Rather than scatter them, I wrote one: `env_version`, `duration_s`, `seed`, `clock_mode`, `release_policy`, `storm`, `hacktivist_injects`, `seats`, and an open `engine_params` object that is Agent 1's to fill. Two example configs are committed and validate — the demo shape (checkpoint + human) and the sweep shape (continuous + auto).
+
+**My recommendation:** Accept both. If `geofence_or_throttle` should not be Norwegian, say so now — it is one line in the ladder and it changes what the Norway seat is for.
+
+**What I did meanwhile:** Applied all of it, with tests. A test now fails if `nato`, `ksat` or the bare `hacktivist` id reappears in any schema.
+
+---
+
+## Q10: `release_policy: human` and reproducibility
+
+**Context:** A person deliberating at the `nsc` seat takes real time that has no sim-time meaning. If the sim clock runs while they think, the episode cannot be replayed, and `docs/COORDINATION.md` §8's rule that a result without reproducibility is not a result would disqualify every human-played run.
+
+**What I chose:** `pause_clock` defaults to **true** and the schema says true is the contract. Real deliberation time is recorded on the `human_action` event as `wall_time_to_decide_s` and, like `wall_time`, is excluded from replay comparison. `pause_clock: false` exists for a live demo where the ticking clock is the point, and is documented as making the episode unreproducible.
+
+**Also chosen:** `on_timeout` defaults to `deny` — silence is not consent. The alternative `model` value hands the decision to the `nsc` persona and logs `decided_by: "model"`, which is the honest way to run a mostly-human demo without stalling.
+
+**My recommendation:** Accept. If the demo wants a running clock, set `pause_clock: false` explicitly on that one config and do not use those episodes in any table.
+
+**What I did meanwhile:** Both defaults are in the schema and both are covered by tests.

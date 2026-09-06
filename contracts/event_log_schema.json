@@ -1,0 +1,657 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://panoptes.wargame/contracts/v1/event_log_schema.json",
+  "title": "Event log line",
+  "description": "One JSON object per line of an episode's event log (JSONL, newline-delimited, UTF-8, no trailing comma, one event per line). Written by engine/log.py to s3://$WARGAME_BUCKET/logs/ per contracts/s3_layout.md, replayed by engine/replay.py, and read by ui/ to draw the timeline. Determinism rule: replay must reproduce every field byte-identically EXCEPT wall_time, which is real elapsed time and is excluded from the replay comparison. Ordering rule: lines are written in non-decreasing sim_time_s order; ties are broken by the engine's priority-queue insertion order and must replay in the same order.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sim_time_s",
+    "wall_time",
+    "type",
+    "seat",
+    "payload",
+    "seed",
+    "env_version",
+    "episode_id"
+  ],
+  "properties": {
+    "sim_time_s": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Seconds of simulated time since episode start (t=0). A 72-hour episode ends at 259200."
+    },
+    "wall_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Real UTC timestamp when the line was written, RFC 3339. Present for demo pacing and cost accounting only. Excluded from replay equality."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "inject",
+        "action",
+        "message_sent",
+        "message_delivered",
+        "state_change",
+        "storm_update",
+        "attribution_revealed",
+        "episode_end",
+        "checkpoint",
+        "release_requested",
+        "release_granted",
+        "release_denied",
+        "human_action"
+      ],
+      "description": "inject: a scheduled inject fired. action: a seat's action took effect after its deliberation delay. message_sent / message_delivered: the two ends of a routed message, always paired by payload.message_id. state_change: any world-state mutation the engine wants replayable (safe-mode entry, asset loss, propellant spend, reputation move, feed outage). storm_update: the storm layer changed severity, degradation or screening windows. attribution_revealed: ground truth disclosed at episode end or when the engine's attribution lag expires. episode_end: last line of the file, exactly one per episode. checkpoint: under clock_mode 'checkpoint', the tick at which every seat is woken and sealed simultaneous decisions are collected; absent entirely under clock_mode 'continuous'. release_requested / release_granted / release_denied: the release cycle for an action in a spec's requires_release list, always sharing a payload.release_id. human_action: an action taken by a human operator rather than a model, emitted under release_policy 'human'. A checkpoint-mode episode and a continuous-mode episode produce the same log format and the same downstream artefacts; only which of these types appear differs."
+    },
+    "seat": {
+      "description": "The actor this event belongs to, or null for events with no owner (storm_update, environment-driven state_change, episode_end). Rule actors appear here too.",
+      "oneOf": [
+        {
+          "$ref": "spec_schema.json#/$defs/actor"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type-dependent body. Additional keys are always allowed so the engine can carry detail the UI ignores; the conditional blocks below fix the minimum every consumer can rely on.",
+      "additionalProperties": true
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The episode's master RNG seed. Constant across every line of one episode."
+    },
+    "env_version": {
+      "type": "string",
+      "pattern": "^env_v[0-9]+(_perturbed)?$",
+      "description": "Engine/environment version, e.g. env_v1 or env_v1_perturbed. Frozen at env_lock; a result without it is discarded per docs/COORDINATION.md section 8."
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{7,63}$",
+      "description": "Unique id for this episode, stable across the log file, the lake records it produced, and the S3 key. Convention: <scenario>-<seed>-<8 hex>."
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^spec_v[0-9]+$",
+      "description": "Optional on a line, required on the episode_end line: the spec-pool version the seats were drawn from."
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
+      "description": "Optional. The grid cell or replay this episode came from, e.g. 'g5_lowconf_actionundercover' or 'devset_storm_only'."
+    },
+    "clock_mode": {
+      "type": "string",
+      "enum": [
+        "continuous",
+        "checkpoint"
+      ],
+      "description": "Optional on a line, required on the episode_end line: which clock the episode ran under, per env_config_schema.json."
+    },
+    "release_policy": {
+      "type": "string",
+      "enum": [
+        "human",
+        "auto"
+      ],
+      "description": "Optional on a line, required on the episode_end line: how requires_release and irreversible actions were adjudicated."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "inject"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "inject_id",
+              "recipients",
+              "content",
+              "confidence",
+              "source"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "action"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "action",
+              "decision_id",
+              "decided_at_sim_time_s"
+            ],
+            "properties": {
+              "action": {
+                "$ref": "action_schema.json#/$defs/action"
+              },
+              "decision_id": {
+                "type": "string"
+              },
+              "decided_at_sim_time_s": {
+                "type": "number",
+                "minimum": 0,
+                "description": "When the seat decided; this line's sim_time_s is when it took effect, i.e. decided_at + deliberation_minutes*60."
+              },
+              "blocked": {
+                "type": "boolean",
+                "description": "True if the engine refused the action (not in allowed_seats, or requires_release with no release delivered). The action did not take effect."
+              },
+              "blocked_reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "message_sent",
+              "message_delivered"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "message_id",
+              "message"
+            ],
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "description": "Same id on the sent and delivered lines. A sent line with no delivered line means the message was dropped."
+              },
+              "message": {
+                "$ref": "action_schema.json#/$defs/message"
+              },
+              "from": {
+                "$ref": "spec_schema.json#/$defs/actor"
+              },
+              "dropped_reason": {
+                "type": "string",
+                "enum": [
+                  "clearance",
+                  "no_such_recipient",
+                  "channel_severed"
+                ],
+                "description": "Only on message_sent lines whose message was never delivered."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "state_change"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "what",
+              "value"
+            ],
+            "properties": {
+              "what": {
+                "type": "string",
+                "description": "Dotted path into world state, e.g. 'assets.starlink_arctic_07.safe_mode' or 'ksat.cable_2.status'."
+              },
+              "value": {},
+              "previous": {},
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "storm_update"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "severity",
+              "kp",
+              "sensor_confidence_multiplier",
+              "comms_bandwidth_multiplier"
+            ],
+            "properties": {
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "quiet",
+                  "G1",
+                  "G2",
+                  "G3",
+                  "G4",
+                  "G5",
+                  "carrington"
+                ]
+              },
+              "kp": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "dst_nt": {
+                "type": "number",
+                "description": "Disturbance storm time index in nT; large negative during a storm."
+              },
+              "sensor_confidence_multiplier": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "comms_bandwidth_multiplier": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "tracking_degraded": {
+                "type": "boolean"
+              },
+              "screening_suspended": {
+                "type": "boolean"
+              },
+              "profile": {
+                "type": "string",
+                "description": "Profile name loaded from calib/storm_effects.csv, e.g. 'may2024', 'feb2022', 'synthetic_g5'."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "attribution_revealed"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "cause",
+              "responsible_actor"
+            ],
+            "properties": {
+              "cause": {
+                "$ref": "inject_schema.json#/$defs/cause"
+              },
+              "responsible_actor": {
+                "oneOf": [
+                  {
+                    "$ref": "spec_schema.json#/$defs/actor"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "none"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "null means never resolved in this episode; 'none' means there was no adversary (the control case)."
+              },
+              "private_types": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Hidden types revealed at the end, keyed by seat."
+              },
+              "revealed_to": {
+                "type": "array",
+                "items": {
+                  "$ref": "spec_schema.json#/$defs/actor"
+                },
+                "description": "Omit or use ['system'] when the reveal is for the log and scoring only, not for any seat's view."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "episode_end"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "required": [
+          "spec_version",
+          "clock_mode",
+          "release_policy"
+        ],
+        "properties": {
+          "payload": {
+            "required": [
+              "reason",
+              "utilities",
+              "seats"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "time_limit",
+                  "terminal_action",
+                  "operator_stop",
+                  "error"
+                ]
+              },
+              "utilities": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "$ref": "spec_schema.json#/$defs/seat"
+                },
+                "description": "End-of-episode utility per seat from engine/utility.py, using each persona's own weights."
+              },
+              "seats": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "$ref": "spec_schema.json#/$defs/seat"
+                },
+                "description": "Which spec_id occupied each seat this episode."
+              },
+              "decision_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "checkpoint"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "checkpoint_index",
+              "seats_woken",
+              "schedule_type"
+            ],
+            "properties": {
+              "checkpoint_index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "0-based index of this checkpoint in the episode."
+              },
+              "seats_woken": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "spec_schema.json#/$defs/seat"
+                },
+                "description": "Every seat asked for a decision at this checkpoint. Normally all nine."
+              },
+              "schedule_type": {
+                "type": "string",
+                "enum": [
+                  "fixed",
+                  "variable_tempo",
+                  "adaptive"
+                ]
+              },
+              "next_checkpoint_sim_time_s": {
+                "oneOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "null on the last checkpoint of the episode."
+              },
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "schedule",
+                  "inject",
+                  "non_hold_action",
+                  "release_pending"
+                ],
+                "description": "Under schedule_type 'adaptive', what pulled this checkpoint forward."
+              },
+              "decisions_collected": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "How many sealed decisions were collected before any was applied. Sealed means no seat saw another seat's decision from this same checkpoint."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "release_requested"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "release_id",
+              "action",
+              "releasing_seat"
+            ],
+            "properties": {
+              "release_id": {
+                "type": "string",
+                "description": "Shared by the request and its granted or denied answer."
+              },
+              "action": {
+                "$ref": "action_schema.json#/$defs/action",
+                "description": "The action being held pending release."
+              },
+              "releasing_seat": {
+                "$ref": "spec_schema.json#/$defs/seat",
+                "description": "Who must answer: nsc for Blue, kremlin for Red."
+              },
+              "decision_id": {
+                "type": "string"
+              },
+              "justification": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "release_granted",
+              "release_denied"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "release_id",
+              "decided_by"
+            ],
+            "properties": {
+              "release_id": {
+                "type": "string"
+              },
+              "decided_by": {
+                "type": "string",
+                "enum": [
+                  "human",
+                  "auto",
+                  "model"
+                ],
+                "description": "human: a person answered at the nsc seat under release_policy 'human'. auto: the approval-probability rule fired under release_policy 'auto'. model: the releasing seat's LLM persona decided."
+              },
+              "approval_probability": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Only under decided_by 'auto': the configured probability the draw was taken against."
+              },
+              "wait_sim_time_s": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Sim seconds the requesting seat waited. Zero under 'auto'; under 'human' the clock is paused, so this is the modelled deliberation, not real time."
+              },
+              "rationale": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "human_action"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "action",
+              "decision_id"
+            ],
+            "properties": {
+              "action": {
+                "$ref": "action_schema.json#/$defs/action"
+              },
+              "decision_id": {
+                "type": "string"
+              },
+              "operator": {
+                "type": "string",
+                "description": "Opaque operator label. Never a real name, an email address or anything else identifying."
+              },
+              "wall_time_to_decide_s": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Real seconds the person took. Excluded from replay comparison like wall_time."
+              },
+              "beliefs": {
+                "$ref": "action_schema.json#/$defs/beliefs",
+                "description": "Optional: what the operator recorded believing, if the UI collected it."
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

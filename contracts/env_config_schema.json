@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://panoptes.wargame/contracts/v1/env_config_schema.json",
+  "title": "Engine config",
+  "description": "The parameterised environment one episode runs under. Frozen as env_v1 at env lock; a change to any field bumps env_version and gets a row in docs/VERSIONS.md. Two fields decide the shape of the whole run: clock_mode, which chooses between per-seat asynchronous wake policies and synchronous checkpoints, and release_policy, which decides who adjudicates an action that needs release. Both modes and both policies emit the same event log format, so an episode is the same object to Eval and to the UI regardless of how it was run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "env_version",
+    "clock_mode",
+    "release_policy",
+    "duration_s",
+    "seed"
+  ],
+  "properties": {
+    "env_version": {
+      "type": "string",
+      "pattern": "^env_v[0-9]+(_perturbed)?$",
+      "description": "Frozen at env lock. Carried on every event-log line, every lake record and every S3 object produced under this config."
+    },
+    "duration_s": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 2592000,
+      "description": "Episode length in sim seconds. 259200 for the standard 72-hour episode."
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Master RNG seed. Every draw in the episode — storm, attribution lag, safe-mode, hacktivist_injects affiliation, auto-release — derives from this and only this."
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
+      "description": "Grid cell, devset scenario or replay this episode runs."
+    },
+    "clock_mode": {
+      "description": "How time advances and when seats decide.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode"
+          ],
+          "title": "continuous",
+          "description": "Asynchronous. Each seat decides on its own decision_clock — poll_minutes, wake_on_inject — and its action lands after deliberation_minutes. Messages carry per-channel delay and per-feed latency. Seats act on stale, unequal pictures, which is the realistic case and the harder one.",
+          "properties": {
+            "mode": {
+              "const": "continuous"
+            },
+            "tick_s": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 60,
+              "description": "Resolution of the sim clock in seconds. The priority queue is keyed on sim_time; this is the granularity events are quantised to so that replay is exact."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "schedule_type"
+          ],
+          "title": "checkpoint",
+          "description": "Synchronous. The engine advances to the next checkpoint, wakes every seat, collects sealed simultaneous decisions — no seat sees another seat's decision from the same checkpoint — applies them all, and advances again. Per-seat poll_minutes and wake_on_inject are ignored; deliberation_minutes still delays when an action lands. Legible for a demo and for a human at the nsc seat, and it removes clock-race nondeterminism from a human-played episode.",
+          "properties": {
+            "mode": {
+              "const": "checkpoint"
+            },
+            "schedule_type": {
+              "type": "string",
+              "enum": [
+                "fixed",
+                "variable_tempo",
+                "adaptive"
+              ],
+              "description": "fixed: one interval throughout. variable_tempo: an explicit list of checkpoint times, so the tempo can tighten around the knife inject and loosen afterwards. adaptive: the engine pulls the next checkpoint forward when something happens — an inject fires, a seat takes a non-hold action, or a release is pending."
+            },
+            "interval_s": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Required under schedule_type 'fixed'; the nominal interval under 'adaptive'."
+            },
+            "checkpoints_s": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "description": "Required under schedule_type 'variable_tempo': explicit checkpoint times in sim seconds, strictly increasing."
+            },
+            "adaptive_triggers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "inject",
+                  "non_hold_action",
+                  "release_pending"
+                ]
+              },
+              "description": "Required under schedule_type 'adaptive': what pulls the next checkpoint forward. The trigger that fired is recorded on the checkpoint event."
+            },
+            "min_interval_s": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Floor under 'adaptive', so a burst of injects cannot collapse the episode into a thousand checkpoints."
+            },
+            "max_interval_s": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Ceiling under 'adaptive', so a quiet stretch still advances."
+            },
+            "seal_decisions": {
+              "type": "boolean",
+              "default": true,
+              "description": "Collect every seat's decision before applying any. True is the contract: a checkpoint is simultaneous. False turns the checkpoint into a turn order and should only be used deliberately."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "schedule_type": {
+                    "const": "fixed"
+                  }
+                },
+                "required": [
+                  "schedule_type"
+                ]
+              },
+              "then": {
+                "required": [
+                  "interval_s"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "schedule_type": {
+                    "const": "variable_tempo"
+                  }
+                },
+                "required": [
+                  "schedule_type"
+                ]
+              },
+              "then": {
+                "required": [
+                  "checkpoints_s"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "schedule_type": {
+                    "const": "adaptive"
+                  }
+                },
+                "required": [
+                  "schedule_type"
+                ]
+              },
+              "then": {
+                "required": [
+                  "adaptive_triggers",
+                  "min_interval_s",
+                  "max_interval_s"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "release_policy": {
+      "description": "Who adjudicates an action in a spec's requires_release list, and every irreversible action (kinetic, terrestrial_response, counter_rpo) regardless of the spec. The engine emits release_requested, then release_granted or release_denied, sharing a release_id, under both policies.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy"
+          ],
+          "title": "human",
+          "description": "Route the request to the nsc seat — the human-playable seat per contracts/seats.md — and pause the sim clock until it answers. Red requests route to kremlin, which is played by a model unless a second operator is seated. Actions the operator takes directly are logged as human_action. Pausing the clock is what makes a human-played episode replayable: no wall-clock deliberation leaks into sim time.",
+          "properties": {
+            "policy": {
+              "const": "human"
+            },
+            "pause_clock": {
+              "type": "boolean",
+              "default": true,
+              "description": "True is the contract. False lets sim time run while a person thinks, which makes the episode unreproducible; only for a live demo where that is the point."
+            },
+            "timeout_s": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Real seconds to wait for an operator before falling back. Omit for no timeout."
+            },
+            "on_timeout": {
+              "type": "string",
+              "enum": [
+                "deny",
+                "grant",
+                "model",
+                "abort"
+              ],
+              "description": "What to do when timeout_s expires. 'model' hands the decision to the releasing seat's LLM persona and logs decided_by 'model'. Default 'deny': silence is not consent."
+            },
+            "route_to_seat": {
+              "$ref": "spec_schema.json#/$defs/seat",
+              "default": "nsc",
+              "description": "Which seat the human occupies. Default and intended value is nsc."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "approval_probability"
+          ],
+          "title": "auto",
+          "description": "Headless. Each release request is granted with a fixed probability, drawn from the episode seed so the run stays reproducible. This is what the sweep, the training lake and self-play run under: it makes the release friction a controlled parameter rather than a per-episode judgement, and it is a grid dimension worth varying.",
+          "properties": {
+            "policy": {
+              "const": "auto"
+            },
+            "approval_probability": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Probability any single release request is granted. 0 means release is never given, which is a legitimate and informative configuration."
+            },
+            "per_action_probability": {
+              "type": "object",
+              "description": "Optional override per action type, so counter_rpo and kinetic can be harder to release than ground_cyber. Any action type absent here uses approval_probability.",
+              "propertyNames": {
+                "$ref": "action_schema.json#/$defs/action_type"
+              },
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "delay_minutes": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0,
+              "description": "Sim minutes the auto-release takes to answer, so headless runs can carry release friction as time rather than only as probability."
+            }
+          }
+        }
+      ]
+    },
+    "storm": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The storm layer. Profiles and their numbers come from calib/storm_effects.csv; this block chooses one and nothing more.",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "Profile name in calib/storm_effects.csv, e.g. 'may2024', 'feb2022', 'synthetic_g5'."
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "quiet",
+            "G1",
+            "G2",
+            "G3",
+            "G4",
+            "G5",
+            "carrington"
+          ]
+        },
+        "onset_sim_time_s": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "hacktivist_injects": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The deniable-claims rule actor. Its affiliation is drawn once per episode from the master seed and is ground truth: it never appears in any seat's filtered view and is revealed only on the attribution_revealed event at episode end.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "affiliation_weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Draw weights for the per-run hidden affiliation. Need not sum to 1; the engine normalises.",
+          "properties": {
+            "russian_directed": {
+              "type": "number",
+              "minimum": 0
+            },
+            "freelance": {
+              "type": "number",
+              "minimum": 0
+            },
+            "opportunistic": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "claim_rate_per_hour": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Expected claimed attacks or leaks per sim hour."
+        },
+        "true_claim_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability a given claim corresponds to something that actually happened. The rest are false claims, which is the whole point of the actor."
+        }
+      }
+    },
+    "seats": {
+      "type": "object",
+      "description": "Which spec fills each seat this episode. Keys are seat ids, values are spec_ids. A seat absent from this map is not played and takes no actions.",
+      "propertyNames": {
+        "$ref": "spec_schema.json#/$defs/seat"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^spec_v[0-9]+$"
+    },
+    "replay_file": {
+      "type": "string",
+      "description": "Path to a file matching inject_schema.json, if this episode runs a scenario or replay."
+    },
+    "engine_params": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Agent 1's own knobs: propagation step, attack effect curves, reputation decay, safe-mode thresholds. Deliberately open — freezing the engine's internals before engine/world.py exists would freeze the wrong shape. Everything in here is still covered by env_version, so a change to any of it bumps the version like anything else."
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Two hooks: keep the Python clean, and keep quarantined material out of anything
+# that could reach a model. See AGENTS.md and docs/quarantine.md.
+#
+# Installed automatically by .superset/setup.sh in every worktree.
+# Run manually with:  pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: quarantine-grep
+        name: quarantined incidents must not leak into specs, prompts or training data
+        entry: scripts/check_quarantine.sh
+        language: script
+        pass_filenames: true
+        # Text only: the script skips binaries anyway, but no sense feeding it weights.
+        types: [text]

@@ -1,0 +1,409 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://panoptes.wargame/contracts/v1/lake_record_schema.json",
+  "title": "Lake record",
+  "description": "One decision by one seat at one decision point, with everything needed to reproduce it, filter it, and train on it. Written by gen/run.py to s3://$WARGAME_BUCKET/lake/ as it completes (never held in memory), scored in place by the idempotent second pass in gen/judge.py, and consumed by train/filter.py. Stored as JSONL, one record per line. A record is immutable except for the judge block and outcome_utility, which are filled in later; a re-judge overwrites judge and bumps judge_version.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "lake_version",
+    "spec_id",
+    "spec_version",
+    "env_version",
+    "seed",
+    "episode_id",
+    "seat",
+    "sim_time_s",
+    "filtered_state",
+    "injects_seen",
+    "messages_seen",
+    "output",
+    "outcome_utility",
+    "judge_scores",
+    "pair_id"
+  ],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{7,95}$",
+      "description": "Unique id for this decision. Convention: <episode_id>-<seat>-<sim_time_s as integer>. Deterministic, so a re-run of the same episode overwrites rather than duplicates, and the judge pass is idempotent."
+    },
+    "lake_version": {
+      "type": "string",
+      "pattern": "^lake_v[0-9]+$",
+      "description": "Generation-run version, e.g. lake_v1. Bumped when the prompt, grid or model changes. Every S3 object carries it per contracts/s3_layout.md."
+    },
+    "spec_id": {
+      "type": "string",
+      "description": "The persona spec occupying this seat, matching spec_schema.json#spec_id."
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^spec_v[0-9]+$"
+    },
+    "env_version": {
+      "type": "string",
+      "pattern": "^env_v[0-9]+(_perturbed)?$"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The episode's master RNG seed, same value as on every event-log line of the episode."
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{7,63}$",
+      "description": "Joins this record to its event log under logs/."
+    },
+    "seat": {
+      "$ref": "spec_schema.json#/$defs/seat"
+    },
+    "sim_time_s": {
+      "type": "number",
+      "minimum": 0,
+      "description": "The decision point, in seconds from episode start. Not when the action took effect: the event log's action line carries that."
+    },
+    "filtered_state": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Exactly what this seat could see at this sim time, as engine/seats.py produced it, after feed latency, clearance and storm degradation. This is the user turn of the training example, so it must contain nothing the seat could not know: no ground truth, no other seat's private_type, no unrouted message. The engine owns the internal shape; consumers should read only the keys below and pass the rest through.",
+      "properties": {
+        "own_assets": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Status of assets this seat owns or operates."
+        },
+        "observed_effects": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Outages, anomalies and degradations visible to this seat."
+        },
+        "space_weather": {
+          "type": "object",
+          "description": "What this seat's space-weather feed currently says, which may lag or disagree with the true storm state."
+        },
+        "ladder_state": {
+          "type": "object",
+          "description": "Actions this seat has observed anyone take, and where the crisis sits on the ladder as far as it knows."
+        },
+        "available_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "action_schema.json#/$defs/action_type"
+          },
+          "description": "The menu the engine will actually accept from this seat now: allowed_seats intersected with the spec's authority and any pending release."
+        },
+        "clock": {
+          "type": "object",
+          "description": "sim_time_s, hours remaining, when this seat next polls."
+        },
+        "pending_releases": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Release requests this seat has outstanding or must answer, as far as it can see them. A releasing seat sees requests addressed to it; a requesting seat sees only its own."
+        }
+      }
+    },
+    "injects_seen": {
+      "type": "array",
+      "description": "Every inject delivered to this seat up to and including this decision point, in delivery order. Copies of inject_schema#/$defs/inject as the seat received them, so a scenario file can change without invalidating the record.",
+      "items": {
+        "$ref": "inject_schema.json#/$defs/inject"
+      }
+    },
+    "messages_seen": {
+      "type": "array",
+      "description": "Every message delivered to this seat so far, in delivery order, with the sender.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "message",
+          "delivered_at_sim_time_s"
+        ],
+        "properties": {
+          "from": {
+            "$ref": "spec_schema.json#/$defs/actor"
+          },
+          "message": {
+            "$ref": "action_schema.json#/$defs/message"
+          },
+          "delivered_at_sim_time_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "message_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "output": {
+      "$ref": "action_schema.json#/$defs/decision",
+      "description": "The decision the model produced, already schema-valid. The assistant turn of the training example."
+    },
+    "outcome_utility": {
+      "description": "This seat's end-of-episode utility under its own weights (engine/utility.py), copied onto every decision the seat made in the episode. null until the episode ends. train/filter.py's utility percentile cutoff reads this.",
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "judge_scores": {
+      "description": "Per-dimension 1-5 scores from gen/judge.py. null until the judge pass has run. Written back in place; re-running the judge with a new rubric overwrites this block and bumps judge_version.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authority",
+            "risk",
+            "private_info",
+            "voice"
+          ],
+          "properties": {
+            "authority": {
+              "$ref": "#/$defs/score",
+              "description": "Did the seat act inside its authority envelope: unilateral vs requires_release vs recommend_only?"
+            },
+            "risk": {
+              "$ref": "#/$defs/score",
+              "description": "Was the rung chosen proportionate to the evidence and to the persona's risk_posture?"
+            },
+            "private_info": {
+              "$ref": "#/$defs/score",
+              "description": "Did the seat reason only from what it could see, and not leak knowledge it had no feed for?"
+            },
+            "voice": {
+              "$ref": "#/$defs/score",
+              "description": "Does it read like this persona per the spec's voice and backstory?"
+            }
+          }
+        }
+      ]
+    },
+    "pair_id": {
+      "description": "Shared id linking a counterfactual pair: same seed, same state, one spec field flipped. null for records that are not part of a pair. train/filter.py drops pairs whose two decisions are identical; eval measures counterfactual_sensitivity across them.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pair_flipped_field": {
+      "type": "string",
+      "enum": [
+        "risk_posture",
+        "psyche",
+        "private_type",
+        "time_horizon",
+        "utility_weights",
+        "authority",
+        "information"
+      ],
+      "description": "Optional; present when pair_id is non-null. Which spec field differs between the pair's two arms."
+    },
+    "pair_variant": {
+      "type": "string",
+      "enum": [
+        "a",
+        "b"
+      ],
+      "description": "Optional; present when pair_id is non-null. Which arm this record is."
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
+      "description": "Grid cell or devset scenario this episode came from."
+    },
+    "grid_cell": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The sweep coordinates that produced this episode, so a weak region can be regenerated by seat or scenario without touching the rest of the lake.",
+      "properties": {
+        "storm_severity": {
+          "type": "string"
+        },
+        "intel_confidence": {
+          "type": "string"
+        },
+        "red_private_type": {
+          "type": "string"
+        },
+        "red_psyche": {
+          "type": "string"
+        },
+        "pre_existing_crisis": {
+          "type": "boolean"
+        },
+        "commercial_sharing_policy": {
+          "type": "string"
+        },
+        "iridium_survives": {
+          "type": "boolean"
+        }
+      }
+    },
+    "gen_model": {
+      "type": "string",
+      "description": "Model id that produced the output, e.g. the value of $GEN_MODEL, or the served adapter name in round-2 self-play."
+    },
+    "gen_source": {
+      "type": "string",
+      "enum": [
+        "frontier",
+        "selfplay",
+        "human",
+        "stub"
+      ],
+      "description": "Where the decision came from. Round-2 records are 'selfplay' and must be distinguishable from round-1 in any filter."
+    },
+    "prompt_version": {
+      "type": "string",
+      "description": "Version of gen/prompt.py's template, so a prompt change is visible in the lake."
+    },
+    "judge_version": {
+      "type": "string",
+      "pattern": "^judge_v[0-9]+$",
+      "description": "Rubric version behind judge_scores. Required whenever judge_scores is non-null."
+    },
+    "judge_rationale": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Optional one-line justification per judged dimension, for the 50/50 sample review."
+    },
+    "schema_retries": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many structured-output retries this decision needed. Feeds the schema-validity gate in train/gates.py."
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cost accounting for gen/cost_check.py.",
+      "properties": {
+        "prompt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cached_prompt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "wall_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the record was written. Excluded from any determinism comparison."
+    },
+    "clock_mode": {
+      "type": "string",
+      "enum": [
+        "continuous",
+        "checkpoint"
+      ],
+      "description": "Which clock the episode ran under, per env_config_schema.json. Decisions from the two modes are comparable but not identical in character; a filter that mixes them should do so deliberately."
+    },
+    "checkpoint_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Only under clock_mode 'checkpoint': which checkpoint this decision was made at. Sealed, so this seat did not see any other seat's decision from the same index."
+    },
+    "release_policy": {
+      "type": "string",
+      "enum": [
+        "human",
+        "auto"
+      ],
+      "description": "How requires_release and irreversible actions were adjudicated in this episode."
+    },
+    "release_outcome": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "granted",
+            "denied",
+            "not_required",
+            "pending_at_episode_end"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "For a decision whose action needed release: what happened. train/filter.py should know whether a decision was executed or blocked before treating it as a demonstration."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "A judged record must say which rubric judged it.",
+      "if": {
+        "properties": {
+          "judge_scores": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "judge_scores"
+        ]
+      },
+      "then": {
+        "required": [
+          "judge_version"
+        ]
+      }
+    },
+    {
+      "$comment": "A paired record must say what was flipped and which arm it is.",
+      "if": {
+        "properties": {
+          "pair_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pair_id"
+        ]
+      },
+      "then": {
+        "required": [
+          "pair_flipped_field",
+          "pair_variant"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    }
+  }
+}

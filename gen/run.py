@@ -230,19 +230,25 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
 
     try:
         keys: list[str] = []
-        for seed in range(1, episodes + 1):
-            episode = await asyncio.to_thread(one, seed)
-            keys.append(write_episode(episode, config, store))
-            usage = client.usage.as_dict()
-            print(
-                {
-                    "episode": seed,
-                    "records": len(episode.decision_records),
-                    "calls": usage["calls"],
-                    "usage": usage,
-                },
-                flush=True,
-            )
+        # Episode.run is synchronous, but each GenAgent hands its request back to
+        # this event loop.  A batch of eight worker threads therefore keeps eight
+        # requests in flight (rather than accidentally serialising 1,008 calls per
+        # episode), while the batch boundary is a safe, observable budget checkpoint.
+        for first_seed in range(1, episodes + 1, config.concurrency):
+            seeds = range(first_seed, min(first_seed + config.concurrency, episodes + 1))
+            batch = await asyncio.gather(*(asyncio.to_thread(one, seed) for seed in seeds))
+            for episode in batch:
+                keys.append(write_episode(episode, config, store))
+                usage = client.usage.as_dict()
+                print(
+                    {
+                        "episode": episode.config.seed,
+                        "records": len(episode.decision_records),
+                        "calls": usage["calls"],
+                        "usage": usage,
+                    },
+                    flush=True,
+                )
         summary = {
             "episodes": episodes,
             "expected_decisions": episodes * FULL_DECISIONS_PER_EPISODE,

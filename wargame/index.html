@@ -995,7 +995,7 @@ const SCRIPT=[
   ['action','','Requested Coast Guard to query the vessel and asked KSAT for spectrum monitoring on the Ny-Ålesund uplink.','nor'],
 ];
 /* ---- simulation clock ---- */
-const T0=14*3600+2*60; let sim=0, speed=0.5, playing=true, lastReal=performance.now();
+const T0=14*3600+2*60; let sim=0, speed=2, playing=true, lastReal=performance.now();
 const DEC_INTERVAL=120;               /* one scripted decision every 2 scenario minutes at 1x */
 const events=[];                      /* {t,kind,title,text,actor,el} */
 const fmt=t=>{const s=T0+Math.floor(t);return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')+'Z';};
@@ -1065,6 +1065,9 @@ const playBtn=document.getElementById('play');
 playBtn.onclick=()=>{playing=!playing; document.getElementById('playIcon').setAttribute('d',playing?'M6 5h4v14H6zM14 5h4v14h-4z':'M7 5v14l12-7z'); playBtn.setAttribute('aria-label',playing?'Pause':'Play'); playBtn.setAttribute('aria-pressed',playing);};
 const SPEEDS=[0.5,1,1.5,2,3]; const speedBtn=document.getElementById('speedBtn');
 speedBtn.onclick=()=>{ speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%SPEEDS.length]; speedBtn.textContent=speed+'×'; };
+/* Label from the variable, not from the markup. The two were separate copies of the same
+   number, so changing the starting speed left the button lying about it. */
+speedBtn.textContent = speed + '×';
 document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT'||e.target.classList.contains('sat'))return; if(e.code==='Space'){e.preventDefault();playBtn.click();} });
 
 /* Icon and label live on the button, so both paths that change `playing` go through here

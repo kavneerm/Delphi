@@ -146,6 +146,13 @@ async function main(): Promise<void> {
         `document title is "${await page.title()}" — the run name did not reach it`,
       );
 
+      // The speed button used to be a second, hand-written copy of the starting speed, so
+      // it could disagree with the clock it labels.
+      report.assert(
+        (await page.textContent('#speedBtn'))?.trim() === '2×',
+        `speed button reads "${(await page.textContent('#speedBtn'))?.trim()}", expected 2×`,
+      );
+
       // ...and the run must actually start.
       const t0 = await page.evaluate(() => document.getElementById('clock')?.textContent);
       await page.waitForTimeout(900);

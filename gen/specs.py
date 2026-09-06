@@ -1,9 +1,17 @@
-"""Loading the persona pool, with a hard wall in front of `specs/holdout/`.
+"""The persona pool for a generation run, and the counterfactual arms built from it.
 
-`specs/holdout/` is the held-out-persona set. `train/gates.py` scores a checkpoint on
-personas it has never seen; a generation run that reads one silently invalidates that
-gate, and the invalidation is undetectable afterwards. So the guard is a raised
-exception, not a warning, and there is a test for it.
+`engine.specs.load_pool` is the loader: it reads `specs/train/*.json` and falls back to
+its own placeholders per seat, so the engine runs before the pool exists. This module
+adds the three things generation needs on top of it:
+
+* a hard wall in front of `specs/holdout/`;
+* a full-pool read (the engine's loader returns one spec per *seat*, but the sweep
+  samples across all ~25 specs);
+* `flipped()`, which builds the B arm of a counterfactual pair.
+
+`specs/holdout/` is the held-out-persona set behind `train/gates.py`. A generation run
+that reads one invalidates that gate and leaves no trace of having done it, so the guard
+raises rather than warns, and `tests/agent3-gen` asserts it.
 """
 
 from __future__ import annotations
@@ -12,10 +20,16 @@ import json
 from pathlib import Path
 from typing import Any
 
-from gen.config import FORBIDDEN_SPEC_DIRS, GenConfig
+from engine.specs import load_pool as engine_load_pool
+from engine.specs import placeholder_specs, specs_dir
 from gen.contracts import validation_errors, validator
-from gen.placeholder_specs import is_placeholder, placeholder_pool
 from gen.quarantine import assert_clean
+
+FORBIDDEN_SPEC_DIRS = ("specs/holdout",)
+
+#: `engine.specs.placeholder_specs()` are stand-ins for the human-authored pool. A cost
+#: check may run on them; the full lake may not.
+PLACEHOLDER_IDS = frozenset(spec["spec_id"] for spec in placeholder_specs().values())
 
 
 class HoldoutAccessError(RuntimeError):
@@ -28,9 +42,9 @@ def assert_not_holdout(path: Path | str) -> None:
         if forbidden in text:
             raise HoldoutAccessError(
                 f"{path} is under {forbidden}; generation must never read it "
-                "(docs/agent_workstreams.md, Agent 3 'Do not'). "
-                "It is train/gates.py's and eval/'s input, and reading it here would "
-                "invalidate the held-out-persona coherence gate without leaving a trace."
+                "(docs/agent_workstreams.md, Agent 3 'Do not'). It is train/gates.py's "
+                "and eval/'s input, and reading it here would invalidate the held-out "
+                "persona coherence gate without leaving a trace."
             )
 
 
@@ -41,53 +55,67 @@ def load_spec_file(path: Path) -> dict[str, Any]:
     if errors:
         raise ValueError(f"{path} is not a valid spec: {errors[:3]}")
     assert_clean(
-        spec.get("voice", "") + "\n" + spec.get("backstory", ""),
+        f"{spec.get('voice', '')}\n{spec.get('backstory', '')}\n{spec.get('notes', '')}",
         where=f"spec {spec.get('spec_id')} ({path})",
     )
     return spec
 
 
-def load_pool(config: GenConfig, subdir: str = "train") -> list[dict[str, Any]]:
-    """Every spec in `specs/<subdir>/`, or the placeholder pool if that is empty.
+def train_pool(root: Path | None = None) -> list[dict[str, Any]]:
+    """Every spec in `specs/train/`, or the engine's placeholders if there are none.
 
-    Sorted by `spec_id` so a pool is a deterministic list and a seeded sample of it is
-    reproducible.
+    Sorted by `spec_id`, so a seeded sample of the pool is reproducible.
     """
-    root = config.specs_root / subdir
-    assert_not_holdout(root)
+    directory = (root or specs_dir()) / "train"
+    assert_not_holdout(directory)
     specs: list[dict[str, Any]] = []
-    if root.is_dir():
-        specs = [load_spec_file(p) for p in sorted(root.glob("*.json"))]
+    if directory.is_dir():
+        specs = [load_spec_file(path) for path in sorted(directory.glob("*.json"))]
     if not specs:
-        specs = placeholder_pool()
-    return sorted(specs, key=lambda s: s["spec_id"])
+        specs = list(placeholder_specs().values())
+    return sorted(specs, key=lambda spec: spec["spec_id"])
+
+
+def seat_assignment_pool(root: Path | None = None) -> dict[str, list[dict[str, Any]]]:
+    """The pool grouped by seat, which is how the sweep assigns seats."""
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for spec in train_pool(root):
+        grouped.setdefault(spec["seat"], []).append(spec)
+    return grouped
+
+
+def engine_pool(assignment: dict[str, str]) -> dict[str, dict[str, Any]]:
+    """What the engine will actually seat, for a given seat -> spec_id assignment.
+
+    Thin wrapper so every read of the spec tree in this workstream goes past the
+    holdout guard, including the engine's own.
+    """
+    assert_not_holdout(specs_dir() / "train")
+    return engine_load_pool(assignment)
+
+
+def is_placeholder(spec: dict[str, Any]) -> bool:
+    return str(spec.get("spec_id")) in PLACEHOLDER_IDS
 
 
 def pool_is_placeholder(specs: list[dict[str, Any]]) -> bool:
-    return bool(specs) and all(is_placeholder(s) for s in specs)
-
-
-def by_seat(specs: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    out: dict[str, list[dict[str, Any]]] = {}
-    for spec in specs:
-        out.setdefault(spec["seat"], []).append(spec)
-    return out
+    return bool(specs) and all(is_placeholder(spec) for spec in specs)
 
 
 # --------------------------------------------------------------------------
 # Counterfactual arms
 # --------------------------------------------------------------------------
 
-#: The fields a counterfactual pair may flip, and the value each flips to. Constrained
-#: to `lake_record_schema.json#/properties/pair_flipped_field`; targets.md measures
-#: sensitivity on `risk_posture` and `psyche`.
+#: The fields a pair may flip and what each flips to. Constrained to
+#: `lake_record_schema.json#/properties/pair_flipped_field`; `contracts/targets.md`
+#: measures counterfactual sensitivity on `risk_posture` and `psyche`.
 FLIP_TARGETS: dict[str, dict[str, str]] = {
     "risk_posture": {
         "risk_averse": "assertive",
         "cautious": "assertive",
-        "balanced": "assertive",
+        "balanced": "risk_acceptant",
         "assertive": "cautious",
-        "risk_acceptant": "cautious",
+        "risk_acceptant": "risk_averse",
     },
     "psyche": {
         "revisionist": "regime_survival",
@@ -114,16 +142,15 @@ FLIP_TARGETS: dict[str, dict[str, str]] = {
 
 
 def can_flip(spec: dict[str, Any], field: str) -> bool:
-    value = spec.get(field)
-    return value is not None and value in FLIP_TARGETS.get(field, {})
+    return spec.get(field) in FLIP_TARGETS.get(field, {})
 
 
 def flipped(spec: dict[str, Any], field: str) -> dict[str, Any]:
-    """The B arm of a counterfactual pair: the same persona, one field changed.
+    """The B arm of a counterfactual pair: this persona, one field changed.
 
-    The derived spec gets its own `spec_id` so the lake can tell the arms apart, and
-    stays valid against `spec_schema.json` — which is why `psyche` and `private_type`
-    only flip within their seat-legal enums.
+    The arm gets its own `spec_id` so the lake can tell the two apart, and is
+    re-validated — which is why `psyche` and `private_type` only flip within their
+    seat-legal enums.
     """
     if not can_flip(spec, field):
         raise ValueError(f"{spec['spec_id']} cannot flip {field}={spec.get(field)!r}")

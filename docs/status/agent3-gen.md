@@ -1,7 +1,7 @@
 # agent3-gen
 state: IN_PROGRESS
 branch: agent3-gen
-last_commit: 5ff2dd7
+last_commit: 7d26315
 interfaces_ready: []
 needs: [specs/train + specs/exemplars (humans/agent9-specs), calib/attribution_lags.csv (agent2-calib)]
 awaiting_human:
@@ -73,3 +73,20 @@ notes: |
   gen/QUESTIONS.md rather than editing another agent's file.
   Next: delete gen/mock_engine, gen/engine_api, gen/placeholder_specs, gen/scenario,
   gen/storage; rewrite gen/prompt against the real view; write gen/agent.py.
+  2026-09-06 00:35 — Mocks deleted: gen/mock_engine, gen/engine_api, gen/placeholder_specs,
+  gen/scenario, gen/storage are gone (~1500 lines). Replaced by gen/keys.py (the s3_layout
+  key templates plus is_record_key/is_judged_key, which is what the agent4 hazard needs),
+  gen/specs.py rewritten on engine.specs.load_pool with the holdout guard and the
+  counterfactual arm builder kept, and gen/exemplars.py.
+  Read agent9-specs before writing the exemplar loader and it changed the design: the bank
+  is 10 structured JSON cards against their own exemplar_card_schema.json, not the .md files
+  s3_layout implies, and each card carries analogous_seats "used to select cards per seat
+  when the prefix budget is tight" — they built it for gen/prompt.py deliberately. Loader
+  tested against their real petrov_1983 and starlink_ukraine cards. Keeping all cards in the
+  universal block by default so the prefix stays byte-identical across all nine seats and the
+  whole run shares one cache entry; per-seat selection is a flag, because it trades that cache
+  sharing for a shorter prompt. Ten cards is ~8k tokens of prefix, which is the single biggest
+  line in the cost check — measuring both ways there rather than guessing now.
+  agent9 is AWAITING_HUMAN on promoting specs/drafts/ into specs/train|exemplars|devset
+  (`python specs/drafts/promote.py --all`); until that lands, engine.specs falls back to nine
+  placeholder specs and the full run stays blocked on real personas by design.

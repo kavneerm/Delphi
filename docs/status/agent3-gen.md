@@ -1,9 +1,9 @@
 # agent3-gen
 state: IN_PROGRESS
 branch: agent3-gen
-last_commit: a10ddfe
+last_commit: 5ff2dd7
 interfaces_ready: []
-needs: [engine.agent_api (agent1-engine), specs/train + specs/exemplars (humans/agent9-specs), calib/attribution_lags.csv + storm_effects.csv (agent2-calib)]
+needs: [specs/train + specs/exemplars (humans/agent9-specs), calib/attribution_lags.csv (agent2-calib)]
 awaiting_human:
 updated: 2026-09-05
 notes: |
@@ -52,3 +52,24 @@ notes: |
   changes the output and changes the bill a lot. 8.8k chars universal + 2.2k persona
   cacheable against 3.4k variable. Leakage guard refuses ground-truth keys in any
   filtered_state before the prompt is built. Next: gen/llm.py, gen/agent.py.
+  2026-09-06 00:10 — Rebased onto main; engine.agent_api, infra.storage and calib all
+  landed, so the mocks come out. Read the real interfaces before touching anything and
+  found three things that change my design:
+  (1) engine.agent_api.Agent.act(view) is SYNCHRONOUS and Episode.run() is synchronous,
+  while generation is async at concurrency 64. Plan: run each Episode in a worker thread
+  and have the agent's sync act() bridge back to the one event loop, so N episodes block
+  in threads while their API calls multiplex under a single semaphore.
+  (2) engine.episode.Episode.decision_records already holds decision_id, seat, sim_time_s,
+  filtered_state, injects_seen, messages_seen, output and schema_errors — agent1 built it
+  for me explicitly, so gen/run.py re-derives nothing.
+  (3) PREFIX HAZARD found for agent4 and written to HANDOFFS: s3_layout puts _judge/ inside
+  the same lake/<lake_v>/ prefix as the base records and both are .jsonl, so
+  train/filter.py:read_lake reading lake/lake_v1/ would read every decision twice, once
+  unjudged and once scored. Benign under require_judged: true, silently doubles judged
+  weight under false. Told agent4 to point at lake/lake_v1/_judge/judge_v1/, and gen/judge.py
+  will write complete lake records there so that prefix stands alone.
+  Also noted: infra.storage has no delete and does not return the VersionId, so my
+  versioned-cleanup fix for transient _parts/ objects cannot go through it — raising in
+  gen/QUESTIONS.md rather than editing another agent's file.
+  Next: delete gen/mock_engine, gen/engine_api, gen/placeholder_specs, gen/scenario,
+  gen/storage; rewrite gen/prompt against the real view; write gen/agent.py.

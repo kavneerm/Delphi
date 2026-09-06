@@ -995,7 +995,7 @@ const SCRIPT=[
   ['action','','Requested Coast Guard to query the vessel and asked KSAT for spectrum monitoring on the Ny-Ålesund uplink.','nor'],
 ];
 /* ---- simulation clock ---- */
-const T0=14*3600+2*60; let sim=0, speed=2, playing=true, lastReal=performance.now();
+const T0=14*3600+2*60; let sim=0, speed=1, playing=true, lastReal=performance.now();
 const DEC_INTERVAL=120;               /* one scripted decision every 2 scenario minutes at 1x */
 const events=[];                      /* {t,kind,title,text,actor,el} */
 const fmt=t=>{const s=T0+Math.floor(t);return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')+'Z';};

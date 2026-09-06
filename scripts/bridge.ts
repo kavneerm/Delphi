@@ -149,8 +149,8 @@ async function main(): Promise<void> {
       // The speed button used to be a second, hand-written copy of the starting speed, so
       // it could disagree with the clock it labels.
       report.assert(
-        (await page.textContent('#speedBtn'))?.trim() === '2×',
-        `speed button reads "${(await page.textContent('#speedBtn'))?.trim()}", expected 2×`,
+        (await page.textContent('#speedBtn'))?.trim() === '1×',
+        `speed button reads "${(await page.textContent('#speedBtn'))?.trim()}", expected 1×`,
       );
 
       // ...and the run must actually start.

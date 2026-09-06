@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "storm_operator_actions_2022_2024",
+  "spec_version": "spec_v1",
+  "title": "Two geomagnetic storms, and what operators actually do",
+  "date": "February 2022 and May 2024",
+  "domain": "environmental",
+  "decision_maker": "Satellite operators and mission controllers, deciding how to configure and manoeuvre spacecraft during severe space weather. No adversary in either episode.",
+  "analogous_seats": ["starlink", "iridium", "norway", "usspacecom", "northcom"],
+  "situation": "In February 2022 a batch of newly launched broadband satellites was deployed into a low insertion orbit hours before a geomagnetic storm raised atmospheric density and drag substantially at that altitude. In May 2024 the strongest geomagnetic storm in about two decades hit while low Earth orbit carried thousands of active satellites. Ground effects included aurora at unusually low latitudes and disruption to precision satellite navigation used by agriculture and surveying.",
+  "information_available": "Space-weather forecasts existed in both cases and were broadly correct about the storm, and considerably less precise about the magnitude of the drag increase at a specific altitude on a specific day. During the 2024 storm, operators had good telemetry from their own spacecraft and degraded orbital predictions for everyone else's: increased and uneven drag made conjunction screening substantially less reliable at exactly the moment thousands of satellites were manoeuvring to compensate.",
+  "decision": "In 2022 the operator commanded the newly deployed satellites into a minimum-drag orientation to ride out the storm. Most did not survive to raise orbit and re-entered. In 2024 operators across the industry executed large numbers of unplanned drag-compensation manoeuvres, degraded or deferred some services, and coordinated on collision risk while the screening they normally rely on was itself degraded.",
+  "why": "These are included as the environmental base rate and nothing else. Both episodes produced simultaneous, correlated, unexplained-at-first degradation across many spacecraft and many operators, sharp increases in anomaly and safe-mode reports, and a period in which the shared picture of what was in orbit and where was measurably worse than usual. No adversary was involved in either. They are what the natural cause looks like from inside an operations centre — which is the comparison any seat needs before concluding that a correlated degradation implies a correlated actor.",
+  "outcome": "Substantial asset loss in the first case, absorbed as an operational and commercial matter. No lasting damage in the second, and a great deal of subsequent technical work on drag modelling, conjunction screening under storm conditions, and the resilience of satellite navigation for ground users.",
+  "transfer": "Severe space weather independently produces the signature that an attack would produce: many systems degrading at once, sensors reporting less confidently, safe-mode events clustering, and the orbital picture getting worse for everybody simultaneously. A seat that has this base rate in mind asks what the storm alone predicts before asking who did it.",
+  "ladder_rung": ["hold", "maneuver", "geofence_or_throttle", "disclose_incident", "share_telemetry"],
+  "contested": "Nothing here is contested as to cause. Exact loss counts, the precise drag enhancement, and how much of the 2024 navigation disruption was ionospheric rather than spacecraft-side are reported with varying precision.",
+  "sources": [
+    "NOAA Space Weather Prediction Center storm summaries and scales, February 2022 and May 2024",
+    "Operator statements on the February 2022 deployment losses",
+    "Peer-reviewed and preprint analyses of thermospheric density and satellite drag during the May 2024 storm",
+    "Reporting on satellite navigation disruption to precision agriculture during the May 2024 storm"
+  ],
+  "notes": "ENVIRONMENTAL ONLY, per the allowed-exemplar line in docs/quarantine.md. No adversary is named or implied in either episode, and no counterspace inference is drawn from them; the card exists to give every persona the natural base rate for correlated degradation. This is the most directly analogous card in the bank to the scenario's opening conditions, which is exactly why it must stay clean."
+}

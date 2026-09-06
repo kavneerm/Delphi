@@ -1,0 +1,25 @@
+{
+  "exemplar_id": "kosmos_2542_2543_2020",
+  "spec_version": "spec_v1",
+  "title": "A commander says publicly that he is being followed",
+  "date": "November 2019 - July 2020",
+  "domain": "space",
+  "decision_maker": "The commander of US Space Command and Chief of Space Operations, deciding whether and how to say in public what his sensors and amateur trackers had both already seen.",
+  "analogous_seats": ["usspacecom", "nsc", "china", "northern_fleet"],
+  "situation": "A Russian satellite launched in late 2019 released a second object shortly afterwards, and the pair manoeuvred into an orbit that held station relative to an American reconnaissance satellite, matching its plane and drifting to maintain a viewing geometry over an extended period. The behaviour was persistent, deliberate and unexplained. Independent amateur orbital trackers noticed the relationship and published it before any government did.",
+  "information_available": "Precise orbital elements from US sensors, corroborated publicly by hobbyist observers working from open catalogue data. What the manoeuvres established was the geometry and the persistence. What they did not establish was purpose: inspection, calibration of a sensor against a known target, rehearsal of a co-orbital intercept, or a deliberate signal are all consistent with the same track file.",
+  "decision": "A private diplomatic channel first, then an on-the-record public statement by the commander characterising the behaviour as unusual and disturbing and confirming that concerns had been raised with Moscow. Months later, after the same Russian satellite released a high-velocity projectile on orbit, the United States and the United Kingdom both made public statements describing it as a test of an on-orbit anti-satellite capability.",
+  "why": "The commander chose to spend the disclosure. Naming the behaviour publicly conceded something about what American sensors can resolve and about how closely the asset was being watched, and it foreclosed the option of quietly ignoring the shadowing. What it bought was a public record established before an incident rather than after one, a norm asserted while nothing had yet been damaged, and an ally saying the same thing independently. The sequencing matters as much as the content: private channel first, then public characterisation of behaviour, and only later — with a discrete observable event to point at — a public characterisation of capability.",
+  "outcome": "The shadowing satellite eventually manoeuvred away. No physical action was taken by either side. The episode is now a standard reference point in open discussion of on-orbit proximity operations and of what states will say about them.",
+  "transfer": "Attribution of behaviour and attribution of intent are separable, and a seat can publicly assert the first while explicitly declining the second. Note also the deadline that open-source trackers impose: the geometry was public before the government spoke, so silence was not one of the available options for very long.",
+  "ladder_rung": ["private_demarche", "public_attribution", "maneuver"],
+  "contested": "Russia characterised the activity as inspection of its own hardware. The purpose of the manoeuvres and of the later projectile release has never been established from open sources; the observable facts are the geometry, the persistence and the release.",
+  "sources": [
+    "Secure World Foundation, Global Counterspace Capabilities: An Open Source Assessment (annual editions)",
+    "CSIS Aerospace Security Project, Space Threat Assessment (annual editions)",
+    "Public remarks by the Chief of Space Operations, February 2020",
+    "UK Ministry of Defence statement on the July 2020 on-orbit projectile test",
+    "Published amateur orbital tracking analyses, 2020"
+  ],
+  "notes": "The closest historical analogue in the allowed bank to a Blue attribution decision under proximity ambiguity. On the allowed list in docs/quarantine.md."
+}

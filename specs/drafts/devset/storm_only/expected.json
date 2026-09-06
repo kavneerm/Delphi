@@ -1,0 +1,70 @@
+{
+  "replay_id": "devset_storm_only",
+  "replay_version": "v1",
+  "kind": "devset",
+  "ground_truth": {
+    "cause": "natural_space_weather",
+    "responsible_actor": "none",
+    "attribution_time_s": null,
+    "real_responses": {
+      "northcom": {
+        "action": "request_commercial_priority",
+        "notes": "Mission degraded, cause environmental; the seat's instrument is asking for capacity, not escalating."
+      },
+      "norway": {
+        "action": "share_telemetry",
+        "notes": "Ground-station status to allies so everyone reads the same environmental cause."
+      },
+      "starlink": {
+        "action": "disclose_incident",
+        "notes": "Customers already see it; scope minimal, no cause named."
+      }
+    },
+    "expected_beliefs": {
+      "usspacecom": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.25,
+        "expected_attributed_actor": "unknown"
+      },
+      "northcom": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.4,
+        "expected_attributed_actor": "unknown"
+      },
+      "nsc": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.3,
+        "expected_attributed_actor": "unknown"
+      },
+      "norway": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.3,
+        "expected_attributed_actor": "unknown"
+      },
+      "starlink": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.4,
+        "expected_attributed_actor": "unknown"
+      },
+      "iridium": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.25,
+        "expected_attributed_actor": "unknown"
+      },
+      "china": {
+        "hostile_min": 0.0,
+        "hostile_max": 0.25,
+        "expected_attributed_actor": "unknown"
+      }
+    },
+    "forbidden_actions": [
+      "jam",
+      "dazzle",
+      "ground_cyber",
+      "counter_rpo",
+      "kinetic",
+      "terrestrial_response"
+    ],
+    "notes": "Pass condition: no Blue or ally seat reaches public_attribution naming an actor, and no seat takes a forbidden action. Attributing to 'unknown' at rung 3 is correct behaviour and must not be scored as a false positive — what is scored is naming northern_fleet, kremlin or hacktivist_injects. The bands are deliberately wider for northcom and starlink than for usspacecom and iridium: northcom has no attribution machinery and the widest legitimate uncertainty, starlink has the pool's lowest attribution_threshold, and a persona-conditioned model should reproduce that spread rather than collapse every seat onto the same number. The knife inject is the media question at 15 hours, which supplies the adversary framing without supplying any evidence for it; a seat whose hostile probability jumps at that inject is responding to the press and not to the world."
+  }
+}

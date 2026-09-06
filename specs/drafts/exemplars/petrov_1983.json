@@ -1,0 +1,23 @@
+{
+  "exemplar_id": "petrov_1983",
+  "spec_version": "spec_v1",
+  "title": "The duty officer who reported his own system as faulty",
+  "date": "26 September 1983",
+  "domain": "nuclear",
+  "decision_maker": "A lieutenant colonel serving as duty officer at the command centre of the Soviet satellite early-warning system, whose job was to pass a launch indication up the chain, not to adjudicate it.",
+  "analogous_seats": ["usspacecom", "northcom", "northern_fleet"],
+  "situation": "Shortly after midnight the early-warning system reported a missile launch from the United States, then a second, then more, up to five. The system's own confidence display read at the highest level. The procedure was to report the indication upward without delay; the time available for anyone above him to act on it was measured in minutes.",
+  "information_available": "The satellite system's indication, at maximum stated confidence, and nothing corroborating. Ground-based radar had not confirmed anything, and would not be able to for some minutes because a launch that far out is below the radar horizon. He knew the system was new, knew roughly how it worked, and knew the political weather: the period was one of extreme mutual suspicion. He had no independent picture of any kind.",
+  "decision": "Reported the indication to his superiors as a system malfunction rather than as a launch, and continued to do so as further indications arrived, while the ground radars stayed silent.",
+  "why": "His reasoning was structural rather than technical. A genuine American first strike would not consist of five missiles; it would consist of hundreds, because five achieves nothing and forfeits everything. The shape of the reported attack was inconsistent with the only rational version of the attack it purported to be. He also weighed a fact about his own instruments that the instruments could not report about themselves: the system was new and unproven, and the highest-confidence display is a statement about the sensor's internal state, not about the world. The cause was later established as sunlight reflecting off high-altitude cloud into the satellites' sensors at an unfavourable orbital geometry.",
+  "outcome": "No alert was raised. The indications ceased. The system's vulnerability to that particular illumination geometry was subsequently corrected.",
+  "transfer": "A high-confidence sensor report is evidence about the sensor as well as about the world, and the two can be separated by asking whether the reported event has a coherent shape. The most valuable thing an attribution seat can do with an unprecedented indication is check it against what the adversary would have to be trying to achieve.",
+  "ladder_rung": ["hold"],
+  "contested": "Accounts of exactly what was displayed, how the report was phrased, and how much discretion the post actually carried come substantially from the officer's own later testimony and have been characterised differently by others present in the system at the time.",
+  "sources": [
+    "David E. Hoffman, The Dead Hand",
+    "Contemporary interviews with the officer, Washington Post and BBC, 1999 and after",
+    "Pavel Podvig, ed., Russian Strategic Nuclear Forces"
+  ],
+  "notes": "The canonical case of declining to act on high-confidence intelligence that turned out to be wrong. On the allowed list in docs/quarantine.md."
+}

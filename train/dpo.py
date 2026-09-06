@@ -29,6 +29,7 @@ from typing import Any
 
 from train import filter as filt
 from train import storage
+from train.filter import judged_lake_prefix
 from train.fireworks import Client, FireworksError
 from train.launch import WORK_DIR, versions_for
 from train.versions import git_sha
@@ -124,6 +125,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dimension", choices=DIMENSIONS)
     p.add_argument("--config", type=Path, default=filt.CONFIG_PATH)
     p.add_argument("--lake-prefix")
+    p.add_argument(
+        "--judged",
+        action="store_true",
+        help="read lake/<lake_version>/_judge/<judge_version>/ from config -- the judged "
+        "tree holds complete records and reads each decision once",
+    )
     p.add_argument("--mock", type=int, default=0)
     p.add_argument("--specs-dir", type=Path, default=Path("specs/train"))
     p.add_argument("--min-gap", type=int)
@@ -131,10 +138,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-s3", action="store_true")
     args = p.parse_args(argv)
 
-    if not args.lake_prefix and not args.mock:
+    if not args.lake_prefix and not args.judged and not args.mock:
         raise SystemExit("pass --lake-prefix or --mock N")
 
     config = filt.load_config(args.config)
+    if args.judged:
+        cfgv = config["versions"]
+        args.lake_prefix = judged_lake_prefix(cfgv["lake_version"], cfgv["judge_version"])
     dcfg = config["dpo"]
     dimension = args.dimension or dcfg["dimension"]
     min_gap = args.min_gap if args.min_gap is not None else int(dcfg["min_score_gap"])

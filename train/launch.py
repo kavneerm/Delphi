@@ -33,10 +33,18 @@ from typing import Any
 
 from train import filter as filt
 from train import storage
+from train.filter import judged_lake_prefix
 from train.fireworks import BASE_MODELS, Client, FireworksError
 from train.versions import Versions, git_sha
 
-WORK_DIR = Path(".wargame-local/tmp")
+#: Local scratch for files on their way to Fireworks. Deliberately NOT under
+#: $WARGAME_LOCAL_ROOT: that directory mirrors the bucket key-for-key, so a
+#: `tmp/` or `smoke/` folder inside it reads as a seventh contract prefix to
+#: anything listing the mirror (`infra.audit --local` flags exactly that, and it
+#: is what agent8-infra spotted). These files are never storage keys -- they are
+#: uploaded to Fireworks by path and deleted by nobody -- so they belong outside
+#: the key space entirely.
+WORK_DIR = Path(os.environ.get("WARGAME_SCRATCH", ".wargame-scratch"))
 
 
 @dataclass(frozen=True)
@@ -324,6 +332,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--sweep-id")
     p.add_argument("--variant", action="append", help="base:rank:epochs:filter_vN; repeatable")
     p.add_argument("--lake-prefix", help="prefix under lake/ to filter")
+    p.add_argument(
+        "--judged",
+        action="store_true",
+        help="read lake/<lake_version>/_judge/<judge_version>/ from config -- the judged "
+        "tree holds complete records and reads each decision once",
+    )
     p.add_argument("--mock", type=int, default=0, help="use N mock lake records instead")
     p.add_argument("--specs-dir", type=Path, default=Path("specs/train"))
     p.add_argument("--dry-run", action="store_true")
@@ -342,11 +356,14 @@ def main(argv: list[str] | None = None) -> int:
         launch_unavailable(args.backend)
 
     config = filt.load_config(args.config)
+    cfgv = config["versions"]
+    if args.judged:
+        args.lake_prefix = judged_lake_prefix(cfgv["lake_version"], cfgv["judge_version"])
     sweep_id = args.sweep_id or default_sweep_id()
     variants = (
         [Variant.parse(v) for v in args.variant] if args.variant else variants_from_config(config)
     )
-    if not args.lake_prefix and not args.mock:
+    if not args.lake_prefix and not args.judged and not args.mock:
         raise SystemExit("pass --lake-prefix (real lake) or --mock N (until gen/run.py lands)")
 
     results = launch_fireworks(

@@ -365,6 +365,46 @@ def build_manifest(
 # ------------------------------------------------------------------------- cli
 
 
+def judged_lake_prefix(lake_version: str, judge_version: str) -> str:
+    """The prefix to train from: `lake/<lake_v>/_judge/<judge_v>/`.
+
+    `gen/judge.py` writes COMPLETE lake records there, every field of
+    `lake_record_schema.json` rather than a scores-only sidecar, so the judged
+    tree is self-sufficient and needs no join back to the base tree.
+    """
+    return f"lake/{lake_version}/_judge/{judge_version}/"
+
+
+def dedupe_records(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """Collapse duplicate `record_id`s, preferring the judged copy.
+
+    `contracts/s3_layout.md` §3 nests the judged tree *inside* the same version
+    prefix as the base records, so a prefix of `lake/<lake_v>/` matches both
+    `.../seed=<n>/<episode>.jsonl` (unjudged) and `_judge/<judge_v>/<episode>.jsonl`
+    (judged) — every decision, twice. With `require_judged: true` the unjudged
+    copies happen to be dropped later and the damage is only to the manifest
+    counts; with `require_judged: false` they are not, and the judged records
+    silently train at double weight. Neither is acceptable, and neither errors on
+    its own, so the duplicates die here regardless of what prefix was passed.
+    """
+    best: dict[str, dict[str, Any]] = {}
+    duplicates = 0
+    for row in rows:
+        key = row.get("record_id")
+        if not key:
+            # No id to dedupe on; keep it, but under a key that cannot collide.
+            best[f"_anon_{len(best)}"] = row
+            continue
+        existing = best.get(key)
+        if existing is None:
+            best[key] = row
+            continue
+        duplicates += 1
+        if row.get("judge_scores") and not existing.get("judge_scores"):
+            best[key] = row
+    return list(best.values()), duplicates
+
+
 def read_lake(prefix: str | None, mock: int) -> tuple[list[dict[str, Any]], str]:
     if mock:
         from train.mocklake import records as mock_records
@@ -374,8 +414,17 @@ def read_lake(prefix: str | None, mock: int) -> tuple[list[dict[str, Any]], str]
         raise SystemExit("pass --lake-prefix or --mock N")
     rows: list[dict[str, Any]] = []
     for key in storage.list_keys(prefix):
+        # `_index/<episode>.json` and `_parts/<episode>/*.json` are .json, not
+        # .jsonl, so this filter already skips them. Keep it.
         if key.endswith(".jsonl"):
             rows.extend(storage.read_jsonl(key))
+    rows, duplicates = dedupe_records(rows)
+    if duplicates:
+        print(
+            f"NOTE: dropped {duplicates} duplicate record_id(s) reading {prefix!r}, keeping the "
+            "judged copy of each. That prefix spans both the base and _judge trees; "
+            "--lake-prefix lake/<lake_v>/_judge/<judge_v>/ reads each decision once."
+        )
     return rows, storage.uri(prefix)
 
 
@@ -383,7 +432,18 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Filter the lake into chat-format training JSONL.")
     p.add_argument("--filter", dest="filter_version", required=True)
     p.add_argument("--config", type=Path, default=CONFIG_PATH)
-    p.add_argument("--lake-prefix", help="S3/local prefix under lake/ to read")
+    p.add_argument(
+        "--lake-prefix",
+        help="prefix under lake/ to read. Prefer lake/<lake_v>/_judge/<judge_v>/ -- "
+        "the judged tree holds complete records and reads each decision once, where "
+        "lake/<lake_v>/ spans the base tree too and matches everything twice.",
+    )
+    p.add_argument(
+        "--judged",
+        action="store_true",
+        help="read lake/<lake_version>/_judge/<judge_version>/ from config; "
+        "shorthand for the correct --lake-prefix",
+    )
     p.add_argument("--mock", type=int, default=0, help="use N mock lake records instead")
     p.add_argument("--specs-dir", type=Path, default=Path("specs/train"))
     p.add_argument("--out", type=Path, required=True, help="local JSONL path to write")
@@ -397,13 +457,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.filter_version not in config["filters"]:
         raise SystemExit(f"unknown filter {args.filter_version}; have {list(config['filters'])}")
 
-    records, source = read_lake(args.lake_prefix, args.mock)
+    cfgv = config["versions"]
+    lake_prefix = args.lake_prefix
+    if args.judged:
+        lake_prefix = judged_lake_prefix(cfgv["lake_version"], cfgv["judge_version"])
+    records, source = read_lake(lake_prefix, args.mock)
     specs = load_specs(args.specs_dir)
     examples, stats = filter_records(
         records, filter_version=args.filter_version, config=config, specs=specs
     )
 
-    cfgv = config["versions"]
     versions = Versions(
         env_version=cfgv["env_version"],
         spec_version=cfgv["spec_version"],

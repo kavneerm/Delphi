@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,7 +34,14 @@ from train import filter as filt
 from train.fireworks import BASE_MODELS, Client, FireworksError
 
 SMOKE_EXAMPLES = 200
-WORK_DIR = Path(".wargame-local/tmp")
+#: Local scratch for files on their way to Fireworks. Deliberately NOT under
+#: $WARGAME_LOCAL_ROOT: that directory mirrors the bucket key-for-key, so a
+#: `tmp/` or `smoke/` folder inside it reads as a seventh contract prefix to
+#: anything listing the mirror (`infra.audit --local` flags exactly that, and it
+#: is what agent8-infra spotted). These files are never storage keys -- they are
+#: uploaded to Fireworks by path and deleted by nobody -- so they belong outside
+#: the key space entirely.
+WORK_DIR = Path(os.environ.get("WARGAME_SCRATCH", ".wargame-scratch"))
 
 
 def _stamp() -> str:

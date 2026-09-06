@@ -28,15 +28,28 @@ _CONTENT_TYPES = {"markdown": "text/markdown"}
 
 
 def _store() -> Storage:
-    """`infra.storage.Storage`, honouring both env conventions.
+    """`infra.storage.Storage`, honouring whichever env convention is in play.
 
-    `infra.storage` switches to the local mirror on `WARGAME_STORAGE=local`;
-    `train/` had been using `WARGAME_LOCAL=1` before that helper existed, and the
-    tests still set it. Accept either rather than break one of them.
+    `train/` used `WARGAME_LOCAL=1` before `infra.storage` existed;
+    `infra.storage` uses `WARGAME_STORAGE=local`. agent8 has since taught
+    `resolve_backend()` to read both (and to raise if they disagree), so prefer
+    it when present and fall back to the local check only on the older version
+    that is currently on main. Once agent8 merges, this collapses to
+    `Storage.from_env()`.
     """
+    try:
+        from infra.storage import resolve_backend
+
+        return Storage.from_env() if resolve_backend() != "local" else _local_store()
+    except ImportError:
+        pass
     if os.environ.get("WARGAME_LOCAL", "").strip() not in ("", "0", "false"):
-        return Storage(local_root=os.environ.get("WARGAME_LOCAL_ROOT", ".wargame-local"))
+        return _local_store()
     return Storage.from_env()
+
+
+def _local_store() -> Storage:
+    return Storage(local_root=os.environ.get("WARGAME_LOCAL_ROOT", ".wargame-local"))
 
 
 def _versions(metadata: dict[str, str]) -> InfraVersions:

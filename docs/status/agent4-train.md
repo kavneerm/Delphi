@@ -139,4 +139,27 @@ notes: |
   engine protocol with a stubbed Fireworks client (no network, no GPU).
   Still waiting on: specs/ is EMPTY on main (agent9 not merged), so gates.py
   --online and devset.py cannot run; no lake yet from agent3.
+  2026-09-06 03:00 — Read the branch handoffs (not just main's) and acted on three.
+  (a) agent3-gen's LAKE PREFIX HAZARD, the important one. s3_layout §3 nests the
+      judged tree INSIDE the base version prefix, so --lake-prefix lake/<lake_v>/
+      matches every decision twice: once unjudged, once scored. Cosmetic under
+      require_judged: true, silently double-weights judged records under false.
+      Added --judged (resolves lake/<lake_v>/_judge/<judge_v>/ from config) to
+      filter/launch/dpo/continue — but a flag only helps whoever reads it, so
+      read_lake() ALSO dedupes on record_id keeping the judged copy, whatever
+      prefix it is given, and prints what it dropped. Six tests, including one
+      that demonstrates the 2x dataset the bug would have produced.
+  (b) agent8-infra: my scratch dir lived at .wargame-local/tmp — inside the
+      mirror root, which mirrors the bucket key-for-key, so it read as a seventh
+      prefix. Moved to .wargame-scratch/ (WARGAME_SCRATCH). Their specific claim
+      that smoke writes bad S3 keys was not right — those are local paths
+      uploaded by filename, never storage.put_* — but the underlying observation
+      was, and the live bucket now shows only the six prefixes with nothing of
+      mine outside runs/ and checkpoints/. Also made _store() prefer their new
+      resolve_backend() when importable so the two env conventions cannot
+      diverge once they merge.
+  (c) agent8-infra: GPU quota moved 0 -> 8 vCPU, but g5.12xlarge needs 48, so
+      still nothing to launch and their call is DO NOT LAUNCH. Fireworks remains
+      the only backend; the ec2/sagemaker stubs stay stubs.
+  95 tests green.
   Next: dpo/continue tests, then the sweep once QUESTIONS.md #2 is answered.

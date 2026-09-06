@@ -146,3 +146,66 @@ def test_manifest_records_every_version(config: dict) -> None:
         "contracts_version",
     }
     assert manifest["git_commit"]
+
+
+# ------------------------------------------------- the lake double-read hazard
+#
+# agent3-gen's handoff: contracts/s3_layout.md §3 nests the judged tree inside the
+# same version prefix as the base records, so `--lake-prefix lake/<lake_v>/`
+# matches every decision twice — once unjudged, once scored.
+
+
+def test_duplicate_record_ids_collapse_to_the_judged_copy() -> None:
+    base = records(1)[0]
+    base["judge_scores"] = None
+    judged = json.loads(json.dumps(base))
+    judged["judge_scores"] = {"authority": 5, "risk": 4, "private_info": 4, "voice": 5}
+
+    deduped, duplicates = filt.dedupe_records([base, judged])
+    assert duplicates == 1
+    assert len(deduped) == 1
+    assert deduped[0]["judge_scores"]["authority"] == 5
+
+
+def test_dedupe_prefers_judged_regardless_of_read_order() -> None:
+    base = records(1)[0]
+    base["judge_scores"] = None
+    judged = json.loads(json.dumps(base))
+    judged["judge_scores"] = {"authority": 3, "risk": 3, "private_info": 3, "voice": 3}
+    for order in ([base, judged], [judged, base]):
+        deduped, _ = filt.dedupe_records(order)
+        assert deduped[0]["judge_scores"] is not None
+
+
+def test_dedupe_leaves_distinct_records_alone() -> None:
+    rows = records(50)
+    deduped, duplicates = filt.dedupe_records(rows)
+    assert duplicates == 0
+    assert len(deduped) == len(rows)
+
+
+def test_records_without_an_id_are_not_collapsed_together() -> None:
+    """Two anonymous records are two records, not one."""
+    rows = [{"seat": "norway"}, {"seat": "kremlin"}]
+    deduped, duplicates = filt.dedupe_records(rows)
+    assert len(deduped) == 2
+    assert duplicates == 0
+
+
+def test_the_judged_prefix_is_the_one_the_contract_names() -> None:
+    assert filt.judged_lake_prefix("lake_v1", "judge_v2") == "lake/lake_v1/_judge/judge_v2/"
+
+
+def test_double_weighting_would_change_the_dataset(config: dict) -> None:
+    """Why this matters: without the dedupe, a filter that does not require a judge
+    score trains the judged copies at double weight and the manifest counts lie."""
+    rows = records(40)
+    doubled = rows + [json.loads(json.dumps(r)) for r in rows]
+    once, _ = filt.filter_records(rows, filter_version="filter_v0", config=config)
+    twice_raw, _ = filt.filter_records(doubled, filter_version="filter_v0", config=config)
+    assert len(twice_raw) == 2 * len(once)
+
+    deduped, duplicates = filt.dedupe_records(doubled)
+    assert duplicates == len(rows)
+    fixed, _ = filt.filter_records(deduped, filter_version="filter_v0", config=config)
+    assert len(fixed) == len(once)

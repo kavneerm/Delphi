@@ -77,9 +77,9 @@ const COLLECT = async (): Promise<Sample[]> => {
   ctx.drawImage(img, 0, 0);
   const px = ctx.getImageData(0, 0, cv.width, cv.height).data;
 
-  // The browser's own `contain` arithmetic, from the element box and the real image size.
+  // The browser's own `cover` arithmetic, from the element box and the real image size.
   const ew = map.clientWidth, eh = map.clientHeight;
-  const sc = Math.min(ew / img.naturalWidth, eh / img.naturalHeight);
+  const sc = Math.max(ew / img.naturalWidth, eh / img.naturalHeight);
   const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
   const ox = (ew - dw) / 2, oy = (eh - dh) / 2;
 

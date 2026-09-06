@@ -35,7 +35,7 @@
   .sat.selected .tag{color:var(--cream)}
   .sat.selected svg{filter:drop-shadow(0 0 8px rgba(245,232,210,.55))}
 
-  .map{position:relative;flex:1;background:var(--ocean) url(../media/svalbard.jpg) center/contain no-repeat;min-height:0}
+  .map{position:relative;flex:1;background:var(--ocean) url(../media/svalbard.jpg) center/cover no-repeat;min-height:0}
   .map::before{content:"";position:absolute;inset:0 0 auto 0;height:70px;background:linear-gradient(to bottom,var(--ocean),rgba(8,31,63,0));pointer-events:none}
   .links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
   .theatre-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -765,10 +765,11 @@ const mapEl = document.getElementById('map');
 const MAP_IMG = {w:987, h:686};
 function mapGeom(){
   const ew=mapEl.clientWidth, eh=mapEl.clientHeight;
-  /* `contain`, matching the CSS: min, not max. Under `cover` the element cropped the plate
-     by a margin that changed with the viewport, which put units off screen at ordinary
-     window sizes and left no open water around the archipelago. */
-  const s=Math.min(ew/MAP_IMG.w, eh/MAP_IMG.h);
+  /* `cover`, matching the CSS: max, not min. The plate fills the panel edge to edge with
+     no letterbox, at the cost of cropping whatever axis is proportionally longer. How much
+     that crops depends on the viewport, so check:laydown sweeps window sizes and fails if
+     any unit is cropped off the map rather than merely near its edge. */
+  const s=Math.max(ew/MAP_IMG.w, eh/MAP_IMG.h);
   const dw=MAP_IMG.w*s, dh=MAP_IMG.h*s;
   return {dw, dh, ox:(ew-dw)/2, oy:(eh-dh)/2};
 }

@@ -326,14 +326,16 @@ export function mountHumanSeat(opts) {
       );
     }
 
+    const anyIrreversible = Object.values(f.data).some((r) => (r.irreversible ?? 0) > 0);
+
     return h(
       'div',
       {},
       head,
       Object.entries(f.data).map(([option, r]) => {
-        const n = r.n || 1;
-        const irr = (r.irreversible ?? 0) / n;
-        const esc = (r.escalated ?? 0) / n;
+        const done = r.completed || r.n || 1;
+        const irr = (r.irreversible ?? 0) / done;
+        const esc = (r.escalated ?? 0) / done;
         const safe = Math.max(0, 1 - irr - esc);
         return h(
           'div',
@@ -342,7 +344,7 @@ export function mountHumanSeat(opts) {
             'div',
             { class: 'top' },
             h('span', { style: { textTransform: 'uppercase' } }, option),
-            h('span', { style: { color: 'var(--ink-faint)' } }, `n=${r.n}`),
+            h('span', { style: { color: 'var(--ink-faint)' } }, `${r.completed}/${r.n} ran`),
             h(
               'span',
               { class: 'pct', style: { color: irr > 0.25 ? 'var(--danger)' : 'var(--ink)' } },
@@ -359,17 +361,35 @@ export function mountHumanSeat(opts) {
           h(
             'div',
             { class: 'fork-legend' },
-            h('span', {}, h('i', { style: { background: 'var(--danger)' } }), 'irreversible adversary response'),
-            h('span', {}, h('i', { style: { background: 'var(--warn)' } }), 'escalated, reversible'),
+            h('span', {}, h('i', { style: { background: 'var(--danger)' } }), 'irreversible'),
+            h('span', {}, h('i', { style: { background: 'var(--warn)' } }), 'escalated above this rung'),
             h('span', {}, h('i', { style: { background: '#2f4a3a' } }), 'neither'),
+            r.mean_max_rung !== null && r.mean_max_rung !== undefined
+              ? h(
+                  'span',
+                  { style: { marginLeft: 'auto', color: 'var(--ink-dim)' } },
+                  `adversary rung: mean ${r.mean_max_rung}, worst ${r.worst_rung}`,
+                )
+              : null,
           ),
         );
       }),
       h(
         'div',
         { style: { fontFamily: 'var(--mono)', fontSize: '.6rem', color: 'var(--ink-faint)' } },
-        'irreversible = counter_rpo, kinetic or terrestrial_response taken by an adversary seat',
+        'irreversible = counter_rpo, kinetic or terrestrial_response by an adversary seat, unblocked',
       ),
+      // A flat zero on both options is a real answer, and one a viewer will
+      // otherwise read as a broken panel. Say which it is.
+      !anyIrreversible
+        ? h(
+            'div',
+            { style: { fontSize: '.66rem', color: 'var(--ink-dim)', marginTop: '.3rem' } },
+            'No continuation reached an irreversible adversary response either way — which is the ',
+            'expected shape against scripted agents (contracts/targets.md targets red_kinetic_rate ',
+            'below 1%). The mean adversary rung is the number that separates the options here.',
+          )
+        : null,
     );
   }
 

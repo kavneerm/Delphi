@@ -89,3 +89,80 @@ def test_series_files_parse_and_are_ordered() -> None:
         stamps = [r["utc_start"] for r in rows]
         assert stamps == sorted(stamps), f"{stem} is not in time order"
         assert all(r["source_url"].startswith("http") for r in rows), stem
+
+
+LAG_COLUMNS_ENGINE_READS = ["attack_type", "median_hours", "sigma", "floor_hours", "source_url"]
+
+
+def test_attribution_lags_has_the_columns_engine_reads() -> None:
+    # engine/attacks.py:load_attribution_lags() reads exactly these by name.
+    rows = read("attribution_lags.csv")
+    assert rows
+    for column in LAG_COLUMNS_ENGINE_READS:
+        assert column in rows[0], column
+
+
+def test_attribution_lags_cover_every_engine_attack_type() -> None:
+    kinds = {r["attack_type"] for r in read("attribution_lags.csv")}
+    assert {"jam", "dazzle", "ground_cyber", "rpo"} <= kinds
+
+
+def test_attribution_lags_are_positive_and_ordered_by_difficulty() -> None:
+    by = {r["attack_type"]: r for r in read("attribution_lags.csv")}
+    for row in by.values():
+        assert float(row["median_hours"]) > 0
+        assert float(row["sigma"]) > 0
+        assert 0 < float(row["floor_hours"]) <= float(row["median_hours"])
+    # The one ordering the public record actually establishes: a kinetic event is
+    # attributed same-day, cyber takes years, and rpo and jam sit between them.
+    median = {k: float(v["median_hours"]) for k, v in by.items()}
+    assert median["kinetic"] < median["rpo"] < median["jam"] < median["ground_cyber"]
+
+
+def test_attribution_incidents_back_every_fitted_parameter() -> None:
+    incidents = read("attribution_incidents.csv")
+    ids = {r["incident_id"] for r in incidents}
+    for row in read("attribution_lags.csv"):
+        cited = row["fitted_from"].split()
+        assert set(cited) <= ids, row["attack_type"]
+        assert len(cited) == int(row["n_incidents"]), row["attack_type"]
+
+
+def test_attribution_incidents_exclude_the_holdout_years() -> None:
+    for row in read("attribution_incidents.csv"):
+        assert row["effect_date"] < "2025-01-01", row["incident_id"]
+
+
+def test_holdout_matches_red_action_rates_columns() -> None:
+    # eval/holdout_mix.py compares the two directly; divergent columns break it.
+    assert list(read("holdout_2025_2026.csv")[0]) == list(read("red_action_rates.csv")[0])
+
+
+def test_holdout_window_is_disjoint_from_the_training_window() -> None:
+    for row in read("holdout_2025_2026.csv"):
+        assert row["window_start"] >= "2025-01-01", row
+        assert row["window_end"] <= "2026-12-31", row
+
+
+def test_holdout_protection_survives_a_clone() -> None:
+    """The durable guard, not the file mode.
+
+    `chmod 444` is applied as a convenience but cannot be the mechanism: git
+    stores only the executable bit, so the holdout comes out of a fresh clone or
+    a rebase as 0644 and a mode-based assertion would pass only on the machine
+    that set it. scripts/check_holdout_isolation.sh is committed, so it is the
+    protection that actually travels.
+    """
+    root = CALIB.parent
+    hook = root / "scripts" / "check_holdout_isolation.sh"
+    assert hook.is_file(), "the holdout guard is missing"
+    body = hook.read_text()
+    assert "ALLOW_HOLDOUT_EDIT" in body, "no override path for a deliberate human edit"
+    assert "--cached --name-only" in body, "frozen check must read the staged diff"
+    assert "holdout-isolation" in (root / ".pre-commit-config.yaml").read_text()
+
+
+def test_holdout_covers_the_same_grid() -> None:
+    holdout = {(r["actor"], r["category"]) for r in read("holdout_2025_2026.csv")}
+    train = {(r["actor"], r["category"]) for r in read("red_action_rates.csv")}
+    assert holdout == train

@@ -1,0 +1,36 @@
+{
+  "beliefs": {
+    "hostile": 0.42,
+    "natural": 0.31,
+    "unknown": 0.27,
+    "per_actor": {
+      "northern_fleet": 0.24,
+      "hacktivist": 0.11,
+      "china": 0.02,
+      "environment": 0.05
+    }
+  },
+  "messages": [
+    {
+      "to": "starlink",
+      "channel": "commercial",
+      "text": "Requesting the raw uplink interference signature for the four affected Arctic birds, 0400-0900Z, unredacted, including AGC and carrier-to-noise traces. Your public statement says degradation consistent with geomagnetic activity. Our tracking says the degradation is bounded in azimuth in a way geomagnetic activity is not. One of us is wrong and I would rather find out from your telemetry than from the press. This channel is fine; formal request follows.",
+      "classification": "restricted"
+    },
+    {
+      "to": "norway",
+      "channel": "liaison",
+      "text": "Advising you before we advise anyone else: we are treating the SvalSat downlink gap as unresolved, not as storm. We are not attributing and we are not asking you to. If Andoya or Vardo holds anything on emitter geometry in the Barents over the same window, that would settle it in an hour.",
+      "classification": "secret"
+    }
+  ],
+  "action": {
+    "type": "share_telemetry",
+    "params": {
+      "recipient": "norway",
+      "data_class": "interference_signature",
+      "purpose": "Give Oslo the azimuth-bounded signature so their ground sensors can confirm or kill the interference hypothesis before anyone says the word attack in public."
+    }
+  },
+  "reasoning": "Three things are true at once and only one of them is being reported. The storm is real and G4, which explains the safe-mode entries and most of the tracking degradation. The outage pattern is not: it is bounded in azimuth and it recovered on two birds while the Kp index was still climbing. And the commercial operator has the telemetry that would separate the two and has an obvious commercial reason not to hand it over. That is not enough to attribute and it is well short of what I would need to recommend anything on the upper half of the ladder. What it is enough for is to stop the drift toward a public storm narrative that would be very hard to walk back if the signature comes in hostile in six hours. Sharing our interference signature with Oslo costs me a sensor-capability disclosure to a treaty ally who already knows roughly what we can see, and buys a second independent look from Vardo. If Norway's ground picture agrees with ours, I have corroboration from a source nobody can call self-interested, and NSC gets a real assessment instead of a hedge. If it disagrees, I have learned something cheap and I hold at natural. I am not requesting commercial priority yet; asking Starlink for capacity in the same hour I am accusing them of misreading their own telemetry buys me a slower answer on the thing that matters. Not attributing publicly. The controls case is exactly this shape and I have watched people get it wrong."
+}

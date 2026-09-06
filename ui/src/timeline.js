@@ -134,7 +134,12 @@ export function attachScrub(canvas, run, onSeek) {
   };
   canvas.addEventListener('pointerdown', (e) => {
     dragging = true;
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // No active pointer (synthetic event, or it was released already). Drag
+      // still works, it just stops at the canvas edge.
+    }
     onSeek(toT(e));
   });
   canvas.addEventListener('pointermove', (e) => {

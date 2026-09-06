@@ -60,8 +60,20 @@ export function subpoint(el, t) {
   return { lat, lon, altKm: r - R_EARTH, periodS: (2 * Math.PI) / n };
 }
 
-/** Ground track sampled over a window around t, split where it leaves the map. */
-export function groundTrack(el, t, { beforeS = 2400, afterS = 2400, stepS = 45, latMin = 45 } = {}) {
+/**
+ * Ground track sampled over a window around t, split where it leaves the map.
+ *
+ * The window is a fraction of the orbital period rather than a fixed number of
+ * minutes: 40 minutes is a third of a LEO orbit but five per cent of a Molniya
+ * one, so a fixed window draws the HEO nodes as near-straight stubs.
+ */
+export function groundTrack(el, t, { arcFraction = 0.45, samples = 220, latMin = 45 } = {}) {
+  const a = el.a_km;
+  const period = 2 * Math.PI * Math.sqrt((a * a * a) / MU);
+  const halfWindow = (period * arcFraction) / 2;
+  const stepS = (2 * halfWindow) / samples;
+  const beforeS = halfWindow;
+  const afterS = halfWindow;
   const segs = [];
   let cur = [];
   let prevLon = null;

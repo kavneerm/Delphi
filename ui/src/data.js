@@ -48,15 +48,15 @@ export async function loadRuns() {
 }
 
 /**
- * Load one logged run. Each entry lists the engine path first and the UI's own
- * stub second; the moment agent1-engine lands engine/samples/stub_run.jsonl the
- * app picks it up with no code change.
+ * Load one logged run. `path` is where the log lives; `fallback` is optional and
+ * only there so a run can name an engine path that has not been published yet.
+ * All three runs in ui/data/runs.json are real engine output.
  */
 export async function loadRun(entry) {
-  const paths = [entry.engine, entry.fallback].filter(Boolean);
+  const paths = [entry.path, entry.fallback].filter(Boolean);
   const res = await firstAvailable(paths);
-  if (!res) throw new Error(`no log found for ${entry.id} (tried ${paths.join(', ')})`);
-  return { lines: parseJsonl(res.text), source: res.path, isEngine: res.path === entry.engine };
+  if (!res) throw new Error(`no log found for ${entry.id} (tried ${paths.join(', ') || 'nothing'})`);
+  return { lines: parseJsonl(res.text), source: res.path, isEngine: res.path.startsWith('engine/') };
 }
 
 /** The escalation ladder is data inside the frozen action contract, not ours. */

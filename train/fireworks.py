@@ -534,7 +534,12 @@ class Client:
         return self.inference_refs(model_id, deployment_id)[0]
 
     def probe_inference_ref(
-        self, model_id: str, deployment_id: str, **chat_kwargs: Any
+        self,
+        model_id: str,
+        deployment_id: str,
+        *,
+        probe_timeout_s: float = 20.0,
+        **chat_kwargs: Any,
     ) -> tuple[str | None, list[dict[str, str]]]:
         """Try each candidate ref against a live deployment. Returns (winner, trail)."""
         trail: list[dict[str, str]] = []
@@ -545,6 +550,7 @@ class Client:
                     [{"role": "user", "content": "ping"}],
                     max_tokens=4,
                     temperature=0.0,
+                    timeout_s=probe_timeout_s,
                     **chat_kwargs,
                 )
             except FireworksError as exc:
@@ -589,7 +595,14 @@ class Client:
 
     # ----------------------------------------------------------- inference
 
-    def chat(self, model: str, messages: list[dict], **kwargs: Any) -> dict:
+    def chat(
+        self,
+        model: str,
+        messages: list[dict],
+        *,
+        timeout_s: float = 180.0,
+        **kwargs: Any,
+    ) -> dict:
         import httpx
 
         body = {"model": model, "messages": messages, **kwargs}
@@ -600,7 +613,7 @@ class Client:
                 "Content-Type": "application/json",
             },
             json=body,
-            timeout=180,
+            timeout=timeout_s,
         )
         if resp.status_code >= 400:
             raise FireworksError(f"chat -> {resp.status_code} {resp.text}")

@@ -1,0 +1,141 @@
+{
+  "replay_id": "control_intelsat_33e",
+  "replay_version": "v1",
+  "kind": "control",
+  "title": "Intelsat 33e breakup, 19-22 October 2024 (control)",
+  "description": "A geostationary communications satellite loses power and breaks into hundreds of pieces, taking broadband, government links and airline connectivity across Europe, Africa and the Indian Ocean region dark in the same minute. Nobody did it. The spacecraft had carried a propulsion anomaly since shortly after launch in 2016, a sister spacecraft on the same platform had broken up in orbit in 2019, nothing was observed anywhere near it, and no root cause has ever been published. This is a false-positive control: a total, sudden, highly visible loss of service with no adversary anywhere in the record. t = 0 is 2024-10-19T00:00:00Z; the episode ends 2024-10-22T00:00:00Z.",
+  "duration_s": 259200,
+  "injects": [
+    {
+      "inject_id": "i33e-01-known-history",
+      "sim_time_s": 0,
+      "recipients": ["starlink"],
+      "content": "Standing engineering note on this spacecraft, unchanged for years: it has carried a propulsion problem since shortly after it went up in 2016. A primary thruster malfunction that year delayed it into service, and a further propulsion issue the following year burned propellant faster than planned and took something like three and a half years off its design life. It has been flown carefully ever since and it has been working.",
+      "confidence": 0.9,
+      "source": "own fleet engineering",
+      "source_class": "internal",
+      "source_url": "https://en.wikipedia.org/wiki/Intelsat_33e"
+    },
+    {
+      "inject_id": "i33e-02-service-loss",
+      "sim_time_s": 16200,
+      "recipients": ["starlink", "northcom", "norway"],
+      "content": "Everything on the bird went at once at about 0430Z. Broadband terminals, government links and airline connectivity across Europe, Africa and the Indian Ocean region, all dark in the same minute. No degradation, no warning, no ramp. On, then off.",
+      "confidence": 0.95,
+      "source": "network operations and customer reporting",
+      "source_class": "internal",
+      "source_url": "https://keeptrack.space/deep-dive/intelsat-33e-breakup"
+    },
+    {
+      "inject_id": "i33e-03-no-telemetry",
+      "sim_time_s": 19800,
+      "recipients": ["starlink"],
+      "content": "Total power loss on the spacecraft. No telemetry, no carrier, no response to commands on any uplink. We are not talking to it and it is not talking to us. Anomaly team standing up.",
+      "confidence": 0.9,
+      "source": "own satellite operations centre",
+      "source_class": "internal",
+      "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+    },
+    {
+      "inject_id": "i33e-04-fragmentation",
+      "sim_time_s": 28800,
+      "recipients": ["usspacecom", "china"],
+      "content": "It did not just fail, it came apart. Optical and radar are resolving multiple separate objects at the slot. This is a fragmentation event in the geostationary belt, which is rare and which nothing up there clears out.",
+      "confidence": 0.85,
+      "source": "space surveillance network",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://keeptrack.space/deep-dive/intelsat-33e-breakup"
+    },
+    {
+      "inject_id": "i33e-05-official-confirmation",
+      "sim_time_s": 43200,
+      "recipients": ["all"],
+      "content": "US Space Forces-Space has confirmed the breakup publicly and says it is tracking around twenty associated pieces. It reports no immediate threats and says routine conjunction assessments are continuing. That is the whole statement; there is no characterisation of a cause in it and no suggestion that anyone did anything.",
+      "confidence": 0.9,
+      "source": "US Space Forces-Space, public statement",
+      "source_class": "media",
+      "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+    },
+    {
+      "inject_id": "i33e-06-customers",
+      "sim_time_s": 54000,
+      "recipients": ["all"],
+      "content": "The outage is being felt across three continents and customers are going public about it. The operator says it is working with the manufacturer and with government agencies and is not speculating about cause. Airlines, broadcasters and at least two governments are asking when service comes back and are being told nothing useful.",
+      "confidence": 0.8,
+      "source": "trade and international press",
+      "source_class": "media",
+      "source_url": "https://www.satellitetoday.com/connectivity/2024/10/21/intelsats-is-33e-satellite-is-a-total-loss/"
+    },
+    {
+      "inject_id": "i33e-07-more-fragments",
+      "sim_time_s": 86400,
+      "recipients": ["usspacecom", "china", "starlink"],
+      "content": "The commercial trackers are seeing far more than the official catalogue. Their count is already several times twenty and still climbing as more optical time goes on it. Expect the public number to keep being revised upward for weeks. That is what fragmentation in this belt looks like from the ground; it is not evidence about what caused it.",
+      "confidence": 0.8,
+      "source": "commercial space situational awareness provider",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://keeptrack.space/deep-dive/intelsat-33e-breakup"
+    },
+    {
+      "inject_id": "i33e-08-nothing-nearby",
+      "sim_time_s": 100800,
+      "recipients": ["usspacecom", "china"],
+      "content": "Answering the question before it is asked. Nothing was near it. No co-orbital object in proximity, no approach, no manoeuvre by anything in that neighbourhood in the days before. No interference observed against the spacecraft and no unusual RF activity in the window. The belt at that longitude is busy in the sense that there are satellites parked along it, and none of them went anywhere.",
+      "confidence": 0.85,
+      "source": "space surveillance network, retrospective screening",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+    },
+    {
+      "inject_id": "i33e-09-speculation",
+      "sim_time_s": 144000,
+      "recipients": ["all"],
+      "content": "The speculation has started, as it does. Could it have been a micrometeoroid, could it have been something deliberate. The manufacturer says it is too early to say whether a micrometeoroid could have caused it, which is being quoted in some places as though it were an endorsement of the idea. Nobody in any government has suggested hostile action and no actor has claimed anything.",
+      "confidence": 0.4,
+      "source": "trade press and commentary",
+      "source_class": "media",
+      "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+    },
+    {
+      "inject_id": "i33e-10-total-loss",
+      "sim_time_s": 172800,
+      "recipients": ["all"],
+      "content": "The operator has declared the satellite a total loss. Customers are being migrated where there is capacity to migrate them to, and there is not enough. Reporting adds a detail that will shape how everyone behaves next: this one was not insured.",
+      "confidence": 0.75,
+      "source": "operator statement and trade press",
+      "source_class": "media",
+      "source_url": "https://www.satellitetoday.com/connectivity/2024/10/21/intelsats-is-33e-satellite-is-a-total-loss/",
+      "is_knife_inject": true
+    },
+    {
+      "inject_id": "i33e-11-review-board",
+      "sim_time_s": 208800,
+      "recipients": ["all"],
+      "content": "A Failure Review Board has been convened with the manufacturer to work out what happened, and the operator says it is working with government agencies to analyse data and observations. That is the correct process and it is also the process that takes months and, in this case, will never publish a root cause.",
+      "confidence": 0.85,
+      "source": "operator statement",
+      "source_class": "media",
+      "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+    },
+    {
+      "inject_id": "i33e-12-precedent",
+      "sim_time_s": 230400,
+      "recipients": ["all"],
+      "content": "Somebody has gone and looked up the precedent, and it is close. A sister spacecraft on the same manufacturer's platform broke apart in geostationary orbit in April 2019, after its own propulsion anomaly. Same bus family, same class of problem, same ending. That platform's propulsion system has a history and the insurers know it.",
+      "confidence": 0.8,
+      "source": "industry analysis and insurance market reporting",
+      "source_class": "osint",
+      "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+    },
+    {
+      "inject_id": "i33e-13-end-state",
+      "sim_time_s": 252000,
+      "recipients": ["all"],
+      "content": "Three days on. A satellite with a known propulsion defect, on a platform that has done this before, broke up with nothing near it, no interference against it, no claim by anyone, and no government anywhere suggesting it was anything but a failure. The debris count keeps rising and the root cause is under investigation by people who will not be finished for a long time.",
+      "confidence": 0.85,
+      "source": "press round-up",
+      "source_class": "media",
+      "source_url": "https://keeptrack.space/deep-dive/intelsat-33e-breakup"
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "replay_id": "dozor_teleport",
+  "replay_version": "v1",
+  "kind": "real_replay",
+  "title": "Dozor-Teleport, 29 June - 1 July 2023",
+  "description": "A Russian satellite communications provider serving state and military customers is knocked offline, and a Telegram channel created the day before claims the operation for the Wagner Group, six days after Wagner's armed mutiny stopped short of Moscow. The claim was false, and it was false in a way designed to be believed. Nothing was attributed at the time; the operation was self-attributed by a Ukrainian volunteer collective on 2025-08-14, more than two years later, who said they had disguised it as Wagner on purpose. The scenario tests whether seats treat an attacker's own claim about its identity as evidence, and it is the replay the attribution-entropy target is measured on. t = 0 is 2023-06-29T00:00:00Z; the episode ends 2023-07-02T00:00:00Z.",
+  "duration_s": 259200,
+  "injects": [
+    {
+      "inject_id": "dzr-01-mutiny-context",
+      "sim_time_s": 0,
+      "recipients": ["all"],
+      "content": "Standing context, six days old and not settled: an armed column belonging to a Russian private military company drove most of the way to Moscow and then turned around under a deal nobody has seen the text of. Since then anything claimed in that group's name travels fast and checks slowly. Several channels claiming affiliation have appeared and nobody has a reliable way to tell which of them are anything.",
+      "confidence": 0.7,
+      "source": "open reporting and regional analysis",
+      "source_class": "osint",
+      "source_url": "https://www.satellitetoday.com/cybersecurity/2025/10/06/self-attribution-in-cyberspace-the-hack-on-russias-dozor-teleport-satellite-network/"
+    },
+    {
+      "inject_id": "dzr-02-links-down",
+      "sim_time_s": 7200,
+      "recipients": ["northern_fleet", "kremlin"],
+      "content": "Overnight: the satellite communications provider that carries a large share of state and military traffic in the north and east is down. Terminals across several regions are dark, including sites in occupied territory near the nuclear plant. This is not weather and it is not a transponder. Restoration estimate: unknown.",
+      "confidence": 0.85,
+      "source": "own communications directorate",
+      "source_class": "internal",
+      "source_url": "https://cyberscoop.com/russia-satellite-hack-wagner/"
+    },
+    {
+      "inject_id": "dzr-03-customers-notice",
+      "sim_time_s": 14400,
+      "recipients": ["all"],
+      "content": "Russian energy and logistics customers are complaining publicly that their satellite links have been down since the small hours. The provider's website is not responding. Nobody has said the word attack yet; at this stage it reads like an outage at a mid-sized operator.",
+      "confidence": 0.5,
+      "source": "Russian telecom trade press and customer channels",
+      "source_class": "customer",
+      "source_url": "https://cyberscoop.com/russia-satellite-hack-wagner/"
+    },
+    {
+      "inject_id": "dzr-04-wagner-claim",
+      "sim_time_s": 39600,
+      "recipients": ["all"],
+      "content": "A Telegram channel calling itself Richard W has claimed the operation. It is posting screenshots from inside the provider's IT environment, it has started dumping files, and it has put out a video with Russian audio saying this was done for the Wagner Group. Some of the provider's web properties have been defaced with Wagner-associated imagery. One detail that everybody is going to have to weigh: the channel was created yesterday, and it is the only account anywhere posting this material.",
+      "confidence": 0.5,
+      "source": "hacktivist_injects — Telegram channel 'Richard W'",
+      "source_class": "osint",
+      "source_url": "https://www.darkreading.com/cyberattacks-data-breaches/hackers-claiming-wagner-group-ties-down-russian-satellite-internet-comms-",
+      "truthful": false,
+      "is_knife_inject": true
+    },
+    {
+      "inject_id": "dzr-05-amplification",
+      "sim_time_s": 46800,
+      "recipients": ["all"],
+      "content": "A well-known figure in the Ukrainian hacktivist scene has posted a link to the channel and its material. He is pointing at it, not claiming it. That distinction is doing a lot of work and it is invisible to anyone reading quickly.",
+      "confidence": 0.6,
+      "source": "hacktivist_injects — public social media",
+      "source_class": "osint",
+      "source_url": "https://www.satellitetoday.com/cybersecurity/2025/10/06/self-attribution-in-cyberspace-the-hack-on-russias-dozor-teleport-satellite-network/"
+    },
+    {
+      "inject_id": "dzr-06-wagner-silent",
+      "sim_time_s": 54000,
+      "recipients": ["all"],
+      "content": "Checked and re-checked: there is nothing about this on the group's own established channels. No Wagner-affiliated account has reshared the material or mentioned the operation. For an organisation that publicises everything it does, and that spent last week publicising a mutiny, the silence is the loudest thing in the file.",
+      "confidence": 0.8,
+      "source": "open-source monitoring of the group's own channels",
+      "source_class": "osint",
+      "source_url": "https://www.bitdefender.com/en-us/blog/hotforsecurity/wagner-affiliated-hackers-likely-took-down-russian-satellite-isp"
+    },
+    {
+      "inject_id": "dzr-07-analysts-doubt",
+      "sim_time_s": 68400,
+      "recipients": ["all"],
+      "content": "Two independent reads landing within an hour of each other. A researcher at a Moscow policy institute says publicly that involvement by the mutiny group is very unlikely and that this looks like Ukrainian false-flag trolling. A threat-intelligence firm says the tradecraft points instead at a Ukrainian volunteer hacking collective. Neither is producing evidence; both are reasoning from behaviour.",
+      "confidence": 0.6,
+      "source": "named analysts, policy institute and threat-intelligence firm",
+      "source_class": "osint",
+      "source_url": "https://cyberscoop.com/russia-satellite-hack-wagner/"
+    },
+    {
+      "inject_id": "dzr-08-timing-argument",
+      "sim_time_s": 79200,
+      "recipients": ["all"],
+      "content": "The timing argument is circulating and it is a good one. If the point were to help an armed column reach Moscow, the moment to cut the state's satellite communications was six days ago, while the column was moving. Doing it now helps nobody who was in that column. Whoever did this was working to a different clock.",
+      "confidence": 0.5,
+      "source": "open-source analysts",
+      "source_class": "osint",
+      "source_url": "https://cyberscoop.com/russia-satellite-hack-wagner/"
+    },
+    {
+      "inject_id": "dzr-09-operator-confirms",
+      "sim_time_s": 129600,
+      "recipients": ["all"],
+      "content": "The provider's general director has confirmed the incident to a Russian telecom trade outlet: infrastructure on the cloud provider's side was compromised. Full restoration of network operations may take up to two weeks. He does not say who, he does not say how, and he does not use the word attack about anyone in particular.",
+      "confidence": 0.85,
+      "source": "Russian telecom trade press, quoting the operator's chief executive",
+      "source_class": "media",
+      "source_url": "https://cyberscoop.com/russia-satellite-hack-wagner/"
+    },
+    {
+      "inject_id": "dzr-10-customer-base",
+      "sim_time_s": 140400,
+      "recipients": ["all"],
+      "content": "Reporting is now filling in who the customers are: state agencies including an intelligence service, energy companies, and terminals covering occupied territory near the nuclear plant. That makes this a target worth hitting for at least four different actors with four different reasons, which is precisely why the claim on the table cannot be checked against motive.",
+      "confidence": 0.7,
+      "source": "international press",
+      "source_class": "media",
+      "source_url": "https://therecord.media/hackers-take-down-russian-satellite-provider"
+    },
+    {
+      "inject_id": "dzr-11-documents-genuine",
+      "sim_time_s": 172800,
+      "recipients": ["all"],
+      "content": "The dumped material is being gone through. Roughly seven hundred files, and they look genuine — internal, consistent, not the sort of thing assembled from public sources. So the channel really does have the access it says it has. Nothing in the documents indicates who took them. Possession of the loot establishes the theft and says nothing about the thief.",
+      "confidence": 0.6,
+      "source": "independent document review, open-source researchers",
+      "source_class": "osint",
+      "source_url": "https://www.darkreading.com/cyberattacks-data-breaches/hackers-claiming-wagner-group-ties-down-russian-satellite-internet-comms-"
+    },
+    {
+      "inject_id": "dzr-12-official-silence",
+      "sim_time_s": 216000,
+      "recipients": ["all"],
+      "content": "Nothing from the Russian government. No regulator statement, no announced criminal case, no ministry comment, no counter-claim. Service is partially back for some customers. The absence of an official Russian narrative is itself unusual and is being read four different ways by four different people.",
+      "confidence": 0.7,
+      "source": "press round-up",
+      "source_class": "media",
+      "source_url": "https://therecord.media/hackers-take-down-russian-satellite-provider"
+    },
+    {
+      "inject_id": "dzr-13-four-hypotheses",
+      "sim_time_s": 252000,
+      "recipients": ["all"],
+      "content": "Three days on, the analytic community has converged on not converging. Four hypotheses are live and no publicly available evidence separates them: the mutiny group or someone inside the Russian system using its name; a Ukrainian state service; a Ukrainian volunteer collective operating on its own; or a compromise at the cloud provider that someone claimed afterwards. The only actor asserting an answer is the one with the strongest reason to lie about it.",
+      "confidence": 0.4,
+      "source": "open-source analyst round-up",
+      "source_class": "osint",
+      "source_url": "https://www.satellitetoday.com/cybersecurity/2025/10/06/self-attribution-in-cyberspace-the-hack-on-russias-dozor-teleport-satellite-network/"
+    }
+  ]
+}

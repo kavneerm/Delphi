@@ -1,0 +1,121 @@
+{
+  "replay_id": "control_galaxy_15",
+  "replay_version": "v1",
+  "kind": "control",
+  "title": "Galaxy 15, 5-8 April 2010 (control)",
+  "description": "A geostationary communications satellite stops accepting commands 63 minutes after a coronal mass ejection arrives at Earth, and then keeps transmitting. It does not tumble, it does not go dark, it holds Earth lock and broadcasts on a payload nobody can switch off, and it begins to drift toward its neighbours. The cause was a moderate geomagnetic storm producing an electrostatic discharge, established publicly two weeks later and confirmed in the peer-reviewed literature years after that. This is a false-positive control, and it is the one that most resembles an attack, because the failure is selective: the command path dies and nothing else does. t = 0 is 2010-04-05T06:00:00Z; the episode ends 2010-04-08T06:00:00Z.",
+  "duration_s": 259200,
+  "injects": [
+    {
+      "inject_id": "g15-01-forecast",
+      "sim_time_s": 0,
+      "recipients": ["all"],
+      "content": "Space weather bulletin. A flare was observed near an active region two days ago and a moderate coronal mass ejection was ejected toward Earth behind it. The monitoring spacecraft upstream at the Lagrange point is seeing it approach now. Expect a geomagnetic disturbance today. Moderate is the word being used; this is not forecast to be a large storm.",
+      "confidence": 0.7,
+      "source": "space weather forecast bulletin",
+      "source_class": "space_weather",
+      "source_url": "https://www.usgs.gov/programs/geomagnetism/science/april-5-2010-magnetic-disturbance"
+    },
+    {
+      "inject_id": "g15-02-arrival",
+      "sim_time_s": 9900,
+      "recipients": ["all"],
+      "content": "Ground magnetometer observatories recorded the arrival of the coronal mass ejection at 0845 UT. Storm commencement confirmed. Indices are climbing but not dramatically; this is tracking as the moderate event that was forecast.",
+      "confidence": 0.9,
+      "source": "ground magnetometer observatory network",
+      "source_class": "space_weather",
+      "source_url": "https://www.usgs.gov/programs/geomagnetism/science/april-5-2010-magnetic-disturbance"
+    },
+    {
+      "inject_id": "g15-03-no-response",
+      "sim_time_s": 13680,
+      "recipients": ["starlink"],
+      "content": "At 0948 UT the spacecraft stopped responding to ground commands. Nothing is getting through. It went quiet on the command path shortly after local midnight at its slot, sixty-three minutes after the storm arrived at Earth.",
+      "confidence": 0.95,
+      "source": "own satellite operations centre",
+      "source_class": "internal",
+      "source_url": "https://www.usgs.gov/programs/geomagnetism/science/april-5-2010-magnetic-disturbance"
+    },
+    {
+      "inject_id": "g15-04-still-transmitting",
+      "sim_time_s": 18000,
+      "recipients": ["starlink"],
+      "content": "This is the part nobody in the room likes. It is not dead. The communications payload is still up and still transmitting. The spacecraft is still holding Earth lock and pointing where it is supposed to point. Everything works except the one thing that lets us tell it what to do. A satellite that ignores you and keeps broadcasting is not a failure mode anyone here has a procedure for.",
+      "confidence": 0.9,
+      "source": "own satellite operations centre",
+      "source_class": "internal",
+      "source_url": "https://thespacereview.com/article/1634/1"
+    },
+    {
+      "inject_id": "g15-05-commanding-fails",
+      "sim_time_s": 28800,
+      "recipients": ["starlink"],
+      "content": "Commanding attempted repeatedly across multiple uplinks and multiple ground stations through the morning. No acknowledgement of anything, no change in behaviour, no sign it is hearing us at all. Every attempt has failed in exactly the same way.",
+      "confidence": 0.9,
+      "source": "own satellite operations centre",
+      "source_class": "internal",
+      "source_url": "https://thespacereview.com/article/1634/1"
+    },
+    {
+      "inject_id": "g15-06-lockup-hypothesis",
+      "sim_time_s": 43200,
+      "recipients": ["starlink"],
+      "content": "First engineering read. This looks like a lockup in the baseband communications unit rather than damage to a receiver or an antenna. Something latched and did not clear. That is consistent with an upset during spacecraft charging, and the timing is consistent with it too. It is also consistent with several other things and we cannot see inside the box.",
+      "confidence": 0.6,
+      "source": "own spacecraft engineering",
+      "source_class": "internal",
+      "source_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015SW001239"
+    },
+    {
+      "inject_id": "g15-07-storm-was-small",
+      "sim_time_s": 86400,
+      "recipients": ["all"],
+      "content": "Space weather review of the last twenty-four hours, and it comes with an awkward number. The storm never became large. The indices peaked modestly and this will not rank as a significant event by any of the usual measures. Worth saying clearly, because the inference people are about to draw from it is wrong: substorm injection of energetic particles at that local time is exactly the condition that drives surface and deep dielectric charging on a spacecraft, and moderate storms do this routinely. A small storm is not an alibi for a small storm.",
+      "confidence": 0.7,
+      "source": "space weather analysis centre",
+      "source_class": "space_weather",
+      "source_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015SW001239"
+    },
+    {
+      "inject_id": "g15-08-nothing-nearby",
+      "sim_time_s": 122400,
+      "recipients": ["usspacecom", "china"],
+      "content": "Screening the neighbourhood on request. Nothing was near the spacecraft. No object approached it, nothing manoeuvred toward it, and there is no observation of interference or unusual RF directed at it in the window. No actor has claimed anything and nobody has suggested anyone did anything. There is no counterspace hypothesis here to check; there is an absence.",
+      "confidence": 0.8,
+      "source": "space surveillance, retrospective screening",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://thespacereview.com/article/1634/1"
+    },
+    {
+      "inject_id": "g15-09-it-will-drift",
+      "sim_time_s": 140400,
+      "recipients": ["starlink", "iridium", "usspacecom"],
+      "content": "Working out the consequence, and it is worse than losing the satellite. Without station-keeping it will not stay in its slot. It will walk along the belt with a live payload and, as it passes each neighbour, its transponders will interfere with theirs. Somebody else's customers are going to lose service because of a spacecraft that nobody can command and nobody can switch off. There is no procedure for this, no legal mechanism for it, and no way to turn it off from the ground.",
+      "confidence": 0.7,
+      "source": "own flight dynamics and industry coordination",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://thespacereview.com/article/1634/1",
+      "is_knife_inject": true
+    },
+    {
+      "inject_id": "g15-10-public",
+      "sim_time_s": 237600,
+      "recipients": ["all"],
+      "content": "It is public. The operator has lost contact with the satellite and the story is out. Coverage is calling it a zombie: adrift, uncontrollable, still broadcasting. The operator is not stating a cause and the manufacturer is saying nothing at all.",
+      "confidence": 0.9,
+      "source": "trade and general press",
+      "source_class": "media",
+      "source_url": "https://www.nbcnews.com/id/wbna38242512"
+    },
+    {
+      "inject_id": "g15-11-no-cause-stated",
+      "sim_time_s": 252000,
+      "recipients": ["all"],
+      "content": "Three days and no cause has been stated by anyone. The manufacturer will not publicly connect it to the geomagnetic storm for another fortnight. In the meantime the satellite is drifting, live and uncommandable, and the only people saying anything about why are the ones with no access to the telemetry.",
+      "confidence": 0.8,
+      "source": "press round-up",
+      "source_class": "media",
+      "source_url": "https://thespacereview.com/article/1634/1"
+    }
+  ]
+}

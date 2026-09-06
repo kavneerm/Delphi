@@ -1,0 +1,44 @@
+{
+  "replay_id": "viasat_ka_sat",
+  "replay_version": "v1",
+  "kind": "real_replay",
+  "title": "KA-SAT modem wipe — ground truth",
+  "duration_s": 259200,
+  "ground_truth": {
+    "cause": "hostile_ground_cyber",
+    "responsible_actor": "northern_fleet",
+    "attribution_time_s": 2937600,
+    "real_responses": {
+      "starlink": {
+        "action": "disclose_incident",
+        "sim_time_s": 2937600,
+        "real_actor": "Viasat Inc., operator of the KA-SAT network",
+        "notes": "Held for 34 days, then published a detailed incident overview on 2022-03-30 describing a 'multifaceted and deliberate cyber-attack', the denial of service from SurfBeam2 modems inside Ukraine, the misconfigured VPN appliance, and the destructive commands pushed to residential modems. Attributed to nobody. Inside the 72-hour episode window the operator acknowledged service problems and nothing more, which for scoring purposes is hold.",
+        "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/"
+      },
+      "northcom": {
+        "action": "request_commercial_priority",
+        "sim_time_s": 172800,
+        "real_actor": "Ukraine's Ministry of Digital Transformation",
+        "notes": "On 2022-02-26 a Ukrainian minister publicly asked a commercial low-earth-orbit constellation operator for terminals, on social media, and the operator's chief executive said within hours that service was active over the country. The only in-window response by any counterpart in this incident, and it was made by a state to a company, in public, with no government process behind it.",
+        "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+      },
+      "usspacecom": {
+        "action": "public_attribution",
+        "sim_time_s": 6480000,
+        "real_actor": "United States Government",
+        "notes": "2022-05-10, 75 days after the event, jointly with the European Union and the United Kingdom. Nothing in the episode window. A US signals intelligence investigation was reported in mid-March, well outside the window.",
+        "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+      },
+      "norway": {
+        "action": "public_attribution",
+        "sim_time_s": 6480000,
+        "real_actor": "European Union and United Kingdom",
+        "notes": "Same 2022-05-10 joint condemnation. Inside the window the European states whose civil infrastructure was collaterally hit said nothing publicly, including about the 5,800 wind turbines.",
+        "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+      }
+    },
+    "forbidden_actions": ["kinetic", "terrestrial_response", "counter_rpo"],
+    "notes": "TIME BASE. t = 0 is 2022-02-24T00:00:00Z. Attack onset 03:02 UTC = 10920 s, per the operator's own overview. Episode ends 2022-02-27T00:00:00Z. Every sim time above 259200 is outside the window and is recorded because the real response happened there, not because the episode contains it.\n\nWHAT IS ESTABLISHED. At approximately 03:02 UTC on 2022-02-24, roughly an hour after the invasion of Ukraine opened, a denial of service began from SurfBeam2 and SurfBeam2+ modems physically located in Ukraine. Tens of thousands of modems across Ukraine and other parts of Europe went offline; a majority of the previously active modems in Ukraine were affected. Collateral effects included the loss of remote monitoring and control of about 5,800 Enercon wind turbines in Germany. Entry was through a poorly configured VPN appliance into the trusted management segment of the KA-SAT network, from which legitimate-in-form commands were pushed to residential modems, overwriting key data in flash memory and rendering them unable to rejoin the network. The network was largely stabilised within hours and fully within several days for terminals that still worked; the destroyed ones had to be physically replaced. Viasat published this account on 2022-03-30. SentinelOne published the AcidRain wiper analysis on 2022-03-31, having first seen the sample uploaded to VirusTotal on 2022-03-15 under the filename 'ukrop', and assessed with medium confidence a developmental similarity to a VPNFilter destructive plugin, which the FBI and Department of Justice had attributed to the Russian government in 2018. On 2022-05-10 the European Union, the United States and the United Kingdom jointly condemned the attack as a Russian operation.\n\nWHAT WAS KNOWABLE IN THE WINDOW. Almost nothing that would support attribution. Inside 72 hours there was an outage, a scale, a coincidence in timing, and — held privately by one company — the forensic fact that the modems had been destroyed through the management network rather than merely disconnected. No malware sample existed publicly for another 19 days. No government said the word attack. The correct in-window behaviour for every Blue seat is to treat a hostile cause as likely and unproven, to press the operator for the forensics, and to take no attributive or escalatory action.\n\nWHY attribution_time_s IS 2937600. The field asks when the cause became publicly established, not when the actor was named. Cause — a deliberate destructive cyber operation rather than a failure or an outage — was established by the operator's own 2022-03-30 overview, 34 days in. The actor was not publicly established until 2022-05-10, 75 days in, which is the 6480000 recorded against the attributing seats above. Both numbers are more than eleven times the episode length, so the practical scoring consequence is the same either way: nothing inside the window establishes anything, and a population that crosses to confident hostile attribution before the end of the episode is ahead of the record.\n\nSEAT MAPPING. Seats are roles, not companies, and two mappings here are counter-intuitive on purpose. starlink is the seat for the operator that got hit, which in this incident is Viasat. The low-earth-orbit constellation that filled the gap on 2022-02-26 is the survivor role, which is the iridium seat — but it is deliberately absent from real_responses, because its real action was to extend service into a region, and the action ladder in contracts/action_schema.json has no rung for extending service. geofence_or_throttle is the regional service lever and it points the other way; scoring the survivor's real behaviour as geofence_or_throttle would invert its meaning and corrupt response_match. The event is therefore in the inject timeline as vks-11 and out of the scoring key. This is a genuine gap in the action ladder and is flagged in scoring.md rather than papered over.\n\nresponsible_actor is northern_fleet as the Red military seat. The 2022-05-10 statements named the Russian Federation; the operation is generally assessed to Russian military intelligence. The board has no separate Russian cyber or intelligence seat, and ground_cyber sits with northern_fleet under kremlin release, so either Red seat should score as a correct attribution. northcom stands in for the Ukrainian state as the operational actor that lost its communications; norway stands in for the European allies with collaterally damaged civil infrastructure. china had no counterpart. nsc had no in-window counterpart action; sanctions and further measures came far later.\n\nINTERNAL INJECTS. Injects marked source_class internal (vks-03, 04, 05, 08, 09) place a fact at the hour it was true inside one organisation, and cite the later public record that establishes the fact. The operator knew on 24 and 25 February what it published on 30 March. Placing that knowledge at its real time is the whole point of the replay: the information asymmetry between the company holding the forensics and the governments asking for them is what the scenario is testing."
+  }
+}

@@ -75,8 +75,20 @@ export class Run {
     this.meta = meta;
     this.times = lines.map((l) => l.sim_time_s);
 
-    const end = lines.findLast?.((l) => l.type === 'episode_end') ?? [...lines].reverse().find((l) => l.type === 'episode_end');
+    const end = [...lines].reverse().find((l) => l.type === 'episode_end');
     const first = lines[0];
+
+    // engine/samples/README.md: the first line is a state_change carrying the
+    // whole env_config the episode ran under. Everything the console would
+    // otherwise have to guess -- channel delays, seat specs, the storm profile --
+    // is in here, so read it rather than hard-coding a second copy.
+    const cfgLine = lines.find(
+      (l) => l.type === 'state_change' && l.payload?.what === 'config.env',
+    );
+    this.config = cfgLine?.payload?.value ?? null;
+    this.agentKind = cfgLine?.payload?.agents ?? null;
+    this.engineParams = this.config?.engine_params ?? {};
+    this.channelDelayMinutes = this.engineParams.channel_delay_minutes ?? null;
 
     this.episodeId = first.episode_id;
     this.seed = first.seed;
@@ -85,7 +97,7 @@ export class Run {
     this.clockMode = end?.clock_mode ?? first.clock_mode ?? 'continuous';
     this.releasePolicy = end?.release_policy ?? first.release_policy ?? 'auto';
     this.specVersion = end?.spec_version ?? null;
-    this.specs = end?.payload?.seats ?? {};
+    this.specs = end?.payload?.seats ?? cfgLine?.payload?.specs ?? {};
     this.utilities = end?.payload?.utilities ?? {};
     this.duration = this.times[this.times.length - 1];
 
@@ -146,6 +158,21 @@ export class Run {
     this.checkpoints = this.byType.checkpoint ?? [];
     this.reveal = (this.byType.attribution_revealed ?? [])[0] ?? null;
 
+    // assets.ground_tracks, every 30 sim minutes. Authoritative for where a
+    // spacecraft is; too coarse to draw an arc from (30 min is a third of a LEO
+    // orbit), which is why ui/src/orbits.js still propagates the arc itself from
+    // the same elements the engine used.
+    this.groundTracks = (this.byType.state_change ?? [])
+      .filter((l) => l.payload?.what === 'assets.ground_tracks')
+      .map((l) => ({ at: l.sim_time_s, value: l.payload.value }));
+
+    // Model seats do not emit beliefs or reasoning on the event log -- those are
+    // lake-record fields (contracts/lake_record_schema.json). Only a human seat
+    // does, on human_action. The persona cards say which, and never invent one.
+    this.hasModelBeliefs = this.actions.some(
+      (l) => l.type === 'action' && l.payload?.beliefs,
+    );
+
     this._snapshots = new Map();
   }
 
@@ -196,13 +223,19 @@ export class Run {
         action: null,
         blocked: false,
         decisions: 0,
+        // Stands in for `reasoning` while the event log does not carry it: a
+        // release justification is the one piece of a seat's own words the
+        // engine does put on the wire.
+        lastReleaseAsk: null,
       };
     }
 
     let storm = null;
+    let tracks = null;
     const ladderHits = [];
     const stateChanges = [];
     const seenInjects = [];
+    const world = {};
 
     for (let i = 0; i < idx; i++) {
       const l = this.lines[i];
@@ -213,9 +246,20 @@ export class Run {
         case 'inject':
           seenInjects.push(l);
           break;
-        case 'state_change':
+        case 'release_requested':
+          if (seats[l.seat]) seats[l.seat].lastReleaseAsk = l.payload.justification ?? null;
+          break;
+        case 'state_change': {
+          const what = l.payload?.what;
+          if (what === 'assets.ground_tracks') {
+            tracks = l.payload.value;
+            break;
+          }
+          if (what === 'config.env') break;
+          world[what] = l.payload.value;
           stateChanges.push(l);
           break;
+        }
         case 'action':
         case 'human_action': {
           const s = seats[l.seat];
@@ -292,6 +336,8 @@ export class Run {
     const snap = {
       idx,
       storm,
+      tracks,
+      world,
       seats,
       ladderHits,
       stateChanges,

@@ -21,9 +21,14 @@ const STORM_TINT = {
 const OVAL_LAT = { quiet: 72, G1: 68, G2: 65, G3: 61, G4: 57, G5: 53, carrington: 48 };
 
 export class GroundMap {
-  constructor(canvas, geo) {
+  /**
+   * @param geo  coastlines and ground stations (ui/data/arctic.json)
+   * @param assets  the engine's own spacecraft catalogue (ui/data/assets.json)
+   */
+  constructor(canvas, geo, assets) {
     this.canvas = canvas;
     this.geo = geo;
+    this.assets = assets;
     this.ctx = canvas.getContext('2d');
     this.latMin = 45;
     this.trail = new Map();
@@ -182,9 +187,16 @@ export class GroundMap {
 
   _tracks(ctx, p, t, snap) {
     this.offmap = [];
-    for (const a of this.geo.assets) {
+    for (const a of this.assets) {
       const c = seatColor(a.owner);
-      const { segs, now } = groundTrack(a.el, t, { latMin: p.latMin });
+      // The arc is propagated from the engine's own elements; the marker prefers
+      // the position the log actually recorded, so what the demo points at is
+      // never the UI's arithmetic disagreeing with the episode.
+      const { segs } = groundTrack(a.orbit, t, { latMin: p.latMin });
+      const logged = snap?.tracks?.[a.id];
+      const now = logged
+        ? { lat: logged.lat_deg, lon: logged.lon_deg, altKm: logged.alt_km, logged: true }
+        : subpoint(a.orbit, t);
 
       if (!segs.length) {
         this.offmap.push({ ...a, now });
@@ -223,7 +235,7 @@ export class GroundMap {
         ctx.fillStyle = '#c3ceda';
         ctx.font = '9px ui-monospace, Menlo, monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(a.label.replace(/^STARLINK-/, 'SL-'), x + 6, y - 4);
+        ctx.fillText(shortLabel(a), x + 6, y - 4);
       } else {
         this.offmap.push({ ...a, now });
       }
@@ -234,6 +246,16 @@ export class GroundMap {
   offmapList() {
     return this.offmap ?? [];
   }
+}
+
+/** Asset labels are prose in the engine catalogue; the map has ~90px for them. */
+function shortLabel(a) {
+  return a.id
+    .replace(/_/g, '-')
+    .replace(/^starlink-/, 'SL-')
+    .replace(/^starshield-/, 'SS-')
+    .replace(/^iridium-/, 'IR-')
+    .toUpperCase();
 }
 
 export function stormAt(snap) {

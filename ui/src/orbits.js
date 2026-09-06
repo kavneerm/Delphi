@@ -26,22 +26,27 @@ function eccentricAnomaly(M, e) {
 
 /**
  * Sub-satellite point at sim time t.
- * @param {{a:number,e:number,i:number,raan:number,argp:number,m0:number}} el
- *   a in km, angles in degrees.
+ *
+ * Element keys are the engine's (`a_km`, `e`, `inc_deg`, `raan_deg`, `argp_deg`,
+ * `m0_deg`, `epoch_s`) so ui/data/assets.json can be a straight copy of
+ * engine.world.initial_state() with no translation layer to get wrong.
+ *
+ * @param {{a_km:number,e:number,inc_deg:number,raan_deg:number,argp_deg:number,m0_deg:number,epoch_s?:number}} el
  */
 export function subpoint(el, t) {
-  const n = Math.sqrt(MU / (el.a * el.a * el.a));
-  const M = el.m0 * D2R + n * t;
+  const a = el.a_km;
+  const n = Math.sqrt(MU / (a * a * a));
+  const M = el.m0_deg * D2R + n * (t - (el.epoch_s ?? 0));
   const E = eccentricAnomaly(((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI), el.e);
   const nu = 2 * Math.atan2(
     Math.sqrt(1 + el.e) * Math.sin(E / 2),
     Math.sqrt(1 - el.e) * Math.cos(E / 2),
   );
-  const r = el.a * (1 - el.e * Math.cos(E));
+  const r = a * (1 - el.e * Math.cos(E));
 
-  const u = nu + el.argp * D2R; // argument of latitude
-  const inc = el.i * D2R;
-  const raan = el.raan * D2R;
+  const u = nu + el.argp_deg * D2R; // argument of latitude
+  const inc = el.inc_deg * D2R;
+  const raan = el.raan_deg * D2R;
 
   const cu = Math.cos(u);
   const su = Math.sin(u);

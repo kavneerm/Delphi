@@ -1,32 +1,32 @@
 {
-  "_note": "Each run lists the engine's path first and the UI's own stub second. ui/src/data.js takes the first that exists, so the moment agent1-engine lands engine/samples/stub_run.jsonl this file picks it up with no code change.",
+  "_note": "Logged episodes the console can play back. All three are real engine output — see ui/data/README.md for the exact command behind each. Playback is offline: no model is called and no engine process is needed.",
   "runs": [
     {
-      "id": "stub_1041_continuous",
-      "label": "G4 ambiguous signature — seed 1041, continuous",
-      "engine": "engine/samples/stub_run.jsonl",
-      "fallback": "ui/data/stub_run.jsonl",
-      "clock_mode": "continuous",
-      "release_policy": "human",
-      "seed": 1041
-    },
-    {
-      "id": "stub_1041_checkpoint",
-      "label": "G4 ambiguous signature — seed 1041, checkpoint",
-      "engine": "engine/samples/stub_run_checkpoint.jsonl",
-      "fallback": "ui/data/stub_run_checkpoint.jsonl",
+      "id": "engine_seed1_checkpoint",
+      "label": "G5 ambiguous signature — seed 1, checkpoint/adaptive, auto-release",
+      "path": "engine/samples/stub_run.jsonl",
       "clock_mode": "checkpoint",
-      "release_policy": "human",
-      "seed": 1041
+      "release_policy": "auto",
+      "seed": 1,
+      "compare_group": "seed1_g5"
     },
     {
-      "id": "stub_2087_continuous",
-      "label": "G4 ambiguous signature — seed 2087, auto-release",
-      "engine": "engine/samples/stub_run_alt.jsonl",
-      "fallback": "ui/data/stub_run_alt.jsonl",
+      "id": "engine_seed1_continuous",
+      "label": "G5 ambiguous signature — seed 1, continuous, auto-release",
+      "path": "ui/data/run_seed1_continuous.jsonl",
       "clock_mode": "continuous",
       "release_policy": "auto",
-      "seed": 2087
+      "seed": 1,
+      "compare_group": "seed1_g5"
+    },
+    {
+      "id": "engine_seed7_human",
+      "label": "G4 storm only — seed 7, checkpoint/variable tempo, human release",
+      "path": "ui/data/run_seed7_human.jsonl",
+      "clock_mode": "checkpoint",
+      "release_policy": "human",
+      "seed": 7,
+      "compare_group": "seed7_g4"
     }
   ]
 }

@@ -5,17 +5,6 @@
 import { h, fill } from './dom.js';
 import { CHANNELS, SEAT_META, SEATS, fmtDur, fmtSim, seatColor } from './model.js';
 
-const CHANNEL_LATENCY_MIN = {
-  hotline: 1,
-  internal: 2,
-  press: 5,
-  back_channel: 8,
-  commercial: 12,
-  mil_to_mil: 18,
-  liaison: 27,
-  diplomatic: 48,
-};
-
 const pct = (x) => `${Math.round(x * 100)}%`;
 
 // ── persona cards ───────────────────────────────────────────────────────
@@ -80,7 +69,13 @@ export function renderPersonas(root, snap, run, { selected, onSelect } = {}) {
               h('span', {}, 'unk ', h('b', {}, b.unknown.toFixed(2))),
             ),
           )
-        : h('div', { class: 'empty', style: { padding: '0' } }, 'no beliefs recorded yet'),
+        : h(
+            'div',
+            { class: 'empty', style: { padding: '0' } },
+            run.hasModelBeliefs
+              ? 'no decision recorded yet'
+              : 'beliefs not in this log — lake-record field',
+          ),
       perTop.length
         ? h(
             'div',
@@ -97,7 +92,11 @@ export function renderPersonas(root, snap, run, { selected, onSelect } = {}) {
             h('span', { style: { color: 'var(--ink-faint)' } }, actionGist(s.action)),
           )
         : null,
-      s.reasoning ? h('div', { class: 'reason' }, s.reasoning) : null,
+      s.reasoning
+        ? h('div', { class: 'reason' }, s.reasoning)
+        : s.lastReleaseAsk
+          ? h('div', { class: 'reason' }, s.lastReleaseAsk)
+          : null,
     );
   });
 
@@ -193,7 +192,11 @@ export function renderInflight(root, snap) {
 
 // ── channels with messages in transit ───────────────────────────────────
 
-export function renderChannels(root, snap) {
+export function renderChannels(root, snap, run) {
+  // Latency is the episode's own engine_params.channel_delay_minutes, read off
+  // the config line, so the number beside the wire is the one that produced the
+  // pips crawling along it.
+  const latency = run?.channelDelayMinutes ?? {};
   const byChannel = new Map(CHANNELS.map((c) => [c, []]));
   for (const m of snap.inTransit) {
     if (!byChannel.has(m.channel)) byChannel.set(m.channel, []);
@@ -216,7 +219,7 @@ export function renderChannels(root, snap) {
           }),
         ),
       ),
-      h('span', { class: 'lat' }, `${CHANNEL_LATENCY_MIN[chan] ?? '—'}m`),
+      h('span', { class: 'lat' }, latency[chan] === undefined ? '—' : `${latency[chan]}m`),
     ),
   );
   fill(root, rows);

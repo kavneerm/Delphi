@@ -21,6 +21,12 @@ notes: |
   GPU quota L-DB2E81BA = 0.0 → provisioning SKIPPED, nothing launched, nothing
   billing. Pending request 312f3b0f78754d25920d9b0f6482d2feWs3fPUjY is CASE_OPENED
   for 48 vCPU (case 178865548000820). Train should stay on Fireworks.
+  2026-09-05 (later) — the quota moved 0.0 → 8.0 mid-session, but it counts vCPUs:
+  g5.12xlarge needs 48, so the type in the brief still cannot start. Largest that
+  fits is g5.2xlarge (1x A10G 24GB) — a different type from the authorized one, so I
+  asked rather than substituted; the answer was DO NOT LAUNCH, stay on Fireworks.
+  Nothing is billing. provision_gpu.sh now separates zero / partial grant / enough,
+  and serve_vllm.sh derives tensor-parallel size from the GPUs actually present.
   2026-09-05 — infra/storage.py landed: the single S3-or-local-mirror helper
   contracts/s3_layout.md §6 asks for, enforcing the §4 metadata (all nine keys,
   seed stringified, JSONL as application/x-ndjson) and the project=svalbard tag on

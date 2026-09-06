@@ -132,33 +132,47 @@ store.put_jsonl(
 `require=` raises before the write if a version string is empty, so an object that
 could not be traced back to a run never reaches the bucket.
 
-## GPU provisioning — SKIPPED, nothing is billing
+## GPU provisioning — NOT LAUNCHED, nothing is billing
+
+The gate moved during the session, so both readings are recorded:
 
 ```
-aws service-quotas get-service-quota --service-code ec2 --quota-code L-DB2E81BA
-→ Quota.Value = 0.0   ("Running On-Demand G and VT instances", vCPUs)
+21:39 EDT  Quota.Value = 0.0    → skip entirely, per the brief
+23:0x EDT  Quota.Value = 8.0    → partial grant, at ACCOUNT level
 ```
 
-The value is 0, so per the brief **no instance was provisioned**. No EC2 instance, no
-EBS volume, no elastic IP exists under this project; `./infra/teardown.sh` reports an
-empty compute footprint.
+The quota is counted in **vCPUs, not instances**, so "greater than zero" is not the
+same as "the instance the brief names will start". `g5.12xlarge` needs 48 vCPU; the
+account now holds 8. The largest G instance that fits today is a `g5.2xlarge`
+(8 vCPU, 1× A10G 24 GB) — a different instance type from the one authorized, and one
+that cannot do a 4-GPU tensor-parallel run, so launching it is a spend decision rather
+than an execution of the brief. **Asked, and the answer was not to launch: the project
+stays on Fireworks.** No EC2 instance, EBS volume or elastic IP exists under this
+project; `./infra/teardown.sh` reports an empty compute footprint.
 
 **Pending increase request: `312f3b0f78754d25920d9b0f6482d2feWs3fPUjY`**
 — status `CASE_OPENED`, desired value 48 vCPU (one `g5.12xlarge`), support case
 `178865548000820`, opened 2026-09-05 20:44 EDT by `arn:aws:iam::944002752544:user/pubdef-dev`.
+The 8 vCPU already granted appear to be a partial fulfilment; the case is still open
+for the full 48.
 
 ```bash
+aws service-quotas get-service-quota --service-code ec2 --quota-code L-DB2E81BA
 aws service-quotas get-requested-service-quota-change \
   --request-id 312f3b0f78754d25920d9b0f6482d2feWs3fPUjY --profile panoptes
 ```
 
+`infra/provision_gpu.sh` re-reads the quota on every run and now distinguishes three
+cases: zero (skip, report the pending request), a partial grant (refuse, name the
+largest type that would fit and the command to launch it), and enough (launch behind
+`--launch`). It is the only thing in the repo that can start a GPU, and it will not do
+so on its own.
+
 `infra/gpu_setup.sh` and `infra/serve_vllm.sh` are written and syntax-checked but have
-**never been executed against a live instance**, because there is no instance to run
-them on. If the quota is granted, `./infra/provision_gpu.sh --launch` re-reads it,
-launches one `g5.12xlarge` off the Deep Learning OSS Nvidia AMI with the instance
-profile attached, tags everything `project=svalbard`, and runs `gpu_setup.sh` as
-user-data. Until then, Train and Selfplay should stay on
-`train/serve.py --backend fireworks`, which is the default.
+**never been executed against a live instance**, because none exists. `serve_vllm.sh`
+now derives tensor-parallel size from the GPUs actually present rather than assuming
+four, so it works unchanged on either instance type. Until a GPU exists, Train and
+Selfplay stay on `train/serve.py --backend fireworks`, which is their default.
 
 ## Endpoints
 
@@ -196,8 +210,9 @@ object and refuses writes whose required version strings are empty.
 
 ## Untested / known gaps
 
-- `gpu_setup.sh` and `serve_vllm.sh` have never run on a real GPU — quota is 0. Their
-  package pins are best-effort; the first real run will likely need a version nudge.
+- `gpu_setup.sh` and `serve_vllm.sh` have never run on a real GPU — no instance was
+  launched. Their package pins are best-effort; the first real run will likely need a
+  version nudge.
 - `provision_gpu.sh --launch` is untested past the quota gate for the same reason. It
   uses the default VPC's default security group and relies on SSM for access; if the
   quota lands, someone should confirm SSM works before assuming there is a way in.

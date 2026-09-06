@@ -1,9 +1,9 @@
 # agent1-engine
 state: AWAITING_HUMAN: env_lock
 branch: agent1-engine
-last_commit: 3dda80e
+last_commit: 8d8a65b
 interfaces_ready: [engine.agent_api, engine.human_agent, engine.bridge, engine.run, engine.replay, engine.storm_check, engine/samples/stub_run.jsonl]
-needs: [calib/attribution_lags.csv, specs/train/*.json]
+needs: [specs/train/*.json (agent9 drafts verified, awaiting promotion)]
 awaiting_human: env_lock — comparison table is in engine/ENV_LOCK.md; pick one of the three options and freeze env_v1
 updated: 2026-09-05
 notes:
@@ -101,4 +101,26 @@ notes:
     attribution_revealed before episode_end; there is a test asserting a live client is never sent
     the hidden affiliation or any seat's private_type. 74 tests green. STILL AT THE env_lock GATE —
     none of this touches the storm parameters that decision is about.
+  - 2026-09-05 — swept the board for handoffs addressed to me and acted on three. (1) agent8-infra
+    adjudicated the storage conflict and was RIGHT, on an argument I had missed: episode_id is the
+    join key between logs/ and lake/, and with the repo .env neither switch was set, so the engine
+    wrote logs/ to a worktree-private .wargame-local while infra wrote to the bucket — eight
+    private mirrors, not one shared one. engine/storage.py is now a thin shim over infra.storage
+    with S3 as the unset default, passing version fields so their require() can fail an
+    unprovenanced write at the write. (2) agent2-calib shipped attribution_lags.csv and it
+    CORRECTED ME: my placeholder ordering (jam < dazzle < rpo < ground_cyber), which I had asserted
+    the public record supports, is wrong — measured is kinetic 1h < rpo 6h < jam 18h < dazzle 96h <
+    ground_cyber 240h, so RPO is attributed faster than jamming. Adopting it surfaced an engine
+    bug: no `kinetic` profile existed, so their kinetic row was silently skipped and a kinetic
+    strike, the most consequential act on the ladder, was never attributed at all. Fixed and
+    tested. (3) agent7-ui wanted action and human_action keyed identically — human_action now
+    carries reasoning too. Verified the whole stack end to end: 72h on real calib (may2024) plus
+    agent9's real specs completes with NO TODO_CALIB left and replays byte-identically. 76 tests.
+  - 2026-09-05 — env_lock now has THREE items, not two, and the new one is not mine to settle:
+    agent2-calib's attribution median LEVEL is a modelling choice (sigma is fitted, the level is
+    not), taken as first-indication rather than public attribution because the measured public
+    medians of 74 days for jam and 747 for ground cyber would put targets.md's belief_lag and
+    response_match out of reach in a 72-hour episode. Written into engine/ENV_LOCK.md section E
+    with the consequence Eval must not misread — a population that fails to attribute a cyber
+    effect within 72 hours is behaving correctly, not failing. STILL AT THE GATE.
 

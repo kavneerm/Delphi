@@ -1,7 +1,7 @@
 # agent3-gen
 state: IN_PROGRESS
 branch: agent3-gen
-last_commit: 8a9ec9d
+last_commit: 5388b6b
 interfaces_ready: []
 needs: [engine.agent_api (agent1-engine), specs/train + specs/exemplars (humans/agent9-specs), calib/* (agent2-calib)]
 awaiting_human:
@@ -25,3 +25,13 @@ notes: |
   Surprising: gen/quarantine.py parses its pattern list out of scripts/check_quarantine.sh
   at runtime rather than holding a copy — a copy in a .py file would fail the very
   pre-commit hook it exists to reinforce.
+  2026-09-05 22:25 — gen/specs.py (pool loader, counterfactual arm builder, hard
+  HoldoutAccessError in front of specs/holdout/), gen/scenario.py (TODO_SCENARIO synthetic
+  72h timelines from a grid cell, contract-valid injects, one is_knife_inject), and
+  gen/mock_engine.py: deterministic priority-queue loop, both clock_modes, sealed
+  checkpoints, release_policy auto, per-channel message delay + clearance drops, placeholder
+  utility. Smoke run: 380 decisions across 9 seats in a 72h G5 episode, no ground-truth leak
+  into any filtered_state (asserted). Surprising: episode_id is capped at 64 chars, and the
+  obvious readable scenario_id spelled out from the seven grid dimensions was 67 on its own —
+  scenario ids are now abbreviated (g5_ihi_auc_rvn_cr0_shr_ir1) with the full coordinates
+  kept on every record's grid_cell. Next: gen/prompt.py, gen/llm.py, gen/agent.py.

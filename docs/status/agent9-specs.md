@@ -1,7 +1,7 @@
 # agent9-specs
 state: AWAITING_HUMAN: sample_review
 branch: agent9-specs
-last_commit:
+last_commit: 5b3b993
 interfaces_ready: ["specs/drafts/ (25 train + 4 holdout + 10 exemplars + 8 devset, spec_v1)", "specs/drafts/promote.py", "specs/drafts/validate_drafts.py"]
 needs: []
 awaiting_human: promotion of specs/drafts/ into specs/train|holdout|exemplars|devset — run `python specs/drafts/promote.py --all`; decisions and reversal commands are in specs/drafts/REVIEW.md
@@ -39,6 +39,8 @@ notes: |
   contracts/targets.md and eval/ but not train/, so train/devset.py has to emit a column it
   cannot legally name. QUESTIONS.md Q5 recommends renaming the key; contracts change, so it
   goes through agent0-contracts.
+
+  PR: https://github.com/kavneerm/Delphi/pull/4
 
   Blocked on nothing. Downstream agents can read specs/drafts/ directly before promotion if the
   coordinator would rather not wait for a human.

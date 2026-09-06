@@ -40,3 +40,12 @@ cost was **$1.62**.
 **Recommendation:** retain Terra for quality-sensitive generation and judging.
 The next gate is `sample_review`; do not launch a full lake until the human approves
 the episode/sample count and reviewed outputs.
+
+## 4. RESOLVED — initial lake budget
+
+The human approved an initial generation ceiling of **$1,500**. The prior 130-episode
+proposal is not conservative enough: without prompt caching it projects to $1,985.
+The run is therefore capped at 36 continuous-clock episodes (about 36,288 decisions),
+which meets the 30–50k workstream target and projects to $1,398 without cache using
+the observed live Terra token mix. The runner limits concurrency to eight and writes
+each completed episode with full provenance before starting the next.

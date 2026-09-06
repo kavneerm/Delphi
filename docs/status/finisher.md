@@ -22,4 +22,6 @@ notes: |
   verified to load a real engine `state_change` event. The focused asset/websocket
   suite passed (7 tests); the full log-schema suite is intentionally slow because it
   validates every event in the bundled multi-thousand-line logs. Full lake generation
-  remains at the required `cost_check` human gate, before sample review.
+  is now approved with a $1,500 cap. The production runner is capped at 36
+  continuous-clock episodes (about 36,288 decisions; $1,398 conservative projection)
+  and is ready to launch after its local environment rebuild and validation.

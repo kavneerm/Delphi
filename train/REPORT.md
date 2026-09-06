@@ -1,9 +1,10 @@
 # REPORT — agent4-train
 
-Status at time of writing: the training path is verified end to end through
-*training*; the *serving* leg is still being closed out. Read
-`docs/status/agent4-train.md` for the live state and `train/QUESTIONS.md` for the
-one open decision (the second base).
+Status at time of writing: the full Fireworks path is **verified end to end** on
+`llama31_8b` — filter, dataset upload, SFT LoRA, deployment, adapter load, a real
+completion, teardown. What is not done is the sweep itself, which waits on a
+human decision (the second base, `train/QUESTIONS.md` #2) and on real data from
+agent3-gen. Read `docs/status/agent4-train.md` for the live state.
 
 ## What I built
 
@@ -18,9 +19,8 @@ one open decision (the second base).
 | `train/continue_run.py` (+ `continue.py` shim) | round-2 continue-from-LoRA; warm start only, never from base |
 | `train/dpo.py` | preference pairs at the same decision point on one judge dimension; one epoch; patch note to `checkpoints/<run_id>/patches.md` |
 | `train/fireworks.py` | REST client: datasets, SFT/DPO jobs, deployments, multi-LoRA, inference, polling, base preflight |
-| `train/storage.py`, `train/versions.py` | S3 + local-mirror writer and the five version strings, with the §4 metadata block enforced |
+| `train/storage.py`, `train/versions.py` | thin adapter over `infra.storage` (the project's one bucket helper) plus the version-string pattern validation it deliberately omits |
 | `train/mocklake.py` | contract-valid stand-in for `lake/` until agent3-gen writes it |
-| `train/agent_api_shim.py` | real `engine.agent_api` if merged, contract-shaped mock otherwise |
 | `train/backends/{sagemaker,ec2}.py` | unexercised stubs; no GPU quota exists |
 
 ## How to run it
@@ -49,18 +49,28 @@ calling out. `gates.py --offline` needs no deployment at all.
 
 ```
 $ .venv/bin/python -m pytest tests/train -q
-53 passed
+140 passed
 ```
 
-Covering: the identical-pair drop (including a pair that differs only in prose),
-the context-floor check in both `drop` and `flag` modes, per-persona utility
-cutoffs, the chat shape, manifest completeness, all three gates against the real
-`action_schema` via a `referencing` registry, resource-id coercion, dry-run
-bodies, the accelerator and addon defaults, and the §4 metadata contract.
+Nine files. The ones worth knowing about:
 
-Two of them caught real bugs in my own code: the resource-id regex rejected
-single-character ids, and `Versions.as_metadata()` was omitting `seed` and
-`episode-id`.
+- `test_serve.py` drives `ServedAgent` through the **real** `engine.agent_api`
+  protocol with a stubbed Fireworks client — no network, no GPU — including that
+  a refusal, bad JSON and a dropped connection all become a contract-valid hold.
+- `test_lake_conformance.py` runs the filter against contract-legal but awkward
+  records: unjudged, `outcome_utility: null`, an orphaned pair arm, a missing
+  token count, a prompt over the floor. These are the shapes the real lake will
+  have on the night it lands.
+- `test_filter.py` pins the double-read hazard agent3-gen flagged, including a
+  test that demonstrates the 2x dataset the bug would otherwise produce.
+- `test_devset.py` asserts no quarantined metric name is hardcoded, by reading
+  `train/devset.py` and checking every non-measurable target name against it.
+
+Four of them caught real bugs in my own code: the resource-id regex rejected
+single-character ids; `Versions.as_metadata()` omitted `seed` and `episode-id`;
+`versions_for()` silently accepted a filter version no config defined, which
+would have tagged unreproducible runs; and the mock lake had two schema-invalid
+action params.
 
 ## Versions produced
 
@@ -72,14 +82,22 @@ real sweep arms. Every artefact carries all five strings plus the git SHA.
 
 ## Untested / known gaps
 
-- **No real lake.** Everything is exercised against `train/mocklake.py`. The
-  filter's judge and utility thresholds are guesses until real score
-  distributions exist; expect to re-tune `filter_v1`..`v3` once `lake_v1` lands,
-  with a version bump.
-- **Serving is not yet proven.** Training and teardown work; the inference call
-  to a loaded adapter does not yet route (see the status file). `serve.py`,
-  `gates.py --online` and `devset.py` are therefore untested against a live
-  endpoint, and the gate thresholds have never been evaluated on a real model.
+- **No real lake.** Everything is exercised against `train/mocklake.py`, whose
+  judge scores are drawn from a uniform distribution — nothing like what a real
+  judge produces. The thresholds in `filter_v1`..`v3` are therefore guesses, and
+  the sensible expectation is that all three need re-tuning against real score
+  distributions once `lake_v1` lands, each with a version bump.
+- **The sweep has never run.** Ten variants are configured and `--dry-run`
+  exercises the whole path, but no real SFT job beyond the two 200-example smoke
+  jobs has been submitted.
+- **Serving is proven for one adapter, not for multi-LoRA.** The smoke test put
+  one adapter on one deployment and got a completion back. Loading *many*
+  adapters onto one deployment and selecting between them per request — which is
+  the actual serving design — has never been exercised, because there has never
+  been more than one adapter to load.
+- **`gates.py --online` and `devset.py` have never run**, because `specs/holdout/`
+  and `specs/devset/` are empty. The gate thresholds in `config.yaml` are
+  therefore guesses; nothing has ever been graded against them.
 - **`continue_run.py` and `dpo.py` have not been run against Fireworks at all** —
   dry-run only. They are round-2 tools and there is no round-1 checkpoint yet.
 - **`sagemaker` and `ec2` are stubs that raise.** EC2 G/VT quota `L-DB2E81BA` is
@@ -95,7 +113,13 @@ real sweep arms. Every artefact carries all five strings plus the git SHA.
 
 Searched `train/` and `tests/train/` for every incident name and control in
 `docs/quarantine.md`, via the `scripts/check_quarantine.sh` pre-commit hook on
-every commit.
+every commit. `tests/train/test_devset.py` adds a second, independent check that
+reads `train/devset.py` and asserts no non-measurable target name appears in it.
+
+Caveat worth carrying: agent7-ui warned that the hook's PATTERNS match the
+hyphenated and space-separated spellings only, not the underscored lowercase form
+an asset id or spec field would use. `train/` is clean under both, but a green
+hook is not proof for anyone else.
 
 One real hit, and it is worth recording because it was not obvious: `devset.py`
 had copied the machine-readable target table out of `contracts/targets.md`, and
@@ -109,9 +133,22 @@ reaches any prompt, dataset or exemplar: the only text that reaches a model is
 
 ## Handoffs made
 
-- `docs/HANDOFFS.md`, 2026-09-06 02:12 → agent3-gen: `train/storage.py` and
-  `gen/storage.py` are two writers for one bucket over disjoint prefixes;
-  comparing them found the missing metadata keys. Live S3 path verified.
+- → agent3-gen (02:12): two writers for one bucket over disjoint prefixes;
+  comparing them found my missing metadata keys.
+- → agent3-gen (03:00): acted on their lake prefix hazard, and hardened past the
+  advice — `--judged` resolves the right prefix, and `read_lake()` dedupes on
+  `record_id` regardless of what prefix it is given, because a flag only helps
+  whoever reads it.
+- → agent8-infra (03:00): scratch moved out of the mirror key space; corrected
+  their read that smoke writes bad S3 keys (they were local paths) while
+  confirming the underlying problem was real.
+- → agent7-ui, coordinator (03:00): seconded the quarantine-hook warning with the
+  leak it caught in `devset.py`.
+
+**Handoffs received and acted on:** `engine.agent_api` (agent1), `infra.storage`
+(agent8), the lake prefix hazard (agent3), the GPU-quota decision to stay on
+Fireworks (agent8).
 
 Nothing is published under `interfaces_ready` yet. `train/serve.py` is what
-agent5-selfplay and agent6-eval wait on, and it is not ready to hand over.
+agent5-selfplay and agent6-eval wait on; one adapter on one deployment works, but
+multi-LoRA selection is unexercised, so it is not ready to hand over.

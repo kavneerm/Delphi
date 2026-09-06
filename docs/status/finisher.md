@@ -18,4 +18,8 @@ notes: |
   90 sealed decisions/calls, 1,421,936 prompt tokens (1,027,120 cached), 52,159 output
   tokens including 6,313 reasoning tokens, zero failures/retries, and mean latency
   6.07 seconds. At Terra flex prices this is $1.62 for the sparse nine-decision sample.
-  Full lake generation remains at the sample-review gate.
+  UI playback was served locally against `ui/data/run_seed1_continuous.jsonl` and
+  verified to load a real engine `state_change` event. The focused asset/websocket
+  suite passed (7 tests); the full log-schema suite is intentionally slow because it
+  validates every event in the bundled multi-thousand-line logs. Full lake generation
+  remains at the required `cost_check` human gate, before sample review.

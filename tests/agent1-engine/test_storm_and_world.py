@@ -261,3 +261,77 @@ def test_utilities_land_on_the_episode_end_line() -> None:
     end = episode.log.lines[-1]["payload"]
     assert set(end["utilities"]) == set(episode.specs)
     assert all(isinstance(v, float) for v in end["utilities"].values())
+
+
+def test_kinetic_carries_an_attribution_lag_like_every_other_act() -> None:
+    """calib/attribution_lags.csv has a kinetic row; without a profile for it the
+    row was silently skipped and a kinetic strike was never attributed.
+    """
+    profiles = load_attribution_lags()
+    assert "kinetic" in profiles
+    rng = RngBook(11)
+    layer = AttackLayer(profiles)
+    effect = layer.launch(
+        action_type="kinetic",
+        actor="nsc",
+        params={"target_asset_id": "rf_inspector_1", "weapon_class": "direct_ascent"},
+        now_s=0,
+        rng=rng,
+    )
+    assert effect.cause == "hostile_kinetic"
+    assert effect.attribution_time_s is not None and effect.attribution_time_s > 0
+    # A debris field does not clear inside an episode.
+    assert effect.end_s > 259_200
+
+
+def test_a_kinetic_action_reaches_the_log_with_an_effect_id() -> None:
+    from conftest import make_config, run
+
+    from engine.stubs import AggressiveStub
+
+    class KineticStub(AggressiveStub):
+        """Takes the one action the whole ladder is built to make expensive."""
+
+        def act(self, view):
+            decision = super().act(view)
+            if "kinetic" in (view.get("available_actions") or []):
+                decision["action"] = {
+                    "type": "kinetic",
+                    "params": {
+                        "target_asset_id": "rf_inspector_1",
+                        "weapon_class": "direct_ascent",
+                    },
+                }
+            return decision
+
+    def factory(episode):
+        from engine.stubs import build_stubs
+
+        agents = build_stubs(episode.specs, episode.rng, policy="aggressive")
+        agents["nsc"] = KineticStub("nsc", episode.specs["nsc"], episode.rng)
+        agents["nsc"].bind(lambda: episode.view("nsc"))
+        return agents
+
+    from engine.episode import Episode
+
+    config = make_config(release_policy={"policy": "auto", "approval_probability": 1.0})
+    episode = Episode(config, agent_factory=factory, agents_descriptor={"kind": "test"})
+    episode.run()
+
+    landed = [
+        line
+        for line in episode.log.lines
+        if line["type"] == "action"
+        and line["payload"]["action"]["type"] == "kinetic"
+        and not line["payload"].get("blocked")
+    ]
+    assert landed, "the kinetic stub should have got one through at p=1.0"
+    assert landed[0]["payload"]["effects"]["effect_id"]
+    assert landed[0]["payload"]["effects"]["debris_objects"] > 0
+    assert episode.world.get("debris_objects", 0) > 0
+    # And it is attributable on the calibrated clock like anything else.
+    assert any(
+        e.cause == "hostile_kinetic" and e.attribution_time_s is not None
+        for e in episode.attacks.effects.values()
+    )
+    _ = run  # imported for symmetry with the rest of the file

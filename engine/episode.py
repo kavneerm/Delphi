@@ -195,6 +195,40 @@ class Episode:
             clock_mode=cfg.mode,
             release_policy=cfg.policy,
         )
+        # Initial orbital elements, so a consumer can propagate its own arcs
+        # instead of interpolating 30-minute ground-track samples or keeping a
+        # hand-copy of engine.world. agent7-ui asked; the log is now
+        # self-sufficient for drawing the map.
+        self.log.emit(
+            sim_time_s=0,
+            type="state_change",
+            seat=None,
+            payload={
+                "what": "assets.initial_elements",
+                "value": {
+                    asset_id: {
+                        "name": asset.get("name"),
+                        "owner": asset.get("owner"),
+                        "asset_class": asset.get("asset_class"),
+                        "mission": asset.get("mission"),
+                        "orbit": asset.get("orbit"),
+                        "site": asset.get("site"),
+                        "members": asset.get("members"),
+                        "delta_v_budget_mps": asset.get("delta_v_budget_mps"),
+                    }
+                    for asset_id, asset in sorted(self.world.state["assets"].items())
+                },
+                "reason": "episode_start",
+                "mu_earth_km3_s2": self.params["mu_earth_km3_s2"],
+                "earth_radius_km": self.params["earth_radius_km"],
+                "note": (
+                    "Two-body elements at t=0. Propagate with the standard mean-motion "
+                    "advance; the engine applies no perturbations, so a consumer that does "
+                    "the same matches it exactly apart from impulsive maneuvers, which "
+                    "appear as action lines of type 'maneuver'."
+                ),
+            },
+        )
         loop.schedule(0, "storm_update", {})
         loop.schedule(0, "propagate", {})
         for index, inject in enumerate(self.injects):
@@ -539,6 +573,8 @@ class Episode:
             self._send_message(seat, dict(message))
 
         action = dict(decision["action"])
+        beliefs = dict(decision["beliefs"])
+        reasoning = str(decision.get("reasoning") or "")
         if self.config.policy == "human" and getattr(agent, "is_human", False):
             self.log.emit(
                 sim_time_s=now,
@@ -549,9 +585,12 @@ class Episode:
                     "decision_id": decision_id,
                     "operator": getattr(agent, "operator_label", "operator"),
                     "beliefs": decision["beliefs"],
+                    "reasoning": reasoning,
                 },
             )
-        self._commit_action(seat, action, decision_id, decided_at=now)
+        self._commit_action(
+            seat, action, decision_id, decided_at=now, beliefs=beliefs, reasoning=reasoning
+        )
         return decision_id
 
     def _blocked_reason(self, seat: str, action_type: str) -> str | None:
@@ -575,40 +614,44 @@ class Episode:
         )
 
     def _commit_action(
-        self, seat: str, action: dict[str, Any], decision_id: str, *, decided_at: int
+        self,
+        seat: str,
+        action: dict[str, Any],
+        decision_id: str,
+        *,
+        decided_at: int,
+        beliefs: dict[str, Any] | None = None,
+        reasoning: str = "",
     ) -> None:
         now = self.loop.sim_time_s
         action_type = str(action["type"])
         land_at = decided_at + self.seats[seat].deliberation_s
+        # Beliefs and reasoning ride along to the action line so the log is
+        # self-sufficient for the UI (agent7-ui asked; extra payload keys are
+        # always allowed). They are the ACTING seat's own, on its own line.
+        carry: dict[str, Any] = {
+            "seat": seat,
+            "action": action,
+            "decision_id": decision_id,
+            "decided_at": decided_at,
+            "beliefs": beliefs or {},
+            "reasoning": reasoning,
+        }
         reason = self._blocked_reason(seat, action_type)
         if reason is not None:
             self.tallies[seat].blocked += 1
             self.loop.schedule(
                 land_at,
                 "action_effect",
-                {
-                    "seat": seat,
-                    "action": action,
-                    "decision_id": decision_id,
-                    "decided_at": decided_at,
-                    "blocked": True,
-                    "blocked_reason": reason,
-                },
+                {**carry, "blocked": True, "blocked_reason": reason},
             )
             return
         if self._needs_release(seat, action_type):
-            self._request_release(seat, action, decision_id, decided_at, land_at)
+            self._request_release(
+                seat, action, decision_id, decided_at, land_at, beliefs or {}, reasoning
+            )
             return
-        self.loop.schedule(
-            land_at,
-            "action_effect",
-            {
-                "seat": seat,
-                "action": action,
-                "decision_id": decision_id,
-                "decided_at": decided_at,
-            },
-        )
+        self.loop.schedule(land_at, "action_effect", carry)
         if action_type != "hold" and self.config.mode == "checkpoint":
             self._maybe_pull_checkpoint("non_hold_action")
         if action_type == "hold":
@@ -624,6 +667,8 @@ class Episode:
         decision_id: str,
         decided_at: int,
         land_at: int,
+        beliefs: dict[str, Any] | None = None,
+        reasoning: str = "",
     ) -> None:
         now = self.loop.sim_time_s
         policy = self.config.release_policy
@@ -654,6 +699,8 @@ class Episode:
             "decision_id": decision_id,
             "decided_at": decided_at,
             "land_at": land_at,
+            "beliefs": beliefs or {},
+            "reasoning": reasoning,
         }
         self.log.emit(
             sim_time_s=now,
@@ -710,6 +757,8 @@ class Episode:
                     "action": pending["action"],
                     "decision_id": pending["decision_id"],
                     "decided_at": pending["decided_at"],
+                    "beliefs": pending.get("beliefs") or {},
+                    "reasoning": pending.get("reasoning") or "",
                     "release_id": release_id,
                 },
             )
@@ -723,6 +772,8 @@ class Episode:
                     "action": pending["action"],
                     "decision_id": pending["decision_id"],
                     "decided_at": pending["decided_at"],
+                    "beliefs": pending.get("beliefs") or {},
+                    "reasoning": pending.get("reasoning") or "",
                     "blocked": True,
                     "blocked_reason": "release_denied",
                     "release_id": release_id,
@@ -777,6 +828,10 @@ class Episode:
             "decision_id": str(payload["decision_id"]),
             "decided_at_sim_time_s": int(payload["decided_at"]),
         }
+        if payload.get("beliefs"):
+            line["beliefs"] = payload["beliefs"]
+        if payload.get("reasoning"):
+            line["reasoning"] = payload["reasoning"]
         if blocked:
             line["blocked"] = True
             line["blocked_reason"] = str(payload.get("blocked_reason") or "blocked")
@@ -1009,6 +1064,23 @@ class Episode:
         if action_type == "kinetic":
             target = str(params.get("target_asset_id") or "")
             debris = 180
+            # Kinetic is not one of the four effect rungs, but it is still an
+            # attributable act: give it an effect so the attribution lag from
+            # calib/attribution_lags.csv applies and the reveal reaches the log
+            # like any other. The destruction below is applied by the episode.
+            effect = self.attacks.launch(
+                action_type="kinetic",
+                actor=seat,
+                params=params,
+                now_s=now,
+                rng=self.rng,
+            )
+            if effect.attribution_time_s is not None:
+                self.loop.schedule(
+                    effect.attribution_time_s,
+                    "attribution_expire",
+                    {"effect_id": effect.effect_id},
+                )
             if world.asset(target):
                 world.set(f"assets.{target}.destroyed", True, reason=f"kinetic_by_{seat}")
                 world.set(f"assets.{target}.service_multiplier", 0.0, reason=f"kinetic_by_{seat}")
@@ -1026,7 +1098,11 @@ class Episode:
             world.set("escalation_rung", RUNG["kinetic"], reason=f"kinetic_by_{seat}")
             world.bump(f"reputation.{seat}", -0.25, reason="kinetic")
             self.end_reason = "terminal_action"
-            return {"target_asset_id": target, "debris_objects": debris}
+            return {
+                "target_asset_id": target,
+                "debris_objects": debris,
+                "effect_id": effect.effect_id,
+            }
 
         if action_type == "terrestrial_response":
             world.set(

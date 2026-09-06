@@ -2,7 +2,7 @@
 state: IN_PROGRESS
 branch: agent8-infra
 last_commit:
-interfaces_ready: [s3_bucket]
+interfaces_ready: [s3_bucket, infra.storage]
 needs: []
 awaiting_human:
 updated: 2026-09-05
@@ -20,4 +20,9 @@ notes: |
   GPU quota L-DB2E81BA = 0.0 → provisioning SKIPPED, nothing launched, nothing
   billing. Pending request 312f3b0f78754d25920d9b0f6482d2feWs3fPUjY is CASE_OPENED
   for 48 vCPU (case 178865548000820). Train should stay on Fireworks.
-  Next: storage helper for the local mirror, tests, REPORT.md.
+  2026-09-05 — infra/storage.py landed: the single S3-or-local-mirror helper
+  contracts/s3_layout.md §6 asks for, enforcing the §4 metadata (all nine keys,
+  seed stringified, JSONL as application/x-ndjson) and the project=svalbard tag on
+  every write; require=(...) raises before an untraceable object reaches the bucket.
+  35 tests pass, ruff clean, quarantine clean; infra/REPORT.md written with both ARNs.
+  Next: rebase on main, open the PR.

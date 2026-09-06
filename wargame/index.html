@@ -757,11 +757,11 @@ const UNIT_SIZE={carrier:66,cruiser:60,destroyer:56,frigate:50,corvette:42,amphi
                  airbase:52,navalbase:48,radarstn:34,missilesite:40,c2:34,groundstn:38};
 const UNITS = [
   /* --- Norwegian Joint HQ (blue) --- */
-  {id:'n1', a:'nor', t:'frigate',   n:'HNoMS Thor Heyerdahl',        x:0.215, y:0.517, h:26},
-  {id:'n2', a:'nor', t:'destroyer', n:'HNoMS Roald Amundsen',        x:0.300, y:0.735, h:-58},
-  {id:'n3', a:'nor', t:'corvette',  n:'HNoMS Skudd',                 x:0.296, y:0.545, h:8},
-  {id:'n4', a:'nor', t:'icebreaker',n:'KV Svalbard',                 x:0.268, y:0.274, h:-14},
-  {id:'n5', a:'nor', t:'diesel',    n:'HNoMS Uredd',                 x:0.180, y:0.641, h:34},
+  {id:'n1', a:'nor', t:'frigate',   n:'USS Constellation (FFG-62)',        x:0.215, y:0.517, h:26},
+  {id:'n2', a:'nor', t:'destroyer', n:'USS Delbert D. Black',        x:0.300, y:0.735, h:-58},
+  {id:'n3', a:'nor', t:'corvette',  n:'USCGC Stone (WMSL-758)',                 x:0.296, y:0.545, h:8},
+  {id:'n4', a:'nor', t:'icebreaker',n:'USCGC Healy',                 x:0.268, y:0.274, h:-14},
+  {id:'n5', a:'nor', t:'ssn',    n:'USS Delaware (SSN-791)',                 x:0.180, y:0.641, h:34},
   {id:'n6', a:'nor', t:'mpa',       n:'P-8A Poseidon — Patrol 41',   x:0.660, y:0.410, h:0},
   {id:'n7', a:'nor', t:'fighter',   n:'F-35A — Viking 2',            x:0.470, y:0.354, h:0},
   {id:'n8', a:'nor', t:'helo',      n:'NH90 — Arctic 6',             x:0.318, y:0.459, h:0},
@@ -942,7 +942,7 @@ function recomputeLinks(s){
   s.links.forEach(l=>{
     const g=document.getElementById(l[0]).getBoundingClientRect();
     const d=Math.abs((sr.left+sr.width/2)-(g.left+g.width/2))/tr.width;
-    const st = d>.42?'lost': d>.25?'degraded':'ok';
+    const st = s.storm ? 'lost' : d>.42?'lost': d>.25?'degraded':'ok';   // a bird in safe mode has no link to recompute
     if(st!==l[1]){ l[1]=st;
       push(st==='ok'?'action':'system', st==='ok'?'Link restored':'Link '+st, `${s.name} ↔ ${gsName(l[0])} is now ${st}.`, 'ksat'); }
   });
@@ -1269,9 +1269,26 @@ compose.onsubmit = (e) => {
   else engine.order(order);                          // intent is logged, not judged aloud
 };
 
-/* Severity follows the setup: the demo scenario is a severe storm. */
+/* Severity follows the setup: the demo scenario is a severe storm.
+
+   Under G5 the catalog's storm factors take Ku-band LEO to 15% and leave the HEO relays at
+   80% and MEO navigation at 40% — so it is the LEO shell that goes dark, not the relays.
+   The map says the same thing: every LEO link is marked lost and the three birds are put in
+   safe mode in the engine, so an order that needs Arctic Eye is refused for the right
+   reason. HEO and MEO links reset to ok so the outage reads as the storm and nothing else. */
 document.getElementById('setupForm').addEventListener('submit', () => {
-  engine.setSeverity(document.getElementById('setupDemo').getAttribute('aria-pressed') === 'true' ? 'G5' : 'G4');
+  const demo = document.getElementById('setupDemo').getAttribute('aria-pressed') === 'true';
+  engine.setSeverity(demo ? 'G5' : 'G4');
+  if (!demo) return;
+  for (const sat of SATS) {
+    sat.storm = sat.orbit === 'leo';
+    for (const l of sat.links) l[1] = sat.storm ? 'lost' : 'ok';
+  }
+  draw();
+  for (const id of ['arctic_eye', 'barents_1', 'aissat_4']) engine.safeMode(id);
+  const text = 'G5 geomagnetic storm. The LEO shell is in safe mode — Ku-band links to Arctic Eye, Barents-1 and AISSat-4 are lost. The HEO relays and MEO navigation are degraded but holding.';
+  engine.inject(text);
+  push('system', 'Storm', text, '');
 });
 
 /* The engine's clock is the scenario clock. Effects expire and release-holders wake on it. */

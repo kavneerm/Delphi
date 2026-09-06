@@ -153,6 +153,10 @@ async function main(): Promise<void> {
         `speed button reads "${(await page.textContent('#speedBtn'))?.trim()}", expected 1×`,
       );
 
+      // Without the demo, no satellite is lost to the storm.
+      const quiet = await page.evaluate(`SATS.filter(s => s.orbit === 'leo').every(s => s.links.every(l => l[1] === 'ok'))`);
+      report.assert(quiet === true, 'a non-demo run does not take the LEO shell down');
+
       // ...and the run must actually start.
       const t0 = await page.evaluate(() => document.getElementById('clock')?.textContent);
       await page.waitForTimeout(900);
@@ -160,6 +164,48 @@ async function main(): Promise<void> {
         (await page.evaluate(() => document.getElementById('clock')?.textContent)) !== t0,
         'the scenario clock is still held after Begin',
       );
+      await page.close();
+    }
+
+    // --- the demo storm takes the LEO shell, and the blue hulls are US ------------------
+    {
+      const page = await browser.newPage();
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
+      await page.waitForSelector('.setup-card');
+      await page.click('#setupDemo');
+      await page.click('.setup-go');
+      await page.waitForSelector('.setup', { state: 'hidden' });
+
+      const links = await page.evaluate(`SATS.map(s => [s.name, s.orbit, s.links.map(l => l[1]).join(',')])`) as Array<[string, string, string]>;
+      const leo = links.filter(([, o]) => o === 'leo'), high = links.filter(([, o]) => o !== 'leo');
+      report.assert(leo.length === 3, `demo: expected 3 LEO satellites, found ${leo.length}`);
+      for (const [name, , st] of leo) report.assert(st.split(',').every((x) => x === 'lost'), `demo: ${name} (LEO) should be lost, links are ${st}`);
+      for (const [name, o, st] of high) report.assert(st.split(',').every((x) => x === 'ok'), `demo: ${name} (${o.toUpperCase()}) should be up, links are ${st}`);
+
+      const safe = await page.evaluate(() => {
+        const w = window as unknown as { engine: { stateOf: (id: string) => { safe_mode: boolean }; storm: { severity: string } } };
+        return { sev: w.engine.storm.severity, sm: ['arctic_eye', 'barents_1', 'aissat_4'].map((id) => w.engine.stateOf(id).safe_mode) };
+      });
+      report.assert(safe.sev === 'G5', `demo: engine severity is ${safe.sev}, expected G5`);
+      report.assert(safe.sm.every(Boolean), 'demo: the three LEO birds are in safe mode in the engine');
+      report.assert(((await page.textContent('#stream')) ?? '').includes('Ku-band links to Arctic Eye'), 'demo: the storm is announced in the feed');
+
+      // An order that needs a LEO bird now fails for the right reason: it is down.
+      await page.fill('#cmd', 'image storfjorden');
+      await page.press('#cmd', 'Enter');
+      await page.waitForTimeout(120);
+      const f = (await page.textContent('#stream')) ?? '';
+      report.assert(!f.includes('Sentinel-N tasked') || f.includes('✗'), 'demo: imagery is not silently granted through a dark LEO shell');
+
+      // Blue hulls read as US ships on hover, named as the catalog names them.
+      const hover = async (id: string) => page.evaluate((i) => document.getElementById(i)?.dataset['name'] ?? '', id);
+      report.assert((await hover('u-n2')) === 'USS Delbert D. Black', `destroyer hover name is "${await hover('u-n2')}"`);
+      report.assert((await hover('u-n4')) === 'USCGC Healy', `icebreaker hover name is "${await hover('u-n4')}"`);
+      report.assert(/^US(S|CGC) /.test(await hover('u-n1')) && /^US(S|CGC) /.test(await hover('u-n3')) && /^USS /.test(await hover('u-n5')), 'every blue hull carries a US prefix');
+      report.assert((await hover('u-r1')) === 'Pyotr Velikiy', 'the Northern Fleet is still Russian');
+      report.assert(errors.length === 0, `page errors in the demo storm: ${errors.join('; ')}`);
       await page.close();
     }
 

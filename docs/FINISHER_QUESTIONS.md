@@ -20,3 +20,16 @@ I did not bypass it.  The non-holdout calibration code, tables, citations and
 tests are integrated.  Recommendation: admit the already-authored file unchanged
 when evaluation is authorized, using the documented human override; it does not
 block generation or training.
+
+## 3. Generation cost preflight — approval required before 3,960 live calls
+
+`python -m gen.cost_check` made no API call. For ten representative 72-hour
+checkpoint episodes (396 decisions each), it estimates 3,960 calls, 3,500 prompt
+tokens/call, and reserves 4,096 completion plus 4,096 hidden-reasoning tokens/call.
+At the currently configured conservative rates this caps the live check at
+**$341.73**. The live checker will report provider-observed reasoning tokens.
+
+**Recommendation:** approve the live ten-episode cost check only after
+`GEN_MODEL` is explicitly present in the execution environment; then use its
+observed token report to decide the full lake size. No large run should start
+until that report is reviewed.

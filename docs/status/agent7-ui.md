@@ -1,7 +1,7 @@
 # agent7-ui
 state: IN_PROGRESS
 branch: agent7-ui
-last_commit: 72e8015
+last_commit:
 interfaces_ready: []
 needs: [engine/samples/stub_run.jsonl (agent1-engine), validation/heatmap.csv + validation/final_report.md (agent6-eval), engine local websocket for the human seat (agent1-engine)]
 awaiting_human:
@@ -14,4 +14,13 @@ notes: |
   pass, including full jsonschema validation of every line against contracts/event_log_schema.json.
   Surprise: seat feed latencies had to be made pairwise distinct or two seats land on the same
   decision timestamp, which would kill the "timestamps drift apart" story the persona cards exist
-  to tell. Now on: the single-page app shell — ground-track map, sim clock, persona cards.
+  to tell.
+
+  2026-09-05 — App skeleton in: index.html + styles.css (dark ops console), and the modules
+  behind it — data.js (prefers the engine path, falls back to the stub, one place that knows the
+  difference), model.js (Run: snapshotAt/filteredView/tempo), orbits.js (Kepler + north-polar
+  projection), map.js, panels.js (persona cards, ladder, in-flight bars, channel pips, storm),
+  timeline.js (scrub + tempo strip), dom.js. Chose a north-polar azimuthal map over a world
+  equirectangular one: the scenario is Svalbard/Barents and the storm overlay is an auroral oval,
+  which only reads correctly on a polar projection. Now on: src/app.js wiring, then the human-seat
+  panel, fork panel, and the websocket bridge.

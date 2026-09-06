@@ -1,0 +1,32 @@
+{
+  "_note": "Each run lists the engine's path first and the UI's own stub second. ui/src/data.js takes the first that exists, so the moment agent1-engine lands engine/samples/stub_run.jsonl this file picks it up with no code change.",
+  "runs": [
+    {
+      "id": "stub_1041_continuous",
+      "label": "G4 ambiguous signature — seed 1041, continuous",
+      "engine": "engine/samples/stub_run.jsonl",
+      "fallback": "ui/data/stub_run.jsonl",
+      "clock_mode": "continuous",
+      "release_policy": "human",
+      "seed": 1041
+    },
+    {
+      "id": "stub_1041_checkpoint",
+      "label": "G4 ambiguous signature — seed 1041, checkpoint",
+      "engine": "engine/samples/stub_run_checkpoint.jsonl",
+      "fallback": "ui/data/stub_run_checkpoint.jsonl",
+      "clock_mode": "checkpoint",
+      "release_policy": "human",
+      "seed": 1041
+    },
+    {
+      "id": "stub_2087_continuous",
+      "label": "G4 ambiguous signature — seed 2087, auto-release",
+      "engine": "engine/samples/stub_run_alt.jsonl",
+      "fallback": "ui/data/stub_run_alt.jsonl",
+      "clock_mode": "continuous",
+      "release_policy": "auto",
+      "seed": 2087
+    }
+  ]
+}

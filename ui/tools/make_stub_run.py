@@ -182,7 +182,7 @@ RELEASING_SEAT = {
 OWN_ASSETS: dict[str, str] = {
     "usspacecom": "gssap_4",
     "norway": "asbm_1",
-    "northern_fleet": "kosmos_2558",
+    "northern_fleet": "nf_inspector_2",
     "starlink": "starlink_arctic_07",
     "iridium": "iridium_next_112",
 }
@@ -463,7 +463,7 @@ def _params_for(action: str, seat: str, rng: random.Random) -> dict[str, Any]:
             }
         case "jam":
             return {
-                "target_asset_id": rng.choice(["kosmos_2558", "starlink_arctic_07"]),
+                "target_asset_id": rng.choice(["nf_inspector_2", "starlink_arctic_07"]),
                 "duration_minutes": rng.choice([15, 30, 60, 90]),
             }
         case "dazzle":
@@ -478,11 +478,11 @@ def _params_for(action: str, seat: str, rng: random.Random) -> dict[str, Any]:
         case "counter_rpo":
             return {
                 "asset_id": own,
-                "target_asset_id": "kosmos_2558" if seat != "northern_fleet" else "gssap_4",
+                "target_asset_id": "nf_inspector_2" if seat != "northern_fleet" else "gssap_4",
                 "standoff_km": rng.choice([5, 12, 25, 50]),
             }
         case "kinetic":
-            return {"target_asset_id": "kosmos_2558", "weapon_class": "co_orbital"}
+            return {"target_asset_id": "nf_inspector_2", "weapon_class": "co_orbital"}
         case "terrestrial_response":
             return {
                 "target_id": "barentsburg_relay",
@@ -794,7 +794,7 @@ def build(
                     ("feeds.svalsat_downlink.status", "nominal", "outage"),
                     ("assets.asbm_1.propellant_frac", 0.87, 0.91),
                     ("reputation.starlink", -0.12, 0.0),
-                    ("assets.kosmos_2558.propellant_frac", 0.62, 0.68),
+                    ("assets.nf_inspector_2.propellant_frac", 0.62, 0.68),
                 ]
             )
             b.emit(

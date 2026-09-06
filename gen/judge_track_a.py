@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 from pathlib import Path
@@ -14,17 +15,20 @@ INPUT = Path(".wargame-scratch/track_a_candidates.jsonl")
 OUTPUT = Path(".wargame-scratch/track_a_judged.jsonl")
 
 
-async def run() -> None:
+async def run(shard: int = 0, shards: int = 1) -> None:
     config = GenConfig()
     config = config.__class__(**{**config.__dict__, "judge_model": "gpt-5.6-terra"})
     done: set[str] = set()
-    if OUTPUT.exists():
+    output = OUTPUT.with_name(f"{OUTPUT.stem}.{shard}{OUTPUT.suffix}")
+    if output.exists():
         done = {json.loads(line)["record_id"] for line in OUTPUT.read_text().splitlines() if line}
     client = LLMClient(config, model=config.judge_model)
     try:
-        with INPUT.open() as source, OUTPUT.open("a") as sink:
+        with INPUT.open() as source, output.open("a") as sink:
             calls = 0
-            for line in source:
+            for index, line in enumerate(source):
+                if index % shards != shard:
+                    continue
                 record = json.loads(line)
                 if record["record_id"] in done:
                     continue
@@ -54,7 +58,7 @@ async def run() -> None:
                 sink.write(json.dumps(record) + "\n")
                 sink.flush()
                 calls += 1
-                if calls % 500 == 0:
+                if calls % 250 == 0:
                     print(
                         json.dumps({"judge_calls": calls, "usage": client.usage.as_dict()}),
                         flush=True,
@@ -64,4 +68,8 @@ async def run() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--shard", type=int, default=0)
+    parser.add_argument("--shards", type=int, default=1)
+    args = parser.parse_args()
+    asyncio.run(run(args.shard, args.shards))

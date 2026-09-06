@@ -75,6 +75,7 @@ tmp/
 .cache/
 outputs/
 runs/
+.wargame-scratch/
 
 # ---- Editors / OS ----
 .vscode/

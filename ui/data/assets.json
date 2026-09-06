@@ -1,0 +1,125 @@
+{
+  "_note": "Copied verbatim from engine.world.initial_state() so the UI's arcs are the engine's orbits, not a second opinion. tests/agent7-ui/test_assets_match_engine.py fails if the two drift apart. ui/src/orbits.js mirrors engine/orbits.py (same mu, same Earth rotation rate, same Kepler solver), so a subpoint computed here matches the assets.ground_tracks state_change lines in the log.",
+  "assets": [
+    {
+      "id": "asbm_1",
+      "label": "ASBM-1 (hosts EPS-R)",
+      "owner": "norway",
+      "asset_class": "heo_node",
+      "orbit": {
+        "a_km": 26560.0,
+        "e": 0.72,
+        "inc_deg": 63.4,
+        "raan_deg": 30.0,
+        "argp_deg": 270.0,
+        "m0_deg": 0.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "asbm_2",
+      "label": "ASBM-2 (hosts EPS-R)",
+      "owner": "norway",
+      "asset_class": "heo_node",
+      "orbit": {
+        "a_km": 26560.0,
+        "e": 0.72,
+        "inc_deg": 63.4,
+        "raan_deg": 210.0,
+        "argp_deg": 270.0,
+        "m0_deg": 180.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "gssap_analog_1",
+      "label": "US neighbourhood-watch inspector",
+      "owner": "usspacecom",
+      "asset_class": "heo_node",
+      "orbit": {
+        "a_km": 26000.0,
+        "e": 0.7,
+        "inc_deg": 63.4,
+        "raan_deg": 28.0,
+        "argp_deg": 269.0,
+        "m0_deg": 3.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "iridium_next",
+      "label": "Iridium-analog cross-linked constellation",
+      "owner": "iridium",
+      "asset_class": "constellation",
+      "orbit": {
+        "a_km": 7159.0,
+        "e": 0.0012,
+        "inc_deg": 86.4,
+        "raan_deg": 141.0,
+        "argp_deg": 0.0,
+        "m0_deg": 20.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "rf_inspector_1",
+      "label": "Northern Fleet co-orbital inspector",
+      "owner": "northern_fleet",
+      "asset_class": "heo_node",
+      "orbit": {
+        "a_km": 25100.0,
+        "e": 0.68,
+        "inc_deg": 63.4,
+        "raan_deg": 33.0,
+        "argp_deg": 271.0,
+        "m0_deg": 6.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "rf_meridian_7",
+      "label": "Northern Fleet HEO comms node",
+      "owner": "northern_fleet",
+      "asset_class": "heo_node",
+      "orbit": {
+        "a_km": 26560.0,
+        "e": 0.71,
+        "inc_deg": 63.4,
+        "raan_deg": 95.0,
+        "argp_deg": 288.0,
+        "m0_deg": 40.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "starlink_arctic",
+      "label": "Starlink polar shell (Arctic service)",
+      "owner": "starlink",
+      "asset_class": "constellation",
+      "orbit": {
+        "a_km": 6931.0,
+        "e": 0.0012,
+        "inc_deg": 87.9,
+        "raan_deg": 12.0,
+        "argp_deg": 0.0,
+        "m0_deg": 0.0,
+        "epoch_s": 0.0
+      }
+    },
+    {
+      "id": "starshield_arctic",
+      "label": "Starshield-analog government shell",
+      "owner": "starlink",
+      "asset_class": "constellation",
+      "orbit": {
+        "a_km": 6931.0,
+        "e": 0.0012,
+        "inc_deg": 87.9,
+        "raan_deg": 78.0,
+        "argp_deg": 0.0,
+        "m0_deg": 40.0,
+        "epoch_s": 0.0
+      }
+    }
+  ]
+}

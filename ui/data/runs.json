@@ -1,0 +1,32 @@
+{
+  "_note": "Logged episodes the console can play back. All three are real engine output — see ui/data/README.md for the exact command behind each. Playback is offline: no model is called and no engine process is needed.",
+  "runs": [
+    {
+      "id": "engine_seed1_checkpoint",
+      "label": "G5 ambiguous signature — seed 1, checkpoint/adaptive, auto-release",
+      "path": "engine/samples/stub_run.jsonl",
+      "clock_mode": "checkpoint",
+      "release_policy": "auto",
+      "seed": 1,
+      "compare_group": "seed1_g5"
+    },
+    {
+      "id": "engine_seed1_continuous",
+      "label": "G5 ambiguous signature — seed 1, continuous, auto-release",
+      "path": "ui/data/run_seed1_continuous.jsonl",
+      "clock_mode": "continuous",
+      "release_policy": "auto",
+      "seed": 1,
+      "compare_group": "seed1_g5"
+    },
+    {
+      "id": "engine_seed7_human",
+      "label": "G4 storm only — seed 7, checkpoint/variable tempo, human release",
+      "path": "ui/data/run_seed7_human.jsonl",
+      "clock_mode": "checkpoint",
+      "release_policy": "human",
+      "seed": 7,
+      "compare_group": "seed7_g4"
+    }
+  ]
+}

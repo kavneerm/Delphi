@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panoptes — counterspace operations console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <b>Panoptes</b>
+    <span id="episode-id">loading…</span>
+  </div>
+
+  <div class="clock">
+    <div>
+      <div class="t" id="clk">T+00:00:00<small> sim</small></div>
+    </div>
+    <div class="meta">
+      <span id="clk-abs">—</span>
+      <span id="clk-mode">—</span>
+    </div>
+  </div>
+
+  <div class="hgroup">
+    <label>transport</label>
+    <div class="transport">
+      <button id="btn-play" title="Space">▶ Play</button>
+      <button id="btn-back" title="Step back one event">⏮</button>
+      <button id="btn-fwd" title="Step forward one event">⏭</button>
+      <div class="speeds" id="speeds"></div>
+    </div>
+  </div>
+
+  <div class="hgroup">
+    <label>logged run</label>
+    <select id="run-select" title="Persona swap: load a different logged run"></select>
+  </div>
+
+  <div class="hgroup">
+    <label>clock mode</label>
+    <div class="views">
+      <button data-clockmode="continuous">continuous</button>
+      <button data-clockmode="checkpoint">checkpoint</button>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="hgroup">
+    <label>view</label>
+    <div class="views" id="view-tabs">
+      <button data-view="ops">Operations</button>
+      <button data-view="split">Split screen</button>
+      <button data-view="compare">Clock compare</button>
+      <button data-view="validation">Validation</button>
+    </div>
+  </div>
+
+  <div class="hgroup">
+    <label>human seat</label>
+    <div class="transport">
+      <button id="btn-human">NSC panel</button>
+      <span class="livedot" id="livedot" title="engine websocket"></span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Operations ──────────────────────────────────────────────────── -->
+  <section class="view active" id="view-ops">
+
+    <div class="col">
+      <div class="panel" style="flex:1.6">
+        <h2>Ground track — Arctic <span class="tag" id="map-tag"></span></h2>
+        <div id="map-wrap">
+          <canvas id="map"></canvas>
+          <div class="map-legend" id="map-legend"></div>
+          <div class="offmap" id="offmap"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Storm <span class="tag" id="storm-profile"></span></h2>
+        <div class="body">
+          <div class="storm-head">
+            <span class="storm-sev" id="storm-sev">—</span>
+            <div>
+              <div style="font-family:var(--mono);font-size:.7rem" id="storm-kp">Kp —</div>
+              <div style="font-family:var(--mono);font-size:.66rem;color:var(--ink-faint)" id="storm-dst">Dst —</div>
+            </div>
+          </div>
+          <div class="storm-bars">
+            <label>sensor conf.</label><div class="meter" id="m-sensor"><span></span></div><span class="val" id="v-sensor">—</span>
+            <label>comms b/w</label><div class="meter" id="m-comms"><span></span></div><span class="val" id="v-comms">—</span>
+          </div>
+          <div class="flags">
+            <span class="flag" id="f-track">tracking degraded</span>
+            <span class="flag" id="f-screen">screening suspended</span>
+          </div>
+        </div>
+        <canvas id="storm-strip"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Seats <span class="tag" id="seats-tag"></span></h2>
+      <div class="body"><div id="personas"></div></div>
+    </div>
+
+    <div class="col">
+      <div class="panel" style="flex:1.3">
+        <h2>Escalation ladder <span class="tag" id="ladder-tag"></span></h2>
+        <div class="body"><div id="ladder"></div></div>
+      </div>
+      <div class="panel">
+        <h2>In progress</h2>
+        <div class="body"><div id="inflight"></div></div>
+      </div>
+      <div class="panel">
+        <h2>Channels <span class="tag">in transit</span></h2>
+        <div class="body"><div id="channels"></div></div>
+      </div>
+    </div>
+
+    <aside class="panel" id="human" hidden>
+      <h2>
+        Human seat
+        <select id="human-seat" title="Which seat the operator occupies"></select>
+        <span class="tag" id="human-status">offline</span>
+      </h2>
+      <div class="body" id="human-body"></div>
+    </aside>
+  </section>
+
+  <!-- ── Split screen ────────────────────────────────────────────────── -->
+  <section class="view" id="view-split">
+    <div class="subbar">
+      <span class="frozen-note" id="split-frozen">frozen at T+00:00:00</span>
+      <button id="split-freeze">Freeze at current sim time</button>
+      <label class="hint">left</label> <select id="split-a"></select>
+      <label class="hint">right</label> <select id="split-b"></select>
+      <span class="hint">Both seats as of the same instant — the point being that they were not looking at the same picture.</span>
+    </div>
+    <div class="two">
+      <div class="side" id="split-side-a"></div>
+      <div style="background:var(--line)"></div>
+      <div class="side" id="split-side-b"></div>
+    </div>
+  </section>
+
+  <!-- ── Clock compare ───────────────────────────────────────────────── -->
+  <section class="view" id="view-compare">
+    <div class="subbar">
+      <span class="hint">Same seed, same specs, two clocks. Continuous lets seats act on stale unequal pictures; checkpoint wakes all nine at once with sealed decisions.</span>
+      <span class="frozen-note" id="compare-t">T+00:00:00</span>
+    </div>
+    <div class="two">
+      <div class="side" id="cmp-cont"></div>
+      <div style="background:var(--line)"></div>
+      <div class="side" id="cmp-chk"></div>
+    </div>
+  </section>
+
+  <!-- ── Validation ──────────────────────────────────────────────────── -->
+  <section class="view" id="view-validation">
+    <div class="subbar">
+      <span class="hint">Reads <code>validation/heatmap.csv</code> and <code>validation/final_report.md</code> when agent6-eval has produced them.</span>
+      <span class="tag" id="validation-src"></span>
+      <button id="validation-reload">Reload</button>
+    </div>
+    <div class="vgrid">
+      <section>
+        <h3 style="margin-top:0">False-positive escalation rate</h3>
+        <div class="hm-tip" id="hm-tip">storm severity × Red type</div>
+        <canvas id="heatmap"></canvas>
+        <div id="heatmap-note" class="empty"></div>
+      </section>
+      <section>
+        <h3 style="margin-top:0">Validation report</h3>
+        <div id="validation-table"></div>
+        <div id="validation-md" class="md"></div>
+      </section>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="tl-head">
+    <span id="tl-label">decisions per sim hour</span>
+    <span class="spacer" style="flex:1"></span>
+    <span id="tl-readout">—</span>
+  </div>
+  <canvas id="tempo"></canvas>
+  <canvas id="timeline"></canvas>
+</footer>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

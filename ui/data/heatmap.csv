@@ -1,0 +1,10 @@
+# PLACEHOLDER — agent6-eval writes the real validation/heatmap.csv.
+# The console prefers validation/heatmap.csv and falls back to this file, and the
+# Validation view says which one it is showing. Shape only: x is storm severity,
+# y is Red private_type, value is the false-positive escalation rate on the
+# control scenarios (contracts/targets.md control_false_positive_rate).
+# Numbers here are zeros so nobody can mistake them for a result.
+red_type,quiet,G1,G2,G3,G4,G5
+storm_reposition,0.000,0.000,0.000,0.000,0.000,0.000
+opportunistic_isr,0.000,0.000,0.000,0.000,0.000,0.000
+action_under_cover,0.000,0.000,0.000,0.000,0.000,0.000

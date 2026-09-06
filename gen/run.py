@@ -252,7 +252,9 @@ def write_episode(episode: Episode, config: GenConfig, store: Storage) -> str:
     return key
 
 
-async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
+async def run_cost_check(
+    config: GenConfig, episodes: int, *, start_seed: int = 1
+) -> dict[str, Any]:
     """Run ten real episodes, persist each completed episode, and report usage.
 
     The cost gate uses sealed, sparse decision schedules, but the resulting
@@ -288,7 +290,7 @@ async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
         # Sequential episodes keep the ten-seat burst below the org TPM limit.
         completed = []
         keys: list[str] = []
-        for seed in range(1, episodes + 1):
+        for seed in range(start_seed, start_seed + episodes):
             episode = await asyncio.to_thread(one, seed)
             completed.append(episode)
             key = write_episode(episode, config, store)
@@ -413,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cost_check:
         if args.episodes != 10:
             parser.error("the human gate requires exactly ten episodes")
-        print(asyncio.run(run_cost_check(GenConfig(), args.episodes)))
+        print(asyncio.run(run_cost_check(GenConfig(), args.episodes, start_seed=args.start_seed)))
     else:
         print(asyncio.run(run_full(GenConfig(), args.episodes, start_seed=args.start_seed)))
     return 0

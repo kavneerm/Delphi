@@ -79,10 +79,10 @@ Six Codex agents, one Superset worktree each. All agents read `contracts/` first
 
 **Build:**
 1. `train/filter.py` — config-driven: judge threshold, utility cutoff (per-persona percentile), counterfactual oversampling factor, seat weighting, pair-consistency check (drop pairs whose two decisions are identical). Emits JSONL in chat format (system=spec, user=state+injects+messages, assistant=decision JSON) + a manifest with lake/filter versions.
-2. `train/launch.py` — `--backend {together,sagemaker,ec2}`, default `together`. Launches N LoRA jobs in parallel: on `together`, hosted LoRA fine-tuning (Together, or Fireworks) over JSONL uploaded to the provider, with the tuned model served from the provider's endpoint; `sagemaker` and `ec2` (Unsloth/PEFT) stay available for when GPU quota lands. base ∈ {Llama-3.1-8B, Qwen2.5-7B}, rank ∈ {16,32}, epochs ∈ {2,3}, filter config ∈ list. Each job tagged with all versions; checkpoints (or provider job/model ids) to `s3://…/checkpoints/<run_id>/`.
-3. `train/continue.py` — continue training from a checkpoint (for round 2).
-4. `train/dpo.py` — build preference pairs from the lake (same state, high vs. low on a chosen judge dimension), run one epoch on a checkpoint, log the patch in `checkpoints/<run_id>/patches.md`.
-5. `train/serve.py` — thin client to whichever backend produced the checkpoint: the provider's endpoint for `together`, a vLLM server on EC2 for `sagemaker`/`ec2`. Loads any checkpoint by run_id and exposes `engine.agent_api` so the fine-tuned model can play seats.
+2. `train/launch.py` — `--backend {fireworks,sagemaker,ec2}`, default `fireworks`. Uploads the filtered JSONL as a Fireworks **dataset**, then creates one SFT **LoRA** job per sweep variant through the Fireworks REST API / `firectl` CLI, over `accounts/fireworks/models/llama-v3p1-8b-instruct` and the Qwen2.5-7B-Instruct equivalent — **verify both exact model IDs against the Fireworks model library at run time and use what it returns**, do not hardcode a guess. `sagemaker` and `ec2` (Unsloth/PEFT) stay available for when GPU quota lands. base ∈ {Llama-3.1-8B, Qwen2.5-7B}, rank ∈ {16,32}, epochs ∈ {2,3}, filter config ∈ list. Each job tagged with all versions; provider dataset/job/model ids and checkpoints to `s3://…/checkpoints/<run_id>/`.
+3. `train/continue.py` — continue training from a checkpoint using Fireworks **continue-from-LoRA** off the existing tuned adapter (for round 2).
+4. `train/dpo.py` — build preference pairs from the lake (same state, high vs. low on a chosen judge dimension) into a preference-pair JSONL, submit it as a Fireworks **DPO** job, run one epoch on a checkpoint, log the patch in `checkpoints/<run_id>/patches.md`.
+5. `train/serve.py` — creates **one** Fireworks on-demand deployment and loads **every** sweep adapter onto it as **multi-LoRA**; exposes `engine.agent_api` as a thin client that selects the adapter by name per request so the fine-tuned model can play seats; `--down` deletes the deployment. Falls back to a vLLM server on EC2 for `sagemaker`/`ec2`.
 6. `train/gates.py` — pre-eval gates per checkpoint: held-out-persona coherence (from `specs/holdout/`), counterfactual sensitivity (paired decisions differ), schema validity rate. Fails fast.
 7. `train/devset.py` — runs the synthetic dev scenarios (from `specs/devset/`) against a served checkpoint; writes a metrics table per `targets.md`.
 
@@ -90,7 +90,9 @@ Six Codex agents, one Superset worktree each. All agents read `contracts/` first
 
 **Do not:** run the real replays or the held-out year (that's Agent 6); train from the base model for round 2; edit filter configs without bumping the version.
 
-**No local GPU.** The EC2 G/VT on-demand quota (`L-DB2E81BA`) is currently **0** with an increase request pending (`312f3b0f78754d25920d9b0f6482d2feWs3fPUjY`, `CASE_OPENED`). Do not assume a GPU instance exists; `together` is the default backend for that reason.
+**No local GPU.** The EC2 G/VT on-demand quota (`L-DB2E81BA`) is currently **0** with an increase request pending (`312f3b0f78754d25920d9b0f6482d2feWs3fPUjY`, `CASE_OPENED`), and every SageMaker g5 training quota is also 0. Do not assume a GPU instance exists; `fireworks` is the default backend for that reason.
+
+**Deployment discipline.** The Fireworks on-demand deployment is billed **per GPU-hour**. Bring it up only for dev-set eval, round-2 generation, and final validation; tear it down with `serve.py --down` between each; log every up/down time to `docs/VERSIONS.md`.
 
 ---
 
@@ -102,6 +104,9 @@ Six Codex agents, one Superset worktree each. All agents read `contracts/` first
 1. `selfplay/run.py` — same as `gen/run.py` but the agent is `train/serve.py`; opponents sampled from the whole spec pool (never the same spec on both sides); large grid, cheap.
 2. Reuse `gen/judge.py` and `train/filter.py`; call `train/continue.py` from `candidate_final`.
 3. Re-run `train/gates.py` and `train/devset.py`; if better, mark `candidate_final_r2`.
+
+
+**Fireworks deployment discipline.** `train/serve.py` fronts a single Fireworks on-demand deployment carrying every sweep adapter as multi-LoRA, selected by adapter name per request (`--backend {fireworks,sagemaker,ec2}`, default `fireworks`). Billed **per GPU-hour**: bring it up for this phase only, tear it down with `serve.py --down` when the phase ends, and log both times to `docs/VERSIONS.md`.
 
 **Definition of done:** one round complete with a before/after dev-set table; a second round only if time and improvement.
 
@@ -121,6 +126,9 @@ Six Codex agents, one Superset worktree each. All agents read `contracts/` first
 7. `eval/report.py` — one markdown + one PNG per table for the deck.
 
 **Definition of done:** `eval/final_report.md` produced from a single invocation with the final checkpoint id embedded; no reruns after it exists.
+
+
+**Fireworks deployment discipline.** `train/serve.py` fronts a single Fireworks on-demand deployment carrying every sweep adapter as multi-LoRA, selected by adapter name per request (`--backend {fireworks,sagemaker,ec2}`, default `fireworks`). Billed **per GPU-hour**: bring it up for this phase only, tear it down with `serve.py --down` when the phase ends, and log both times to `docs/VERSIONS.md`.
 
 **Do not:** run before Agent 4 marks a final candidate; let anything in `eval/replays/` leak into `specs/` or the lake.
 

@@ -6,7 +6,8 @@
 - **Superset** — orchestrates parallel Codex coding agents, one git worktree per workstream. Builds the code. Not the wargame runtime.
 - **Codex** — writes the pipeline. Does not generate training data directly.
 - **OpenAI API ($2.5k credits)** — frontier model for trajectory generation, the LLM judge, and the prompted-only baseline. Model: GPT-6 Astra if the org has access (released Sept 3, limited rollout); otherwise GPT-5.5 Thinking. Same model for the judge.
-- **AWS** — S3 for specs/lake/runs/checkpoints; SageMaker or EC2 GPU (g5.12xlarge / p4d) for LoRA; EC2 + vLLM to serve checkpoints; the engine runs anywhere.
+- **Fireworks ($500 credits)** — hosted LoRA fine-tuning and serving: datasets + SFT/DPO jobs via REST/`firectl`, one on-demand deployment carrying every sweep adapter as multi-LoRA. **Billed per GPU-hour** — bring the deployment up only for dev-set eval, round-2 generation, and final validation, tear it down between each, and log up/down times to `docs/VERSIONS.md`.
+- **AWS** — S3 for specs/lake/runs/checkpoints. SageMaker / EC2 GPU (g5.12xlarge / p4d) for LoRA is a **fallback only**: EC2 G/VT quota is 0 (request pending) and every SageMaker g5 training quota is 0, so neither path is usable today. The engine runs anywhere.
 - **Open-weight base** — Llama 3.1 8B and Qwen 2.5 7B (air-gappable; matters for the Defense pitch).
 
 ## Budget (approximate; the cost check sets the real numbers)
@@ -17,6 +18,7 @@
 | Targeted regeneration (per-seat/scenario) | $300 |
 | Round-2 judging (generation is on our own model) | $150 |
 | Final eval + prompted-only baseline + Lamparth | $150 |
+| Fireworks (training jobs ~$50–80; dedicated deployment ~$200–300 with spin-down discipline; reserve ~$100) | ~$350–480 |
 | Reserve | ~$500 |
 
 Do not: regenerate the whole lake after it exists; run the thousand-run sweep on the frontier model.

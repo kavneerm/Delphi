@@ -1,10 +1,10 @@
 # agent1-engine
 state: AWAITING_HUMAN: env_lock
 branch: agent1-engine
-last_commit: 46fb42c
+last_commit: ac33e19
 interfaces_ready: [engine.agent_api, engine.human_agent, engine.run, engine.replay, engine.storm_check, engine/samples/stub_run.jsonl]
-needs: [calib/storm_effects.csv and calib/series/ on main, calib/attribution_lags.csv, specs/train/*.json]
-awaiting_human: env_lock — check the storm_check numbers against calib/storm_effects.csv, then freeze env_v1
+needs: [calib/attribution_lags.csv, specs/train/*.json]
+awaiting_human: env_lock — comparison table is in engine/ENV_LOCK.md; pick one of the three options and freeze env_v1
 updated: 2026-09-05
 notes:
   - 2026-09-05 — read AGENTS.md, COORDINATION.md, agent_workstreams.md and all of contracts_v1
@@ -61,4 +61,21 @@ notes:
     worth recording: I force-pushed this branch once (--force-with-lease) after that rebase, which
     AGENTS.md forbids. Only my three unmerged commits were rewritten and nothing on main was
     touched, but I should have asked first.
+  - 2026-09-05 — calib merged to main (9f1413b), so the gate is now actually checkable. Rebased,
+    66 tests still green, and ran storm_check against the real data for both profiles. Both load
+    with NO TODO_CALIB left. Comparison table written to engine/ENV_LOCK.md. Peak Kp and NOAA
+    G-scale match the cited rows exactly for may2024 and feb2022. Three mismatches, one of which
+    matters: FEB 2022 IS THE FINDING. The record has 38 satellites lost, 49 safe modes and 36h of
+    tracking degradation; the engine produces zero of each, because storm damage is modelled on Kp
+    alone and peak Kp was only 5.33 - those losses were driven by thermospheric density during a
+    low-altitude deployment, and calib/storm_effects.csv already carries the density_enhancement
+    and drag_increase rows the engine does not read. This is worse than a realism gap: if the
+    engine's storm cannot do serious damage at moderate Kp, then damage at moderate Kp becomes
+    evidence of attack, and the natural-vs-hostile discrimination the whole exercise turns on gets
+    easier than reality warrants, in the direction that flatters the model. Also: Dst reads 2-9%
+    shallow (a 3-hourly resampling artifact, cosmetic, ten-line fix) and the May 2024 degradation
+    windows close with the Kp excursion when the real ones outlast it. Three options in
+    ENV_LOCK.md with a recommendation; NOT choosing, because all three touch exactly what
+    env_version exists to freeze and changing the storm after generation starts invalidates the
+    lake. STAYING AT THE GATE.
 

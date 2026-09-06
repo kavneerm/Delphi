@@ -232,9 +232,15 @@ def write_episode(episode: Episode, config: GenConfig, store: Storage) -> str:
 
 
 async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
-    """Run ten real episodes and return provider-reported token usage."""
+    """Run ten real episodes, persist each completed episode, and report usage.
+
+    The cost gate uses sealed, sparse decision schedules, but the resulting
+    episodes are still contract-valid and replayable.  Persisting immediately
+    means an interrupted later episode cannot discard the completed ones.
+    """
     loop = asyncio.get_running_loop()
     client = LLMClient(config)
+    store = Storage.from_env()
 
     def one(seed: int) -> Episode:
         cfg = episode_config(config, seed, cost_check=True)
@@ -260,11 +266,25 @@ async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
     try:
         # Sequential episodes keep the ten-seat burst below the org TPM limit.
         completed = []
+        keys: list[str] = []
         for seed in range(1, episodes + 1):
-            completed.append(await asyncio.to_thread(one, seed))
+            episode = await asyncio.to_thread(one, seed)
+            completed.append(episode)
+            key = write_episode(episode, config, store)
+            keys.append(key)
+            print(
+                {
+                    "episode": seed,
+                    "records": len(episode.decision_records),
+                    "lake_key": key,
+                    "calls": client.usage.calls,
+                },
+                flush=True,
+            )
         usage = client.usage.as_dict()
         usage["episodes"] = len(completed)
         usage["decisions"] = sum(len(episode.decision_records) for episode in completed)
+        usage["keys"] = keys
         return usage
     finally:
         await client.aclose()

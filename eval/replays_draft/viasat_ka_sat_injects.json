@@ -1,0 +1,141 @@
+{
+  "replay_id": "viasat_ka_sat",
+  "replay_version": "v1",
+  "kind": "real_replay",
+  "title": "KA-SAT modem wipe, 24-27 February 2022",
+  "description": "At 0302 UTC on the morning Russia invaded Ukraine, tens of thousands of satellite broadband modems across Ukraine and Europe were bricked by commands pushed through the operator's own management network. Inside the 72 hours this replay covers, no government attributed anything and the operator made no public statement about a cyber attack; the deliberate character of the event was not publicly established until 30 March, and Russia was not named until 10 May. The scenario tests whether seats can act usefully on a hostile event while the record still gives them nothing to attribute with, and whether a commercial operator holding the decisive forensic evidence discloses it. t = 0 is 2022-02-24T00:00:00Z; the episode ends 2022-02-27T00:00:00Z.",
+  "duration_s": 259200,
+  "injects": [
+    {
+      "inject_id": "vks-01-invasion-warning",
+      "sim_time_s": 0,
+      "recipients": ["all"],
+      "content": "Standing warning traffic: forces massed on three sides, several governments now saying publicly that an operation is expected within days or hours. Nothing here is about space, communications or any network. It is the reason every feed you have is about to get noisy.",
+      "confidence": 0.7,
+      "source": "allied warning and open reporting",
+      "source_class": "diplomatic",
+      "source_url": "https://cyberlaw.ccdcoe.org/wiki/Viasat_KA-SAT_attack_(2022)"
+    },
+    {
+      "inject_id": "vks-02-invasion-begins",
+      "sim_time_s": 10200,
+      "recipients": ["all"],
+      "content": "It has started. Televised address announcing a special military operation, followed within minutes by explosions reported in several cities. Everything that happens on any network for the next several days happens against this.",
+      "confidence": 0.9,
+      "source": "wire services",
+      "source_class": "media",
+      "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+    },
+    {
+      "inject_id": "vks-03-dos-from-inside",
+      "sim_time_s": 10920,
+      "recipients": ["starlink"],
+      "content": "Network operations, priority: high volumes of focused malicious traffic starting 0302Z, originating from SurfBeam2 and SurfBeam2+ modems and on-premises equipment physically located inside Ukraine. It is making it hard for other modems to stay online. This is a denial of service coming out of our own subscriber base, against our own network.",
+      "confidence": 0.9,
+      "source": "KA-SAT network operations centre",
+      "source_class": "internal",
+      "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/"
+    },
+    {
+      "inject_id": "vks-04-terminals-dead",
+      "sim_time_s": 12600,
+      "recipients": ["northcom"],
+      "content": "Units are reporting satellite terminals dead. Not degraded, dead. This is arriving in the same hour as everything else that is arriving, and there is no way from here to tell whether the terminals are a target, a casualty, or a coincidence.",
+      "confidence": 0.8,
+      "source": "own operational reporting",
+      "source_class": "internal",
+      "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/"
+    },
+    {
+      "inject_id": "vks-05-scale",
+      "sim_time_s": 18000,
+      "recipients": ["starlink"],
+      "content": "Scale update: tens of thousands of modems have dropped off the network. A majority of everything that was active in Ukraine, plus a substantial number in other parts of Europe. The satellite is fine. The space segment is fine. It is the terminals.",
+      "confidence": 0.9,
+      "source": "KA-SAT network operations centre",
+      "source_class": "internal",
+      "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/"
+    },
+    {
+      "inject_id": "vks-06-turbines",
+      "sim_time_s": 28800,
+      "recipients": ["norway"],
+      "content": "Quiet call from an energy company: they have lost remote monitoring and control of about 5,800 wind turbines in Germany. The turbines are still turning and still generating. The link to them is gone. They buy the same satellite service the outage is on. They are not going public with this and would like to know what we know.",
+      "confidence": 0.85,
+      "source": "national industry liaison",
+      "source_class": "customer",
+      "source_url": "https://www.sentinelone.com/labs/acidrain-a-modem-wiper-rains-down-on-europe/"
+    },
+    {
+      "inject_id": "vks-07-press-queries",
+      "sim_time_s": 43200,
+      "recipients": ["all"],
+      "content": "Reporters have noticed the outage and are calling the operator. The operator is acknowledging service problems in Ukraine and parts of Europe and saying nothing else. On a day this size the story is not competing well for attention.",
+      "confidence": 0.5,
+      "source": "press round-up",
+      "source_class": "media",
+      "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+    },
+    {
+      "inject_id": "vks-08-bricked",
+      "sim_time_s": 90000,
+      "recipients": ["starlink"],
+      "content": "The modems are not coming back. Power cycling does nothing, factory reset does nothing; key data in flash has been overwritten and the units cannot get on the network again. Every one of them is going to have to be physically replaced. This was not congestion, it was not the space segment, and it was not weather.",
+      "confidence": 0.85,
+      "source": "own engineering forensics",
+      "source_class": "internal",
+      "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/"
+    },
+    {
+      "inject_id": "vks-09-management-network",
+      "sim_time_s": 104400,
+      "recipients": ["starlink"],
+      "content": "Early read on entry: a poorly configured VPN appliance gave someone access to the trusted management segment of the network. From there they pushed commands that were legitimate in form to residential modems in Ukraine and several other European countries. Nothing was broken into on the modem end. Someone used our own management path to destroy our own subscriber hardware, in NATO countries, on the morning of an invasion. We are the only people who know this.",
+      "confidence": 0.7,
+      "source": "own engineering forensics",
+      "source_class": "internal",
+      "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/",
+      "is_knife_inject": true
+    },
+    {
+      "inject_id": "vks-10-agencies-asking",
+      "sim_time_s": 140400,
+      "recipients": ["usspacecom", "nsc", "norway"],
+      "content": "National cyber agencies in at least two European countries and one signals intelligence service have gone to the operator for information about the outage. Nothing has come back yet that anyone will put in writing. No government has said the word attack in public and none has named anyone.",
+      "confidence": 0.6,
+      "source": "liaison reporting",
+      "source_class": "liaison",
+      "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+    },
+    {
+      "inject_id": "vks-11-other-constellation",
+      "sim_time_s": 172800,
+      "recipients": ["all"],
+      "content": "In public, on social media: a Ukrainian minister asks a low-earth-orbit constellation operator directly for terminals. The operator's chief executive answers within hours that service is active over the country and more terminals are on the way. A gap in national communications has just been filled by a company, in public, in an afternoon, with no government on either side of the transaction.",
+      "confidence": 0.9,
+      "source": "social media, both parties posting under their own names",
+      "source_class": "media",
+      "source_url": "https://en.wikipedia.org/wiki/Viasat_hack"
+    },
+    {
+      "inject_id": "vks-12-coincidence-noticed",
+      "sim_time_s": 190800,
+      "recipients": ["all"],
+      "content": "Analysts and commentators have started pointing at the timing: the outage began within an hour of the opening of the invasion, and it hit the country being invaded hardest. That is being written up as evidence. It is a coincidence in the strict sense until somebody produces the malware or the intrusion path, and nobody has.",
+      "confidence": 0.4,
+      "source": "open-source analysts",
+      "source_class": "osint",
+      "source_url": "https://cyberlaw.ccdcoe.org/wiki/Viasat_KA-SAT_attack_(2022)"
+    },
+    {
+      "inject_id": "vks-13-no-attribution",
+      "sim_time_s": 244800,
+      "recipients": ["all"],
+      "content": "Three days in. No government anywhere has attributed the outage to anyone. The operator has made no statement about a cyber attack and has not said the modems were destroyed rather than disconnected. Replacement hardware is being organised quietly at a scale of tens of thousands of units. The network is largely carrying traffic again for everyone whose terminal still works.",
+      "confidence": 0.8,
+      "source": "press round-up and operator status pages",
+      "source_class": "media",
+      "source_url": "https://www.viasat.com/perspectives/corporate/2022/ka-sat-network-cyber-attack-overview/"
+    }
+  ]
+}

@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://panoptes.wargame/contracts/v1/lake_record_schema.json",
-  "$comment": "DRAFT until a human deletes this line.",
   "title": "Lake record",
   "description": "One decision by one seat at one decision point, with everything needed to reproduce it, filter it, and train on it. Written by gen/run.py to s3://$WARGAME_BUCKET/lake/ as it completes (never held in memory), scored in place by the idempotent second pass in gen/judge.py, and consumed by train/filter.py. Stored as JSONL, one record per line. A record is immutable except for the judge block and outcome_utility, which are filled in later; a re-judge overwrites judge and bumps judge_version.",
   "type": "object",

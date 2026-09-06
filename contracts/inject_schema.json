@@ -1,15 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://panoptes.wargame/contracts/v1/inject_schema.json",
-  "$comment": "DRAFT until a human deletes this line.",
   "title": "Replay file: injects and ground truth",
   "description": "The format for a scenario or replay. An inject is one piece of information arriving at named seats at a named sim time, with a confidence and a source; ground truth is what was actually happening, used only for scoring and never shown to a seat. A file may hold injects, ground truth, or both, so eval/replays can keep them in separate files (inject timeline authored openly, ground truth held apart) or one. Files under eval/replays/ are quarantine material per docs/quarantine.md: engine/injects.py loads them, and nothing in specs/, gen/ or the lake may read them.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["replay_id", "replay_version"],
+  "required": [
+    "replay_id",
+    "replay_version"
+  ],
   "anyOf": [
-    { "required": ["injects"] },
-    { "required": ["ground_truth"] }
+    {
+      "required": [
+        "injects"
+      ]
+    },
+    {
+      "required": [
+        "ground_truth"
+      ]
+    }
   ],
   "properties": {
     "replay_id": {
@@ -24,25 +34,52 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["real_replay", "control", "devset", "synthetic"],
+      "enum": [
+        "real_replay",
+        "control",
+        "devset",
+        "synthetic"
+      ],
       "description": "real_replay and control are quarantine material run once by Agent 6. devset and synthetic are the iteration set and are safe for Agents 3-5."
     },
-    "title": { "type": "string", "maxLength": 200 },
-    "description": { "type": "string", "maxLength": 4000, "description": "What this scenario is and what it is testing." },
-    "duration_s": { "type": "number", "minimum": 0, "maximum": 2592000, "description": "Episode length in sim seconds. 259200 for the standard 72-hour episode." },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "What this scenario is and what it is testing."
+    },
+    "duration_s": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2592000,
+      "description": "Episode length in sim seconds. 259200 for the standard 72-hour episode."
+    },
     "injects": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/inject" },
+      "items": {
+        "$ref": "#/$defs/inject"
+      },
       "description": "The inject timeline, ordered by sim_time_s. Only what was publicly or privately knowable at that moment, to the seats that could know it."
     },
-    "ground_truth": { "$ref": "#/$defs/ground_truth" }
+    "ground_truth": {
+      "$ref": "#/$defs/ground_truth"
+    }
   },
   "$defs": {
     "inject": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sim_time_s", "recipients", "content", "confidence", "source"],
+      "required": [
+        "sim_time_s",
+        "recipients",
+        "content",
+        "confidence",
+        "source"
+      ],
       "properties": {
         "sim_time_s": {
           "type": "number",
@@ -56,8 +93,15 @@
           "description": "Who sees it. 'all' delivers to every seat. Restricting recipients is how the scenario creates the information asymmetry the whole exercise turns on.",
           "items": {
             "oneOf": [
-              { "$ref": "spec_schema.json#/$defs/actor" },
-              { "type": "string", "enum": ["all"] }
+              {
+                "$ref": "spec_schema.json#/$defs/actor"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "all"
+                ]
+              }
             ]
           }
         },
@@ -91,7 +135,17 @@
         },
         "source_class": {
           "type": "string",
-          "enum": ["osint", "sigint", "commercial_telemetry", "space_weather", "media", "diplomatic", "liaison", "internal", "customer"],
+          "enum": [
+            "osint",
+            "sigint",
+            "commercial_telemetry",
+            "space_weather",
+            "media",
+            "diplomatic",
+            "liaison",
+            "internal",
+            "customer"
+          ],
           "description": "Optional machine-readable source category, for reporting and for the judge's private_info dimension."
         },
         "source_url": {
@@ -129,42 +183,83 @@
     "ground_truth": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cause", "attribution_time_s", "real_responses", "notes"],
+      "required": [
+        "cause",
+        "attribution_time_s",
+        "real_responses",
+        "notes"
+      ],
       "description": "Scoring key. Never delivered to any seat, never in a prompt, never in the lake. The engine loads it only to emit the attribution_revealed line at episode end.",
       "properties": {
-        "cause": { "$ref": "#/$defs/cause" },
+        "cause": {
+          "$ref": "#/$defs/cause"
+        },
         "responsible_actor": {
           "description": "Who did it. 'none' is the control answer: nobody did, it was the environment or the hardware. null means the public record does not establish it.",
           "oneOf": [
-            { "$ref": "spec_schema.json#/$defs/actor" },
-            { "type": "string", "enum": ["none"] },
-            { "type": "null" }
+            {
+              "$ref": "spec_schema.json#/$defs/actor"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "none"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "attribution_time_s": {
           "description": "Sim seconds from episode start at which the cause became publicly established in reality. null means it never was, which is the correct and common value for an unresolved incident. eval/replay_table.py compares the population's belief crossing against this.",
           "oneOf": [
-            { "type": "number", "minimum": 0 },
-            { "type": "null" }
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "real_responses": {
           "type": "object",
           "description": "What the real counterpart of each seat actually did, keyed by seat. A seat absent from this map made no recorded response, which is itself informative: response_match in contracts/targets.md scores 'hold' against an absent seat. Values may be a bare action name or an object carrying when and by whom.",
-          "propertyNames": { "$ref": "spec_schema.json#/$defs/seat" },
+          "propertyNames": {
+            "$ref": "spec_schema.json#/$defs/seat"
+          },
           "additionalProperties": {
             "oneOf": [
-              { "$ref": "action_schema.json#/$defs/action_type" },
+              {
+                "$ref": "action_schema.json#/$defs/action_type"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["action"],
+                "required": [
+                  "action"
+                ],
                 "properties": {
-                  "action": { "$ref": "action_schema.json#/$defs/action_type" },
-                  "sim_time_s": { "type": "number", "minimum": 0 },
-                  "real_actor": { "type": "string", "description": "The real-world organisation or person the seat stands in for in this incident." },
-                  "notes": { "type": "string", "maxLength": 1000 },
-                  "source_url": { "type": "string", "format": "uri" }
+                  "action": {
+                    "$ref": "action_schema.json#/$defs/action_type"
+                  },
+                  "sim_time_s": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "real_actor": {
+                    "type": "string",
+                    "description": "The real-world organisation or person the seat stands in for in this incident."
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "source_url": {
+                    "type": "string",
+                    "format": "uri"
+                  }
                 }
               }
             ]
@@ -178,18 +273,38 @@
         "expected_beliefs": {
           "type": "object",
           "description": "Optional. For devset scenarios with known correct behaviour: the belief band a competent seat should hold by the end, keyed by seat, as {hostile_min, hostile_max}. train/devset.py scores against it.",
-          "propertyNames": { "$ref": "spec_schema.json#/$defs/seat" },
+          "propertyNames": {
+            "$ref": "spec_schema.json#/$defs/seat"
+          },
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "hostile_min": { "type": "number", "minimum": 0, "maximum": 1 },
-              "hostile_max": { "type": "number", "minimum": 0, "maximum": 1 },
+              "hostile_min": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "hostile_max": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
               "expected_attributed_actor": {
                 "oneOf": [
-                  { "$ref": "spec_schema.json#/$defs/actor" },
-                  { "type": "string", "enum": ["none", "unknown"] },
-                  { "type": "null" }
+                  {
+                    "$ref": "spec_schema.json#/$defs/actor"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "unknown"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             }
@@ -198,7 +313,9 @@
         "forbidden_actions": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "$ref": "action_schema.json#/$defs/action_type" },
+          "items": {
+            "$ref": "action_schema.json#/$defs/action_type"
+          },
           "description": "Optional. Actions no seat should take in this scenario because reality had none. Feeds irreversible_action_rate_replays in contracts/targets.md."
         }
       }

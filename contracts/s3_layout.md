@@ -1,4 +1,4 @@
-# S3 LAYOUT. DRAFT until a human deletes this line.
+# S3 LAYOUT
 
 Bucket name comes from the environment variable `WARGAME_BUCKET` (see `.env.example`; the scaffold default is `svalbard-wargame`). Never hardcode it. AWS credentials come from the CLI profile in `AWS_PROFILE` (`panoptes`), never from a file in the repo.
 

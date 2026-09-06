@@ -4,17 +4,9 @@ Nothing here blocked me; I made a call on each and shipped it. All of these are 
 
 ---
 
-## Q1: `targets.md` and `seats.md` still say DRAFT, and my new files copy that convention
+## Q1: ~~contract files marked DRAFT~~ — resolved
 
-**Context:** `AGENTS.md` says a contract file containing `DRAFT` is not approved. `REPO_SETUP.md` §3 says the human deletes the `DRAFT` lines from every contract file at merge. I added the same marker to all seven new files: a `"$comment": "DRAFT until a human deletes this line."` at the top of each JSON, and a `DRAFT until a human deletes this line.` on the heading of each markdown.
-
-**Options:** (a) delete the seven markers at merge along with the two existing ones; (b) leave them until after env lock.
-
-**My recommendation:** (a). Wave 1 cannot start against files that announce they are unapproved, and the schemas are what the whole dependency order hangs off.
-
-**What I did meanwhile:** Marked them all and kept the marker in a place that does not affect validation — `$comment` is ignored by JSON Schema, so deleting the line is a one-line edit per file with no functional risk.
-
----
+**Status:** done. The marker was deleted from all ten files at merge, per `REPO_SETUP.md` §3: the six JSON schemas (`spec`, `action`, `event_log`, `inject`, `lake_record`, `env_config`) and the four markdown files (`README`, `s3_layout`, `seats`, `targets`). `contracts_v1` is approved and frozen. Changes from here go through an agent's `QUESTIONS.md` and a human, not through an edit.
 
 ## Q2: ~~no `pyproject.toml` at the repo root~~ — resolved
 

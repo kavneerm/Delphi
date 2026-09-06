@@ -1,4 +1,4 @@
-# SEATS. DRAFT until a human deletes this line.
+# SEATS
 
 Nine LLM personas, six rule actors. Folded from an earlier twelve-seat cut; see **Design notes** at the bottom for what moved where and why.
 

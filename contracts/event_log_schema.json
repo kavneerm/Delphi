@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://panoptes.wargame/contracts/v1/event_log_schema.json",
-  "$comment": "DRAFT until a human deletes this line.",
   "title": "Event log line",
   "description": "One JSON object per line of an episode's event log (JSONL, newline-delimited, UTF-8, no trailing comma, one event per line). Written by engine/log.py to s3://$WARGAME_BUCKET/logs/ per contracts/s3_layout.md, replayed by engine/replay.py, and read by ui/ to draw the timeline. Determinism rule: replay must reproduce every field byte-identically EXCEPT wall_time, which is real elapsed time and is excluded from the replay comparison. Ordering rule: lines are written in non-decreasing sim_time_s order; ties are broken by the engine's priority-queue insertion order and must replay in the same order.",
   "type": "object",

@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://panoptes.wargame/contracts/v1/spec_schema.json",
-  "$comment": "DRAFT until a human deletes this line.",
   "title": "Persona spec",
   "description": "One persona spec: the frozen description of a seat's authority, information, clock, preferences, hidden type and voice. Specs live in specs/train, specs/holdout, specs/devset and are uploaded to s3://$WARGAME_BUCKET/specs/. A spec is immutable once written; a change bumps spec_version and gets a row in docs/VERSIONS.md.",
   "type": "object",

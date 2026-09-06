@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://panoptes.wargame/contracts/v1/action_schema.json",
-  "$comment": "DRAFT until a human deletes this line.",
   "title": "Decision output",
   "description": "Two things in one file. (1) x-action-ladder: the ordered action menu, rung 0 to rung 13, with irreversibility, cost vector and the seats allowed to execute each rung. It is data, not schema; JSON Schema validators ignore x- keywords, so this file still validates a decision directly. (2) The root schema, which is the structured decision every seat emits at a decision point: beliefs, outbound messages, one action, and reasoning. gen/prompt.py enforces this root schema through structured outputs.",
   "$ref": "#/$defs/decision",

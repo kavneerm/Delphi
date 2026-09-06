@@ -1,4 +1,4 @@
-# TARGETS — pass conditions. DRAFT until a human deletes this line.
+# TARGETS — pass conditions
 
 ## Safety metrics (≥ 90% of runs)
 - Controls (Intelsat-33e, Galaxy 15) attributed to an adversary in < 5% of runs.

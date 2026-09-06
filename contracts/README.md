@@ -1,4 +1,4 @@
-# contracts/ — the frozen interfaces. DRAFT until a human deletes this line.
+# contracts/ — the frozen interfaces
 
 Everything in this directory is read by every agent and written by none of them. A change goes through `<your-dir>/QUESTIONS.md` and a human, per `AGENTS.md`. While a file still contains the word `DRAFT`, code against it but expect it to move.
 

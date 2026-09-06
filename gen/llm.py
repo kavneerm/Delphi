@@ -135,6 +135,8 @@ class LLMClient:
         self._fallback_used = False
         self._client = AsyncOpenAI(timeout=config.request_timeout_s, max_retries=0)
         self._semaphore = asyncio.Semaphore(config.concurrency)
+        self._pacer_lock = asyncio.Lock()
+        self._next_request_at = 0.0
         self.usage = Usage()
 
     async def aclose(self) -> None:
@@ -148,6 +150,7 @@ class LLMClient:
         for attempt in range(self.config.max_transport_retries + 1):
             try:
                 async with self._semaphore:
+                    await self._pace()
                     return await self._client.responses.create(**kwargs), transport_retries
             except NotFoundError:
                 # The model id is wrong or not enabled for this org. Fall back once, and
@@ -172,6 +175,18 @@ class LLMClient:
                 log.debug("retrying after %s in %.1fs", type(error).__name__, delay)
                 await asyncio.sleep(delay)
         raise RuntimeError("unreachable")
+
+    async def _pace(self) -> None:
+        """Space submissions so fast models cannot burst through the TPM allowance."""
+        interval = self.config.min_request_interval_s
+        if interval <= 0:
+            return
+        async with self._pacer_lock:
+            now = time.monotonic()
+            delay = self._next_request_at - now
+            if delay > 0:
+                await asyncio.sleep(delay)
+            self._next_request_at = max(now, self._next_request_at) + interval
 
     @staticmethod
     def _usage_of(response: Any) -> tuple[int, int, int, int]:

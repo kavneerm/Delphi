@@ -75,6 +75,11 @@ class GenConfig:
     backoff_base_s: float = field(default_factory=lambda: _float_env("GEN_BACKOFF_BASE_S", 1.0))
     backoff_max_s: float = field(default_factory=lambda: _float_env("GEN_BACKOFF_MAX_S", 60.0))
     request_timeout_s: float = field(default_factory=lambda: _float_env("GEN_TIMEOUT_S", 180.0))
+    # Luna's 2M TPM limit and the observed ~12k-token request shape permit about
+    # 2.7 requests/sec. Leave headroom for token variation and pace global submits.
+    min_request_interval_s: float = field(
+        default_factory=lambda: _float_env("GEN_MIN_REQUEST_INTERVAL_S", 0.45)
+    )
 
     # --- storage -----------------------------------------------------------
     # There is no backend switch here on purpose. agent8-infra adjudicated three

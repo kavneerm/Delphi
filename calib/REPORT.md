@@ -66,7 +66,10 @@ Tables 1–3 exclude every incident in `docs/quarantine.md` and every 2025–26 
 construction. `scripts/check_quarantine.sh` passes on every file I wrote. Two
 `red_action_rates.csv` rows (Russian cyber, Russian RPO) are floors because a
 quarantined incident was removed; both row notes say so. `holdout_2025_2026.csv` is
-aggregate counts only — no incident is named — and is write-protected and hook-guarded.
+aggregate counts only — no incident is named — and is guarded by
+`scripts/check_holdout_isolation.sh` against both reads outside `eval/` and any
+modification. `chmod 444` is set as a convenience but does not survive a clone (git
+stores the file `100644`), so the committed hook, not the file mode, is the protection.
 
 ## Handoffs made
 
@@ -88,7 +91,12 @@ aggregate counts only — no incident is named — and is write-protected and ho
    of the ladder attractive (Gen, Eval).
 4. **North Korean EW jumps 7× between the training and holdout windows.** A population
    trained on 2018–2024 will under-predict it (Eval).
-5. **Shared-checkout hazard, confirmed.** Twelve agents on one checkout: I ran
+5. **`chmod 444` does not survive git.** The brief asked for the holdout to be
+   write-protected by file mode; git stores only the executable bit, so a fresh clone
+   or a rebase hands you a writable file. Verified directly. The durable protection is
+   the committed pre-commit hook, which blocks both reading it outside `eval/` and
+   modifying it at all. Anyone relying on the mode alone has no protection.
+6. **Shared-checkout hazard, confirmed.** Twelve agents on one checkout: I ran
    `git reset --hard` in the primary directory and moved `agent4-train`'s branch
    pointer. Restored to `7603c89`, identical to origin, nothing lost. Work in
    `Panoptes-<agent>/`, and scope `git add` to your own paths.

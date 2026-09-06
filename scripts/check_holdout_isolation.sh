@@ -8,9 +8,17 @@
 # a filter config, a spec, a prompt — the held-out year has leaked into the thing it
 # is supposed to be measuring, and the final number means nothing.
 #
-# This checks the one thing a file permission cannot: that no *source* outside eval/
-# names the file. Write protection (chmod 444) stops an accidental edit; this stops
-# an accidental read.
+# This enforces two things, because a file permission enforces neither durably:
+#
+#   1. No *source* outside eval/ may name the file  — stops an accidental read.
+#   2. No commit may modify the file itself         — stops an accidental write.
+#
+# `chmod 444` is deliberately NOT the mechanism. Git records only the executable
+# bit (the holdout is stored 100644), so the read-only mode is local to one
+# working tree and is gone the moment anyone clones or the branch is rebased.
+# The mode is still applied as a convenience; this hook is the real guard.
+#
+# A human who genuinely needs to revise the held-out year sets ALLOW_HOLDOUT_EDIT=1.
 #
 # Usage:
 #   scripts/check_holdout_isolation.sh [files...]   # defaults to the staged files
@@ -57,6 +65,30 @@ fi
 [ "${#files[@]}" -eq 0 ] && exit 0
 
 status=0
+
+# --- 2. the holdout itself is frozen -----------------------------------------
+# Ask git what is actually being changed rather than trusting the argument list:
+# pre-commit passes staged files, but a human running this over the whole tree
+# passes the holdout too, and merely naming it is not modifying it.
+if [ "${ALLOW_HOLDOUT_EDIT:-0}" != "1" ]; then
+  if git diff --cached --name-only --diff-filter=ACMR 2>/dev/null \
+       | grep -qx 'calib/holdout_2025_2026.csv'; then
+    cat >&2 <<'MSG'
+the held-out year is being modified
+
+calib/holdout_2025_2026.csv is frozen. It is the record Agent 6 measures the trained
+population against, once, in Phase 6. Editing it after training has begun invalidates
+that measurement, and `chmod 444` cannot prevent this because git does not preserve
+the mode across a clone or a rebase.
+
+If you genuinely need to revise the held-out year, that is a human decision:
+
+    ALLOW_HOLDOUT_EDIT=1 git commit ...
+
+MSG
+    exit 1
+  fi
+fi
 for file in "${files[@]}"; do
   [ -f "$file" ] || continue
   is_exempt "$file" && continue

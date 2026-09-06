@@ -188,9 +188,16 @@ compare directly. Window 2025-01-01 to 2026-12-31, deliberately disjoint: events
 Threat Assessment 2025 and SWF Global Counterspace Capabilities 2026, cited per row.
 21 episodes, 0 destructive.
 
-`chmod 444` stops an accidental edit. `scripts/check_holdout_isolation.sh`, wired into
-pre-commit, stops the thing a file mode cannot — an accidental *read* — by failing any
-commit in which source outside `eval/` names the file.
+**How it is actually protected.** `scripts/check_holdout_isolation.sh`, wired into
+pre-commit, enforces both halves: no source outside `eval/` may *name* the file, and no
+commit may *modify* it (override with `ALLOW_HOLDOUT_EDIT=1`, which is a human decision).
+
+`chmod 444` is applied but is **not** the mechanism, and it would be a mistake to rely
+on it. Git records only the executable bit — the holdout is stored `100644` — so the
+read-only mode is local to one working tree and disappears on any clone or rebase. I
+confirmed this: a fresh checkout yields `-rw-r--r--`. The committed hook is the guard
+that travels, which is why the schema test asserts the hook exists rather than checking
+the file mode.
 
 **What changed between the windows** (stated here because Eval will need it, and
 because a population trained on the earlier window will be wrong in specific ways):

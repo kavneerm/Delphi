@@ -144,11 +144,22 @@ def test_holdout_window_is_disjoint_from_the_training_window() -> None:
         assert row["window_end"] <= "2026-12-31", row
 
 
-def test_holdout_is_write_protected() -> None:
-    import stat
+def test_holdout_protection_survives_a_clone() -> None:
+    """The durable guard, not the file mode.
 
-    mode = (CALIB / "holdout_2025_2026.csv").stat().st_mode
-    assert not (mode & stat.S_IWUSR), "holdout must stay chmod 444"
+    `chmod 444` is applied as a convenience but cannot be the mechanism: git
+    stores only the executable bit, so the holdout comes out of a fresh clone or
+    a rebase as 0644 and a mode-based assertion would pass only on the machine
+    that set it. scripts/check_holdout_isolation.sh is committed, so it is the
+    protection that actually travels.
+    """
+    root = CALIB.parent
+    hook = root / "scripts" / "check_holdout_isolation.sh"
+    assert hook.is_file(), "the holdout guard is missing"
+    body = hook.read_text()
+    assert "ALLOW_HOLDOUT_EDIT" in body, "no override path for a deliberate human edit"
+    assert "--cached --name-only" in body, "frozen check must read the staged diff"
+    assert "holdout-isolation" in (root / ".pre-commit-config.yaml").read_text()
 
 
 def test_holdout_covers_the_same_grid() -> None:

@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://panoptes.wargame/contracts/v1/spec_schema.json",
+  "$comment": "DRAFT until a human deletes this line.",
+  "title": "Persona spec",
+  "description": "One persona spec: the frozen description of a seat's authority, information, clock, preferences, hidden type and voice. Specs live in specs/train, specs/holdout, specs/devset and are uploaded to s3://$WARGAME_BUCKET/specs/. A spec is immutable once written; a change bumps spec_version and gets a row in docs/VERSIONS.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec_id",
+    "spec_version",
+    "seat",
+    "authority",
+    "information",
+    "decision_clock",
+    "utility_weights",
+    "risk_posture",
+    "time_horizon",
+    "priors",
+    "voice",
+    "backstory"
+  ],
+  "properties": {
+    "spec_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 64,
+      "description": "Stable snake_case identifier, unique across the whole spec pool. Convention: <seat>_<temperament>[_<variant>], e.g. northern_fleet_cautious_v2 -> spec_id 'northern_fleet_cautious'. Never reused for a different persona."
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^spec_v[0-9]+$",
+      "description": "Spec-pool version this file belongs to, e.g. 'spec_v1'. Carried on every lake record, event log and S3 object produced under it."
+    },
+    "seat": { "$ref": "#/$defs/seat" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unilateral", "requires_release", "recommend_only"],
+      "description": "What this persona may do with the action menu. Invariants, checked by tests/agent0-contracts: (1) the three lists are pairwise disjoint; (2) unilateral and requires_release are subsets of the actions whose allowed_seats include this seat (see action_schema.json#/x-action-ladder); (3) recommend_only may name any action, including ones this seat can never execute.",
+      "properties": {
+        "unilateral": {
+          "$ref": "#/$defs/action_list",
+          "description": "Executable by this seat on its own authority, no release required."
+        },
+        "requires_release": {
+          "$ref": "#/$defs/action_list",
+          "description": "Executable only after a release message from a releasing seat (NSC for Blue, Kremlin for Red). The engine blocks these until release is delivered."
+        },
+        "recommend_only": {
+          "$ref": "#/$defs/action_list",
+          "description": "This seat may recommend the action in a message but never execute it."
+        }
+      }
+    },
+    "information": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feeds", "clearance"],
+      "properties": {
+        "feeds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "description": "The information channels this seat sees. The engine builds the per-seat filtered view from exactly these; anything not listed is invisible to the seat.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "latency_minutes", "confidence_scale"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+                "description": "Feed identifier. Well-known names: own_telemetry, partner_telemetry, ssa_catalog, commercial_ssa, sigint, osint, media, space_weather, liaison_norway, liaison_nato, allied_intel, customer_reports, ground_station_status, cable_status, insurer, internal_reporting, adversary_public_statements. New names are allowed; the engine treats an unknown feed as empty and logs a state_change with payload.reason='unknown_feed'."
+              },
+              "latency_minutes": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 4320,
+                "description": "Delay between an event becoming true in the world and this seat seeing it on this feed."
+              },
+              "confidence_scale": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 2,
+                "description": "Multiplier applied to the feed's reported confidence for this seat. 1.0 = as-published; <1 = this seat discounts the feed; >1 = this seat over-trusts it. The storm layer multiplies this further (engine/storm.py)."
+              }
+            }
+          }
+        },
+        "clearance": {
+          "type": "string",
+          "enum": ["open", "commercial_proprietary", "restricted", "secret", "top_secret_sci"],
+          "description": "Ceiling on the classification of content the seat may receive or send. Ordered least to most permissive. Messages above the recipient's clearance are dropped by the engine and logged."
+        }
+      }
+    },
+    "decision_clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["poll_minutes", "wake_on_inject", "deliberation_minutes"],
+      "properties": {
+        "poll_minutes": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 4320,
+          "description": "Sim-minutes between scheduled decision points for this seat when nothing wakes it."
+        },
+        "wake_on_inject": {
+          "type": "boolean",
+          "description": "If true, an inject or a delivered message addressed to this seat schedules an immediate decision point instead of waiting for the next poll."
+        },
+        "deliberation_minutes": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4320,
+          "description": "Sim-minutes between a decision point firing and the seat's action taking effect in the world. Models staffing, coordination and release friction. NSC is slow; a commercial operator is fast."
+        }
+      }
+    },
+    "utility_weights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_loss",
+        "escalation_risk",
+        "alliance_cohesion",
+        "domestic_political",
+        "reputation_resolve",
+        "revenue",
+        "liability",
+        "career"
+      ],
+      "description": "How much this persona weighs each end-of-episode utility term. All eight are magnitudes in [0,1]; the sign convention is fixed by the engine, not the spec, so that two specs are always comparable. Engine convention (engine/utility.py): utility = sum over terms of weight * signed_term, where signed_term is NEGATED for asset_loss, escalation_risk and liability (more is worse) and POSITIVE for alliance_cohesion, domestic_political, reputation_resolve, revenue and career (more is better). Weights need not sum to 1; the engine normalises per persona before comparing across seats.",
+      "properties": {
+        "asset_loss": { "$ref": "#/$defs/weight", "description": "Cost of losing or degrading own satellites, ground stations, cables. Negated." },
+        "escalation_risk": { "$ref": "#/$defs/weight", "description": "Cost of moving the crisis up the ladder, including the chance of a response the seat cannot control. Negated." },
+        "alliance_cohesion": { "$ref": "#/$defs/weight", "description": "Value of allies staying aligned; for Red, value of splitting them." },
+        "domestic_political": { "$ref": "#/$defs/weight", "description": "Value of looking competent and decisive to a domestic audience." },
+        "reputation_resolve": { "$ref": "#/$defs/weight", "description": "Value of being seen to impose costs, i.e. deterrence credibility." },
+        "revenue": { "$ref": "#/$defs/weight", "description": "Commercial revenue and contract position. Near zero for government seats." },
+        "liability": { "$ref": "#/$defs/weight", "description": "Legal, insurance and regulatory exposure, including war-exclusion risk. Negated." },
+        "career": { "$ref": "#/$defs/weight", "description": "The individual's own standing and survival in post. The term that makes a persona duck a decision." }
+      }
+    },
+    "risk_posture": {
+      "type": "string",
+      "enum": ["risk_averse", "cautious", "balanced", "assertive", "risk_acceptant"],
+      "description": "Ordered least to most risk-taking. One of the two fields flipped to build counterfactual pairs (contracts/targets.md: counterfactual_sensitivity); the other is psyche."
+    },
+    "time_horizon": {
+      "type": "string",
+      "enum": ["immediate", "days", "weeks", "months", "years"],
+      "description": "The horizon over which this persona scores outcomes. immediate = within the 72-hour episode; days = the following week; weeks/months/years = beyond the episode, so the persona trades in-episode cost for later position."
+    },
+    "private_type": {
+      "$ref": "#/$defs/private_type",
+      "description": "Hidden type, known only to this seat. Only northern_fleet, china and hacktivist have one; the enum is seat-dependent and enforced below. Never appears in another seat's filtered view; it is revealed in the event log only at episode_end (type=attribution_revealed)."
+    },
+    "psyche": {
+      "type": "string",
+      "enum": ["revisionist", "revanchist", "opportunistic_cautious", "regime_survival"],
+      "description": "Red-only strategic disposition (seats northern_fleet and kremlin). The second field flipped to build counterfactual pairs, and the field eval/holdout_mix.py sweeps when comparing against the 2025-26 action mix."
+    },
+    "priors": {
+      "type": "object",
+      "description": "The persona's starting beliefs, before any inject. Free-form so specs can carry seat-specific priors, but the well-known keys below are the ones the engine seeds beliefs from; anything else is passed to the prompt as context only. p_hostile_prior + p_natural_prior + p_unknown_prior should sum to 1.0 (tests warn, do not fail, at |sum-1| > 0.01).",
+      "additionalProperties": true,
+      "properties": {
+        "p_hostile_prior": { "$ref": "#/$defs/probability", "description": "Prior that an unexplained outage is hostile." },
+        "p_natural_prior": { "$ref": "#/$defs/probability", "description": "Prior that it is space weather or technical failure." },
+        "p_unknown_prior": { "$ref": "#/$defs/probability", "description": "Prior that it is not yet classifiable." },
+        "attribution_threshold": { "$ref": "#/$defs/probability", "description": "Hostile probability at which this persona is willing to attribute publicly." },
+        "escalation_threshold": { "$ref": "#/$defs/probability", "description": "Hostile probability at which this persona is willing to move up the ladder." },
+        "trust": {
+          "type": "object",
+          "description": "Per-actor credibility multiplier applied to messages received from that actor, 0 = disbelieved, 1 = taken at face value.",
+          "additionalProperties": { "$ref": "#/$defs/probability" },
+          "propertyNames": { "$ref": "#/$defs/actor" }
+        }
+      }
+    },
+    "voice": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 1200,
+      "description": "How this persona writes and speaks: register, length, characteristic moves, what it never says. Scored by the judge's voice dimension (gen/judge.py)."
+    },
+    "backstory": {
+      "type": "string",
+      "minLength": 50,
+      "maxLength": 6000,
+      "description": "Career, institutional position, formative experience, standing relationships and grievances. Goes in the cached prompt prefix, so keep it stable across a spec version."
+    },
+    "temperament": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+      "description": "Optional short label for the variant within a seat, e.g. 'cautious', 'hawkish', 'legalistic'. Used for grouping in reports only; behaviour comes from the fields above."
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Optional author notes: sourcing for the authority envelope and priors, open questions. Not sent to the model."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "private_type is seat-dependent: northern_fleet.",
+      "if": { "properties": { "seat": { "const": "northern_fleet" } }, "required": ["seat"] },
+      "then": {
+        "required": ["private_type", "psyche"],
+        "properties": {
+          "private_type": { "enum": ["storm_reposition", "opportunistic_isr", "action_under_cover"] }
+        }
+      }
+    },
+    {
+      "$comment": "private_type is seat-dependent: china.",
+      "if": { "properties": { "seat": { "const": "china" } }, "required": ["seat"] },
+      "then": {
+        "required": ["private_type"],
+        "properties": {
+          "private_type": { "enum": ["honest_broker", "opportunistic_amplifier", "coordinated_with_russia"] }
+        }
+      }
+    },
+    {
+      "$comment": "private_type is seat-dependent: hacktivist.",
+      "if": { "properties": { "seat": { "const": "hacktivist" } }, "required": ["seat"] },
+      "then": {
+        "required": ["private_type"],
+        "properties": {
+          "private_type": { "enum": ["russian_directed", "freelance", "opportunistic"] }
+        }
+      }
+    },
+    {
+      "$comment": "Every other seat has no hidden type.",
+      "if": {
+        "properties": { "seat": { "not": { "enum": ["northern_fleet", "china", "hacktivist"] } } },
+        "required": ["seat"]
+      },
+      "then": { "not": { "required": ["private_type"] } }
+    },
+    {
+      "$comment": "psyche is Red-only (northern_fleet, kremlin) and required there.",
+      "if": { "properties": { "seat": { "const": "kremlin" } }, "required": ["seat"] },
+      "then": { "required": ["psyche"] }
+    },
+    {
+      "$comment": "Non-Red seats must not carry a psyche.",
+      "if": {
+        "properties": { "seat": { "not": { "enum": ["northern_fleet", "kremlin"] } } },
+        "required": ["seat"]
+      },
+      "then": { "not": { "required": ["psyche"] } }
+    }
+  ],
+  "$defs": {
+    "seat": {
+      "type": "string",
+      "description": "The 12 LLM personas, in the order given in contracts/seats.md.",
+      "enum": [
+        "northcom",
+        "usspacecom",
+        "nsc",
+        "norway",
+        "nato",
+        "northern_fleet",
+        "kremlin",
+        "china",
+        "starlink",
+        "iridium",
+        "ksat",
+        "hacktivist"
+      ]
+    },
+    "rule_actor": {
+      "type": "string",
+      "description": "The 5 scripted rule actors in contracts/seats.md. They emit events and receive messages but never take menu actions and never have a spec.",
+      "enum": ["swpc", "insurer", "media_clock", "osint_clock", "civilians"]
+    },
+    "actor": {
+      "type": "string",
+      "description": "Anything that can originate or receive traffic: the 12 seats, the 5 rule actors, plus 'environment' for the physical world and 'system' for engine bookkeeping.",
+      "enum": [
+        "northcom",
+        "usspacecom",
+        "nsc",
+        "norway",
+        "nato",
+        "northern_fleet",
+        "kremlin",
+        "china",
+        "starlink",
+        "iridium",
+        "ksat",
+        "hacktivist",
+        "swpc",
+        "insurer",
+        "media_clock",
+        "osint_clock",
+        "civilians",
+        "environment",
+        "system"
+      ]
+    },
+    "action_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 14,
+      "items": { "$ref": "action_schema.json#/$defs/action_type" }
+    },
+    "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+    "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "private_type": {
+      "type": "string",
+      "enum": [
+        "storm_reposition",
+        "opportunistic_isr",
+        "action_under_cover",
+        "honest_broker",
+        "opportunistic_amplifier",
+        "coordinated_with_russia",
+        "russian_directed",
+        "freelance",
+        "opportunistic"
+      ]
+    }
+  }
+}

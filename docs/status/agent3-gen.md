@@ -1,9 +1,9 @@
 # agent3-gen
 state: IN_PROGRESS
 branch: agent3-gen
-last_commit: 5388b6b
+last_commit: a10ddfe
 interfaces_ready: []
-needs: [engine.agent_api (agent1-engine), specs/train + specs/exemplars (humans/agent9-specs), calib/* (agent2-calib)]
+needs: [engine.agent_api (agent1-engine), specs/train + specs/exemplars (humans/agent9-specs), calib/attribution_lags.csv + storm_effects.csv (agent2-calib)]
 awaiting_human:
 updated: 2026-09-05
 notes: |
@@ -35,3 +35,20 @@ notes: |
   obvious readable scenario_id spelled out from the seven grid dimensions was 67 on its own —
   scenario ids are now abbreviated (g5_ihi_auc_rvn_cr0_shr_ir1) with the full coordinates
   kept on every record's grid_cell. Next: gen/prompt.py, gen/llm.py, gen/agent.py.
+  2026-09-05 22:50 — S3 went live, so I checked the storage layer I had written blind
+  against it instead of trusting it. Round-trip on s3://svalbard-wargame (us-east-1) passes
+  first try: all nine metadata keys survive head_object, empty-string values included,
+  Tagging project=svalbard applies (IAM has PutObjectTagging), and application/x-ndjson
+  survives for JSONL. All six contract prefixes exist and are empty — no real specs yet.
+  Surprising and worth fixing: the bucket has versioning ENABLED with a 30-day
+  noncurrent expiry. A plain delete of a transient lake/_parts/ object leaves both a
+  noncurrent version and a delete marker, so ~50k decisions would have left ~100k dead
+  objects behind. Store now records the VersionId it wrote and discard() deletes that
+  exact version — verified to leave zero versions and zero delete markers. Writes are
+  also offloaded with asyncio.to_thread so 64 in-flight episodes are not serialised
+  behind a blocking socket. Then landed gen/prompt.py: universal block (brief, full
+  ladder, output contract, exemplars) then persona then variable suffix, in that order
+  because prompt caching keys on the longest common prefix — reordering the blocks barely
+  changes the output and changes the bill a lot. 8.8k chars universal + 2.2k persona
+  cacheable against 3.4k variable. Leakage guard refuses ground-truth keys in any
+  filtered_state before the prompt is built. Next: gen/llm.py, gen/agent.py.

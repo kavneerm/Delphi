@@ -28,7 +28,9 @@ Anything held back stays in `specs/drafts/` and can be promoted later with the s
 
 ---
 
-## The six decisions that are actually yours
+## The decisions that are actually yours
+
+One of the six has since resolved itself against the engine's implementation and is marked so.
 
 Each has a default I have already applied. If you agree, do nothing.
 
@@ -39,10 +41,9 @@ Each has a default I have already applied. If you agree, do nothing.
 releasing seats only for Blue (NSC) and Red (Kremlin), so the engine may have no route for
 either request and the action could be permanently blocked.
 
-**Default:** promoted as written. The other two Norway variants have an empty
-`requires_release`, so the seat is never wholly blocked whichever way this lands.
-**To reverse:** `--except norway_alliance_first starlink_board_constrained`, or tell
-agent1-engine to route ally-seat requests to `nsc`. Full detail in `QUESTIONS.md` Q1.
+**RESOLVED — nothing for you to decide.** `engine/contracts.py::RELEASING_SEAT` maps `norway`,
+`starlink`, `iridium` and `china` to `nsc`, and `_request_release` falls back to `nsc` for any
+unmapped seat, so neither spec can deadlock. Both stand as written. `QUESTIONS.md` Q1.
 
 ### 2. Do the `nsc` headless personas belong in `specs/train/`? — affects 3 files
 

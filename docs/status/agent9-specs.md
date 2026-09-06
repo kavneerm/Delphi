@@ -66,6 +66,24 @@ notes: |
   verified the guard fires by reintroducing the old id. Both breaks were invisible to schema
   validation: they only appear when you read what the consumer actually does.
 
+  2026-09-05 — Checked handoffs. Three land on me. (1) agent1-engine verified all 25 specs
+  load, validate and run a full 72-hour episode that replays byte-identically, and all 8 devset
+  scenario.json files drive an episode end to end — and found a real engine bug doing it
+  (load_pool used setdefault against a dict already holding a placeholder per seat, so a
+  populated specs/train/ was silently ignored; anyone who ran the engine before their fix was
+  not running my specs). Their note (a), that exemplar_card_schema.json could land in
+  specs/train/, is already handled: promote.py excludes *_schema.json from the train group and
+  routes the card schema to specs/exemplars/. Verified, zero schema files in a train dry run.
+  (2) agent7-ui's warning that scripts/check_quarantine.sh matches only hyphenated and
+  space-separated spellings, not the underscored lowercase form an id actually uses. Confirmed
+  in both directions and hardened validate_drafts.py with a normalised scan over the whole tree
+  that reads PATTERNS out of the hook at runtime. It immediately caught a leak of mine — the
+  docstring explaining the bug named the incident as its example. Tree is clean in every
+  spelling. (3) Q1 RESOLVED without needing a human: engine/contracts.py RELEASING_SEAT maps
+  norway, starlink, iridium and china to nsc and _request_release falls back to nsc, so the two
+  specs that put an action behind release cannot deadlock. Both stand as written.
+  Q6 (train/devset.py cannot load the devset) is the only thing still open on another branch.
+
   PR: https://github.com/kavneerm/Delphi/pull/4
 
   Blocked on nothing. Downstream agents can read specs/drafts/ directly before promotion if the

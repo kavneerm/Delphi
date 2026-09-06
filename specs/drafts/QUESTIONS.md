@@ -28,6 +28,19 @@ action through after `deliberation_minutes`.
 The other two norway variants have an empty `requires_release`, so the seat is never wholly
 blocked whichever way this lands.
 
+## Answer — RESOLVED, no action needed (found in the implementation, 2026-09-05)
+
+`engine/contracts.py::RELEASING_SEAT` maps every seat explicitly, and `norway`, `starlink`,
+`iridium` and `china` all route to `nsc`; `engine/episode.py::_request_release` reads it as
+`RELEASING_SEAT.get(seat, "nsc")`, so even an unmapped seat falls back to NSC rather than
+hanging. Under `release_policy.policy == "auto"` the request resolves on a seeded probability
+draw with no seat involved at all.
+
+So `norway_alliance_first`'s `geofence_or_throttle` and `starlink_board_constrained`'s both
+route to NSC and cannot deadlock. Both specs stand as written; the `notes` fallbacks in them
+are unnecessary but harmless. This is the recommendation above, already implemented — I did not
+need to ask.
+
 ---
 
 ## 2. Should `nsc` specs be sampled into `specs/train/` at all?

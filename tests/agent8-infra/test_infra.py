@@ -338,3 +338,26 @@ def test_the_local_mirror_is_scratch_and_takes_any_key(tmp_path: Path) -> None:
 def test_strict_prefixes_can_be_waived_for_an_approved_prefix() -> None:
     store = Storage(bucket="b", strict_prefixes=False)
     assert store.strict_prefixes is False
+
+
+def test_the_boolean_local_flag_is_honoured() -> None:
+    # train/storage.py used WARGAME_LOCAL=1 before the shared helper existed; a caller
+    # with it set must not get S3 from from_env() while train/ gets the mirror.
+    assert resolve_backend({"WARGAME_LOCAL": "1"}) == "local"
+    assert resolve_backend({"WARGAME_LOCAL": "true"}) == "local"
+
+
+@pytest.mark.parametrize("falsey", ["", "0", "false", "no", "off"])
+def test_a_falsey_local_flag_is_not_a_vote(falsey: str) -> None:
+    assert resolve_backend({"WARGAME_LOCAL": falsey}) == "s3"
+    assert resolve_backend({"WARGAME_LOCAL": falsey, "WARGAME_BACKEND": "s3"}) == "s3"
+
+
+def test_the_local_flag_can_also_disagree() -> None:
+    with pytest.raises(ValueError, match="ambiguous"):
+        resolve_backend({"WARGAME_LOCAL": "1", "WARGAME_STORAGE": "s3"})
+
+
+def test_all_three_spellings_agreeing_is_fine() -> None:
+    env = {"WARGAME_LOCAL": "1", "WARGAME_STORAGE": "local", "WARGAME_BACKEND": "local"}
+    assert resolve_backend(env) == "local"

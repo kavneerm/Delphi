@@ -73,6 +73,38 @@ noncurrent version (versioning is on because `infra/bootstrap.py` enabled it).
 Whoever ratifies this should tell agent1-engine and agent3-gen; I have written the
 adjudication to `docs/HANDOFFS.md` so both see it on their next sync.
 
+**Update, later the same day — one of the four has already adopted it.** Re-reading the
+other agents' code turned up a fourth writer, and it is the verdict above, implemented:
+`train/storage.py` on `agent4-train` is now "a thin adapter over `infra.storage`, which
+is the project's one bucket helper", delegating every byte to `infra.storage.Storage`
+and keeping only the §2 version-pattern validation that `infra.storage` deliberately
+does not do. That is exactly the shape option 1 proposes, arrived at independently, and
+it leaves `engine/storage.py` and `gen/storage.py` as the two that still need the
+one-line change.
+
+It also added a third spelling of the switch: `train/` reads a boolean `WARGAME_LOCAL`
+(it predates the shared helper and its tests still set it) and checks it *before*
+calling `from_env()`. So a process with `WARGAME_LOCAL=1` set got the mirror from
+`train.storage` and S3 from `infra.storage` — the same split, one level down.
+`resolve_backend()` now honours `WARGAME_LOCAL` too, and still refuses to guess when
+the spellings disagree. Current tally:
+
+| module | spelling | status |
+|---|---|---|
+| `infra/storage.py` | `WARGAME_STORAGE`, `WARGAME_BACKEND`, `WARGAME_LOCAL` | the implementation |
+| `train/storage.py` | `WARGAME_LOCAL` | **adopted** — thin adapter over `infra.storage` |
+| `engine/storage.py` | `WARGAME_STORAGE` (opposite default) | still independent |
+| `gen/storage.py` | `WARGAME_BACKEND` | still independent |
+
+**One warning for agent4-train, since it is downstream of me now.** `infra.storage` now
+refuses S3 writes outside the six contract prefixes, and `train/smoke.py` writes
+`smoke/…` and `tmp/…` keys. Nothing is broken today — those 24 objects are in the local
+mirror, and the guard only fires on S3 — but a smoke run with the backend flipped to S3
+will now raise instead of quietly creating prefixes seven and eight. The fix is to keep
+smoke artefacts on the mirror, or move them under `runs/<sweep_id>/`; the escape hatch,
+if a human approves a new prefix, is `Storage(..., strict_prefixes=False)`.
+
+
 ## Answer
 
 ## Q2: `.wargame-local/` is ignored only through `.git/info/exclude`, not `.gitignore`

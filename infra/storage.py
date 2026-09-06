@@ -64,11 +64,16 @@ CONTENT_TYPES = {
 
 _DEFAULT_LOCAL_ROOT = ".wargame-local"
 
-# Two spellings of the same switch reached main in the same hour: this module and
-# engine/storage.py both read WARGAME_STORAGE (with opposite defaults), gen/storage.py
-# reads WARGAME_BACKEND. Rather than force a flag day, resolve_backend() honours both
-# and refuses to guess when they disagree. See infra/QUESTIONS.md Q1.
+# Four modules write to the bucket and they arrived at three spellings of the same
+# switch: this module and engine/storage.py read WARGAME_STORAGE (with opposite
+# defaults), gen/storage.py reads WARGAME_BACKEND, train/storage.py reads a boolean
+# WARGAME_LOCAL. Rather than force a flag day, resolve_backend() honours all three and
+# refuses to guess when they disagree. See infra/QUESTIONS.md Q1.
 BACKEND_ENV_VARS = ("WARGAME_STORAGE", "WARGAME_BACKEND")
+#: Boolean-shaped: truthy means the local mirror. train/ used this before the shared
+#: helper existed and its tests still set it.
+LOCAL_FLAG_ENV_VAR = "WARGAME_LOCAL"
+_FALSEY = ("", "0", "false", "no", "off")
 BACKENDS = ("s3", "local")
 
 # contracts/s3_layout.md §1: "Nothing else goes in the bucket."
@@ -78,9 +83,10 @@ CONTRACT_PREFIXES = ("specs/", "lake/", "runs/", "checkpoints/", "validation/", 
 def resolve_backend(env: Mapping[str, str] | None = None) -> str:
     """Which backend the environment selects: "s3" or "local".
 
-    Reads WARGAME_STORAGE and WARGAME_BACKEND, accepts either, and raises if they are
-    both set and disagree — a split where half the artefacts are in the bucket and half
-    are in a worktree-private directory is the failure this exists to prevent.
+    Reads WARGAME_STORAGE, WARGAME_BACKEND and the boolean WARGAME_LOCAL, accepts any
+    of them, and raises if they are set and disagree — a split where half the artefacts
+    are in the bucket and half are in a worktree-private directory is the failure this
+    exists to prevent.
 
     Unset means **s3**. Each agent has its own git worktree and therefore its own
     ./.wargame-local, so a local default silently gives every agent a private lake that
@@ -96,6 +102,10 @@ def resolve_backend(env: Mapping[str, str] | None = None) -> str:
         if value not in BACKENDS:
             raise ValueError(f"{name}={raw!r} is not one of {BACKENDS}")
         chosen[name] = value
+
+    flag = env.get(LOCAL_FLAG_ENV_VAR)
+    if flag is not None and flag.strip().lower() not in _FALSEY:
+        chosen[LOCAL_FLAG_ENV_VAR] = "local"
 
     distinct = set(chosen.values())
     if len(distinct) > 1:

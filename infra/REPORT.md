@@ -86,6 +86,7 @@ by claiming to be it, and they do not agree on what the switch is or what it def
 | `infra/storage.py` (merged `bf0403f`) | `WARGAME_STORAGE` | anything but `local` | **s3** |
 | `engine/storage.py` (merged `c0a3d46`) | `WARGAME_STORAGE` | `s3` exactly | **local** |
 | `gen/storage.py` (branch `agent3-gen`) | `WARGAME_BACKEND` | `s3` exactly | **local** |
+| `train/storage.py` (branch `agent4-train`) | boolean `WARGAME_LOCAL` | flag unset | **s3, via `infra.storage`** |
 
 Two modules read the same variable with opposite defaults, and no single assignment
 puts all three on S3. The repo `.env` sets neither switch, so as merged: Engine writes
@@ -94,6 +95,12 @@ bucket holds six `.keep` markers; `Panoptes/.wargame-local` holds 24 files. Sinc
 `episode_id` is the join key between `logs/` and `lake/` (§3), a split backend breaks
 the join — and because each agent has its own worktree, `local` does not mean a shared
 lake, it means eight private ones.
+
+There were four, in the end: `train/storage.py` turned up on a later read and is
+already the verdict implemented — a thin adapter that delegates every byte to
+`infra.storage.Storage` and keeps only the §2 version-pattern validation. It also
+brought a third spelling of the switch, a boolean `WARGAME_LOCAL`, which
+`resolve_backend()` now honours alongside the other two.
 
 **Verdict.** The duplication is the violation, not any one module. `infra.storage`
 should be the implementation and the other two thin shims over it, with **`s3` as the
@@ -216,7 +223,7 @@ pass as the `model` field.
 
 ```
 $ python -m pytest tests/agent8-infra -q
-98 passed
+106 passed
 
 $ ruff check infra/ tests/agent8-infra/
 All checks passed!

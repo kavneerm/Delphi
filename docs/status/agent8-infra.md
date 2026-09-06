@@ -57,4 +57,14 @@ notes: |
   exact strings engine/log.py and gen/storage.py produce, so Engine's logs/ and Gen's
   lake/ keys are confirmed conformant as written. The auditor also flags the smoke/
   and tmp/ keys already sitting in the main checkout's mirror.
-  98 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.
+  2026-09-05 — Read the other agents' code again and found a FOURTH writer, which is
+  good news: train/storage.py already delegates every byte to infra.storage.Storage,
+  i.e. the Q1 verdict implemented independently. It brought a third spelling of the
+  switch though (boolean WARGAME_LOCAL, checked before from_env()), so a process with
+  it set got the mirror from train.storage and S3 from infra.storage — the same split
+  one level down. resolve_backend() now honours all three spellings and still refuses
+  to guess when they disagree. Warned agent4-train that the new prefix guard will
+  raise on their smoke/ and tmp/ keys if they ever flip that path to S3 (harmless
+  today: those 24 objects are on the local mirror). engine/ and gen/ remain the two
+  that still need the one-line adoption.
+  106 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.

@@ -47,6 +47,7 @@ CAUSE_FOR_ATTACK: dict[str, str] = {
     "dazzle": "hostile_dazzle",
     "ground_cyber": "hostile_ground_cyber",
     "rpo": "hostile_rpo",
+    "kinetic": "hostile_kinetic",
 }
 
 
@@ -110,6 +111,19 @@ DEFAULT_PROFILES: dict[str, AttackProfile] = {
         median_hours=12.0,
         sigma=0.70,
         floor_hours=1.0,
+    ),
+    # Not one of the four effect rungs — `engine/episode.py` applies the
+    # destruction itself — but it carries a lag so a kinetic strike is
+    # attributed on the same clock as everything else. calib/attribution_lags.csv
+    # has a row for it; without a profile here that row was silently skipped.
+    "kinetic": AttackProfile(
+        kind="kinetic",
+        default_duration_minutes=0.0,
+        magnitude=1.0,
+        signature="debris_event",
+        median_hours=1.0,
+        sigma=1.0,
+        floor_hours=0.1,
     ),
 }
 
@@ -207,6 +221,10 @@ class Effect:
 class AttackLayer:
     """Creates and ages effects. Knows nothing about who is allowed to do what."""
 
+    #: Long enough that an effect outlives any episode, used where the world
+    #: change is permanent (a debris field, a burned-out sensor).
+    PERMANENT_MINUTES = 10**7
+
     def __init__(self, profiles: dict[str, AttackProfile] | None = None) -> None:
         self.profiles = profiles if profiles is not None else load_attribution_lags()
         self.effects: dict[str, Effect] = {}
@@ -229,11 +247,16 @@ class AttackLayer:
         dazzle_damage_probability: float = 0.06,
     ) -> Effect:
         """Turn an executed rung into an effect in the world."""
-        kind = ATTACK_FOR_ACTION[action_type]
+        # The four effect rungs map through ATTACK_FOR_ACTION; `kinetic` is
+        # launched by name, since its world effect is applied by the episode.
+        kind = ATTACK_FOR_ACTION.get(action_type, action_type)
         profile = self.profiles[kind]
         effect_id = self._next_id(kind)
         minutes = float(params.get("duration_minutes") or profile.default_duration_minutes)
         magnitude = profile.magnitude
+        if kind == "kinetic":
+            # A debris field does not expire inside the episode.
+            minutes = float(self.__class__.PERMANENT_MINUTES)
         if kind == "rpo":
             standoff = float(params.get("standoff_km") or 50.0)
             # Closer is louder: 1 km reads as a hold-at-risk, 1000 km as a look.
@@ -258,7 +281,8 @@ class AttackLayer:
         )
         if kind == "dazzle" and rng.chance(f"dazzle_damage:{effect_id}", dazzle_damage_probability):
             effect.permanent_damage = True
-            effect.end_s = 10**9  # never recovers; the rung stays "reversible", the world does not
+            # Never recovers: the rung stays "reversible", the world does not.
+            effect.end_s = int(now_s + self.PERMANENT_MINUTES * 60)
             effect.description += " Sensor response has not recovered."
         self.effects[effect_id] = effect
         return effect
@@ -355,5 +379,7 @@ def _describe(kind: str, params: dict[str, Any]) -> str:
     if kind == "ground_cyber":
         effect = params.get("effect") or "disrupt"
         return f"Ground segment {target}: anomalous behaviour consistent with {effect}."
+    if kind == "kinetic":
+        return f"Kinetic engagement of {target}. Debris field in the same orbital regime."
     standoff = params.get("standoff_km")
     return f"Close approach on {target} inside {standoff} km."

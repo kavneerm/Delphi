@@ -585,6 +585,7 @@ class Episode:
                     "decision_id": decision_id,
                     "operator": getattr(agent, "operator_label", "operator"),
                     "beliefs": decision["beliefs"],
+                    "reasoning": reasoning,
                 },
             )
         self._commit_action(
@@ -1063,6 +1064,23 @@ class Episode:
         if action_type == "kinetic":
             target = str(params.get("target_asset_id") or "")
             debris = 180
+            # Kinetic is not one of the four effect rungs, but it is still an
+            # attributable act: give it an effect so the attribution lag from
+            # calib/attribution_lags.csv applies and the reveal reaches the log
+            # like any other. The destruction below is applied by the episode.
+            effect = self.attacks.launch(
+                action_type="kinetic",
+                actor=seat,
+                params=params,
+                now_s=now,
+                rng=self.rng,
+            )
+            if effect.attribution_time_s is not None:
+                self.loop.schedule(
+                    effect.attribution_time_s,
+                    "attribution_expire",
+                    {"effect_id": effect.effect_id},
+                )
             if world.asset(target):
                 world.set(f"assets.{target}.destroyed", True, reason=f"kinetic_by_{seat}")
                 world.set(f"assets.{target}.service_multiplier", 0.0, reason=f"kinetic_by_{seat}")
@@ -1080,7 +1098,11 @@ class Episode:
             world.set("escalation_rung", RUNG["kinetic"], reason=f"kinetic_by_{seat}")
             world.bump(f"reputation.{seat}", -0.25, reason="kinetic")
             self.end_reason = "terminal_action"
-            return {"target_asset_id": target, "debris_objects": debris}
+            return {
+                "target_asset_id": target,
+                "debris_objects": debris,
+                "effect_id": effect.effect_id,
+            }
 
         if action_type == "terrestrial_response":
             world.set(

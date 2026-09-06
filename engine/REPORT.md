@@ -18,7 +18,8 @@ Built in the order `docs/agent_workstreams.md` specifies.
 | `engine/seats.py` | The filtered view: feeds at their latency and confidence scale, clearance, message routing with per-channel delay, the decision clock. |
 | `engine/injects.py` | Replay-file loading, a synthetic ambiguity timeline, the five scripted rule actors, and `hacktivist_injects` with its hidden per-run affiliation. |
 | `engine/utility.py` | Eight terms in [0,1], weighted by the persona's own weights, **sign convention fixed in the engine rather than the spec** so two personas stay comparable. `alliance_cohesion` inverts for Red. |
-| `engine/log.py`, `engine/storage.py` | Sorted-key JSONL, an assertion that lines come out in non-decreasing `sim_time_s`, `equal_ignoring_wall_time`, and one S3/local-mirror helper per `s3_layout.md` §6. |
+| `engine/log.py` | Sorted-key JSONL, an assertion that lines come out in non-decreasing `sim_time_s`, and `equal_ignoring_wall_time`. |
+| `engine/storage.py` | A thin shim over `infra.storage`, which `agent8-infra` adjudicated as the one helper `s3_layout.md` §6 asks for. It was one of three competing writers, and worse, it defaulted to *local* where infra defaulted to *S3* — with an unset environment the engine wrote `logs/` to a worktree-private mirror while Gen's `lake/` went elsewhere, and `episode_id` is the join key between them. S3 is now the unset default and `require=` fails a write whose provenance is incomplete. |
 | `engine/stubs.py` | `hold`, `random_in_menu`, `aggressive`. Seeded off the episode RNG, so a stub run is as reproducible as any other. |
 | `engine/agent_api.py` | The interface Gen, Train, Selfplay and Eval implement: `observe()`, `act(view)`, `wake_policy`, plus `decide_release()` and the coercion that turns an invalid decision into a logged `hold` instead of a dead sweep cell. |
 | `engine/human_agent.py` | An `agent_api` agent whose `act()` blocks on an external event (the UI) and whose `observe()` returns the seat's filtered view. Default seat `nsc`. |
@@ -151,9 +152,22 @@ The tests worth naming:
    their committed files. Until they reach `main`, `--storm-profile may2024`
    silently gives placeholder curves — `storm_check` says so loudly, `run.py`
    prints `[TODO_CALIB placeholder]`, and neither should be ignored.
-3. **`calib/attribution_lags.csv` does not exist yet.** The four medians (jam 6 h,
-   dazzle 18 h, ground_cyber 72 h, rpo 12 h) are placeholders chosen for their
-   *ordering*, which the public record supports; the magnitudes are not evidence.
+3. ~~`calib/attribution_lags.csv` does not exist yet.~~ **Closed, and my
+   placeholders were wrong.** `agent2-calib` shipped it with fitted lognormals
+   over 19 non-quarantined incidents. My placeholder medians (jam 6 h,
+   dazzle 18 h, ground_cyber 72 h, rpo 12 h) were not just wrong in magnitude —
+   the *ordering* I claimed the record supports was wrong too. The measured
+   order is **kinetic 1 h < rpo 6 h < jam 18 h < dazzle 96 h < ground_cyber
+   240 h**: RPO is attributed faster than jamming, not slower. The loader reads
+   their columns as-is and all five profiles now load `CALIBRATED`.
+
+   Two things came out of adopting it. `kinetic` had no profile in
+   `engine/attacks.py`, so their kinetic row was silently skipped and a kinetic
+   strike was **never attributed at all**; it now creates an attributable effect
+   like every other act. And `ground_cyber` at a 240 h median means a cyber
+   effect is essentially never attributed inside a 72-hour episode — which is
+   `agent2-calib`'s deliberate choice, documented in their `QUESTIONS.md` Q1,
+   and a thing Eval must not read as a model failure.
 4. **The specs are placeholders until `specs/train/` is populated.** Verified
    against `agent9-specs`' real pool: all 25 parse, validate and satisfy the
    authority invariants, and a 72-hour episode on them completes and replays

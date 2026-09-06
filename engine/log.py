@@ -21,7 +21,7 @@ from typing import Any
 
 from engine import CONTRACTS_VERSION
 from engine.contracts import validate
-from engine.storage import object_metadata, put_text, read_text
+from engine.storage import put_text, read_text
 
 __all__ = [
     "EventLog",
@@ -125,15 +125,16 @@ class EventLog:
         return put_text(
             key,
             self.to_jsonl(),
-            metadata=object_metadata(
-                env_version=self.env_version,
-                spec_version=self.spec_version,
-                lake_version=lake_version,
-                seed=self.seed,
-                episode_id=self.episode_id,
-                contracts_version=CONTRACTS_VERSION,
-            ),
+            env_version=self.env_version,
+            spec_version=self.spec_version,
+            lake_version=lake_version,
+            seed=self.seed,
+            episode_id=self.episode_id,
+            contracts_version=CONTRACTS_VERSION,
             content_type="application/x-ndjson",
+            # A log that cannot be traced back to an engine version and an
+            # episode is not a log; fail at the write, not on discovery.
+            require=("env_version", "episode_id"),
         )
 
 

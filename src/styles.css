@@ -574,3 +574,28 @@ em {
     display: none;
   }
 }
+
+/* The one call to action in the letter. Set as a rule-underlined line rather than a button:
+   a filled button in the middle of a serif letter reads as an advertisement, and the whole
+   page is arguing that it is not one. */
+.enter-cue {
+  margin-top: 1.6rem;
+}
+
+.enter-link {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--accent);
+}
+
+.enter-link:hover,
+.enter-link:focus-visible {
+  background: var(--accent-wash);
+}

@@ -9,11 +9,13 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "shots": "node scripts/shoot.ts",
-    "check": "npm run typecheck && npm run check:content && npm run check:layout",
+    "check": "npm run typecheck && npm run check:content && npm run check:layout && npm run check:laydown && npm run check:bridge",
     "check:content": "node scripts/content.ts",
     "check:layout": "node scripts/layout.ts",
     "check:placeholder": "node scripts/placeholder.ts",
-    "deploy": "npm run build && npm run check:placeholder && node scripts/deploy.ts"
+    "deploy": "npm run build && npm run check:placeholder && node scripts/deploy.ts",
+    "check:laydown": "node scripts/laydown.ts",
+    "check:bridge": "node scripts/bridge.ts"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

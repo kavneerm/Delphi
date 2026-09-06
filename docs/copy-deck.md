@@ -74,7 +74,28 @@ statement turns on, and the contrast should be visible before the sentence is re
 
 ---
 
-## 04 — Get involved
+## 04 — The simulation
+
+The one place on the site that is not an argument. It hands the reader the thing the letter
+describes, and the link is the only call to action above the contact form.
+
+**Heading** (orange)
+
+> The simulation
+
+**Body**
+
+> Concentrated control is easy to state and hard to feel. So we built something you can hold: an Arctic archipelago whose shipping, rescue, and communications all run through a handful of satellites owned by someone else — and a clock that starts when those satellites stop answering.
+
+> It runs in your browser. Nothing is recorded.
+
+**Link**
+
+> Enter the simulation
+
+---
+
+## 05 — Get involved
 
 **Heading** (orange)
 

@@ -32,6 +32,7 @@ from engine.config import EnvConfig  # noqa: E402
 from engine.episode import Episode  # noqa: E402
 from engine.human_agent import ExternalDecisionChannel, HumanAgent  # noqa: E402
 from engine.stubs import build_stubs  # noqa: E402
+from train.fireworks import BASE_MODELS, Client, FireworksError  # noqa: E402
 from ui.server.wsproto import WebSocket, WebSocketClosed, serve  # noqa: E402
 
 IRREVERSIBLE = ("counter_rpo", "kinetic", "terrestrial_response")
@@ -98,9 +99,31 @@ def build_config(
     return EnvConfig.from_dict(raw)
 
 
-def make_episode(config: EnvConfig, seat: str, channel: ExternalDecisionChannel) -> Episode:
+def make_episode(
+    config: EnvConfig,
+    seat: str,
+    channel: ExternalDecisionChannel,
+    served: dict[str, Any] | None = None,
+) -> Episode:
+    """`served` = {"adapter", "deployment", "client"}: every seat the human is not sitting
+    at is played by that adapter on that deployment. Without it, the stubs play as before.
+    ServedAgent never raises — a network failure or a malformed completion becomes a
+    logged hold whose reasoning says why, which is what the console shows."""
+
     def factory(episode: Episode) -> dict[str, Any]:
         agents = build_stubs(episode.specs, episode.rng, policy="aggressive")
+        if served:
+            from train.serve import ServedAgent  # lazy: pulls in the training stack
+
+            for other in list(agents):
+                if other != seat:
+                    agents[other] = ServedAgent(
+                        other,
+                        served["adapter"],
+                        deployment=served["deployment"],
+                        client=served["client"],
+                        spec=episode.specs[other],
+                    )
         if seat in agents:
             agents[seat] = HumanAgent(
                 seat,
@@ -112,12 +135,11 @@ def make_episode(config: EnvConfig, seat: str, channel: ExternalDecisionChannel)
             )
         return agents
 
-    return Episode(
-        config,
-        agent_factory=factory,
-        validate_lines=True,
-        agents_descriptor={"kind": "human", "policy": "aggressive", "human_seat": seat},
-    )
+    descriptor: dict[str, Any] = {"kind": "human", "policy": "aggressive", "human_seat": seat}
+    if served:
+        descriptor["adapter"] = served["adapter"]
+        descriptor["deployment"] = served["deployment"]
+    return Episode(config, agent_factory=factory, validate_lines=True, agents_descriptor=descriptor)
 
 
 # ── fork ─────────────────────────────────────────────────────────────────
@@ -294,11 +316,11 @@ def run_fork(
 class Session:
     """One episode, one operator seat, however many watching browsers."""
 
-    def __init__(self, config: EnvConfig, seat: str) -> None:
+    def __init__(self, config: EnvConfig, seat: str, served: dict[str, Any] | None = None) -> None:
         self.config = config
         self.seat = seat
         self.channel = ExternalDecisionChannel()
-        self.episode = make_episode(config, seat, self.channel)
+        self.episode = make_episode(config, seat, self.channel, served)
         self.clients: set[WebSocket] = set()
         self.loop: asyncio.AbstractEventLoop | None = None
         self._sent = 0
@@ -369,9 +391,9 @@ def _jsonable(obj: Any) -> Any:
 # ── server ───────────────────────────────────────────────────────────────
 
 
-async def main_async(args: argparse.Namespace) -> None:
+async def main_async(args: argparse.Namespace, served: dict[str, Any] | None = None) -> None:
     config = build_config(args.seed, args.hours, args.storm, args.seat, args.scenario, args.clock)
-    session = Session(config, args.seat)
+    session = Session(config, args.seat, served)
     session.loop = asyncio.get_running_loop()
 
     async def handler(ws: WebSocket) -> None:
@@ -506,12 +528,72 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--clock", default="checkpoint", choices=["continuous", "checkpoint"])
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8778)
+    ap.add_argument(
+        "--adapter",
+        default=None,
+        help="Fireworks adapter model id; every non-human seat plays it",
+    )
+    ap.add_argument("--deployment", default="demo-tracka", help="deployment id to create or reuse")
+    ap.add_argument("--base", default=BASE_MODELS["llama31_8b"]["id"])
+    ap.add_argument(
+        "--reuse-deployment",
+        action="store_true",
+        help="the deployment is already up; do not create it",
+    )
+    ap.add_argument(
+        "--keep-deployment",
+        action="store_true",
+        help="leave the deployment up on exit (it bills per GPU-hour)",
+    )
     args = ap.parse_args(argv)
+
+    served = _bring_up(args) if args.adapter else None
     try:
-        asyncio.run(main_async(args))
+        asyncio.run(main_async(args, served))
     except KeyboardInterrupt:
         print()
+    finally:
+        if served and not args.keep_deployment:
+            _tear_down(served)
     return 0
+
+
+def _bring_up(args: argparse.Namespace) -> dict[str, Any]:
+    """Create the deployment (or reuse it), wait for READY, load the adapter. Blocks for
+    minutes; that is the cost of an on-demand GPU and there is no hiding it."""
+    client = Client.from_env()
+    dep = args.deployment
+    if not args.reuse_deployment:
+        try:
+            client.create_deployment(deployment_id=dep, base_model=args.base)
+            print(f"deployment: creating {dep} on {args.base}", flush=True)
+        except FireworksError as exc:
+            print(f"deployment: create failed ({exc}); assuming it exists", flush=True)
+    client.wait(
+        lambda: client.get_deployment(dep),
+        done=("READY",),
+        failed=("FAILED", "DELETING", "UNSPECIFIED"),
+        interval=15,
+        timeout=1800,
+    )
+    print(f"deployment: {dep} READY", flush=True)
+    try:
+        client.load_lora_and_wait(dep, args.adapter)
+        print(f"adapter   : {args.adapter} loaded", flush=True)
+    except FireworksError as exc:
+        print(f"adapter   : load reported {exc}; continuing (it may already be loaded)", flush=True)
+    return {"adapter": args.adapter, "deployment": dep, "client": client}
+
+
+def _tear_down(served: dict[str, Any]) -> None:
+    """Loud on purpose: an un-torn-down deployment bills by the hour."""
+    dep = served["deployment"]
+    try:
+        gone = served["client"].ensure_deployment_gone(dep)
+        state = "deleted" if gone.get("deleted") else "NOT DELETED - check the Fireworks console"
+        print(f"deployment: {dep} {state}", flush=True)
+    except Exception as exc:  # noqa: BLE001 - never mask a failed teardown behind a prettier error
+        print(f"deployment: TEARDOWN FAILED for {dep}: {exc} - delete it by hand", flush=True)
 
 
 if __name__ == "__main__":

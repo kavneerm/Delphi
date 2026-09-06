@@ -31,3 +31,16 @@ notes: |
   named feed, and specs/ has not published a feed vocabulary, so naming feeds now
   would silently delete injects. Routing uses recipients + source_class instead.
   Next: viasat_ka_sat and dozor_teleport.
+
+  2026-09-05 — viasat_ka_sat drafted: 13 injects, ground truth, scoring.md. All four
+  JSON files validate. Two things worth a human's attention. (1) The action ladder in
+  contracts/action_schema.json has no rung for a commercial operator *extending*
+  service into a region — which is exactly what the other constellation did on
+  2022-02-26, the most consequential commercial decision in the whole incident.
+  geofence_or_throttle means restricting, so scoring it there would invert the rung.
+  That seat is therefore in the inject timeline and deliberately out of the scoring
+  key; flagged in viasat_ka_sat_scoring.md for the contract owner, not blocking.
+  (2) response_match needs to be computed against an in-window expectation column,
+  not the raw real_responses times — three of the four real responses happened 34 to
+  75 days after episode end, and scoring correct patience against them would mark it
+  as failure. Each scoring.md now carries that table. Next: dozor_teleport.

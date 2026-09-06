@@ -47,6 +47,14 @@ disagree (the Kosmos-2558 miss distance, the hour the Balticconnector pressure d
 noticed) the file uses the more precise later figure and the disagreement is recorded in
 `ground_truth.notes`.
 
+**Internal injects are placed at the hour the fact was true.** An inject with
+`source_class: internal` carries something one organisation knew privately at that
+moment, and its `source_url` points at the later public record that establishes the
+fact. The KA-SAT operator knew on 25 February what it published on 30 March; putting
+that knowledge at its real time, visible to one seat only, is the whole point of a
+replay whose subject is information asymmetry. Injects that are public when they fire
+carry a source published on or before that date.
+
 **Seat mapping is approximate and is written down.** These are real incidents replayed
 against a nine-seat Arctic board, so no real organisation maps cleanly onto a seat. Every
 mapping decision is stated in the ground-truth `notes` and in `scoring.md`, including which

@@ -49,3 +49,11 @@ The run is therefore capped at 36 continuous-clock episodes (about 36,288 decisi
 which meets the 30–50k workstream target and projects to $1,398 without cache using
 the observed live Terra token mix. The runner limits concurrency to eight and writes
 each completed episode with full provenance before starting the next.
+
+## 5. RESOLVED — generation model and throughput
+
+The human selected `gpt-5.6-luna` for generation after confirming its 2M TPM account
+limit. The unpersisted Terra batch was stopped, so no lake mixes models. Luna is the
+OpenAI high-volume model, supports structured outputs and low reasoning, and is priced
+at $0.20/M input, $0.02/M cached input and $1.20/M output. The runner now uses at most
+16 concurrent requests, appropriate for the 2M TPM limit and observed 12k-token shape.

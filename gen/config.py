@@ -57,13 +57,13 @@ class GenConfig:
     """Everything a generation or judge pass needs, resolved once at startup."""
 
     # --- model -------------------------------------------------------------
-    model: str = field(default_factory=lambda: os.environ.get("GEN_MODEL", "gpt-5.6-terra"))
+    model: str = field(default_factory=lambda: os.environ.get("GEN_MODEL", "gpt-5.6-luna"))
     fallback_model: str = field(
-        default_factory=lambda: os.environ.get("GEN_MODEL_FALLBACK", "gpt-5.6-terra")
+        default_factory=lambda: os.environ.get("GEN_MODEL_FALLBACK", "gpt-5.6-luna")
     )
     judge_model: str = field(
         default_factory=lambda: os.environ.get(
-            "JUDGE_MODEL", os.environ.get("GEN_MODEL", "gpt-5.6-terra")
+            "JUDGE_MODEL", os.environ.get("GEN_MODEL", "gpt-5.6-luna")
         )
     )
     max_output_tokens: int = field(default_factory=lambda: _int_env("GEN_MAX_OUTPUT_TOKENS", 4096))
@@ -116,13 +116,13 @@ class GenConfig:
     # overridable and cost_check prints them next to every dollar figure it reports.
     # See gen/QUESTIONS.md Q1.
     price_input_per_mtok: float = field(
-        default_factory=lambda: _float_env("GEN_PRICE_INPUT_PER_MTOK", 2.0)
+        default_factory=lambda: _float_env("GEN_PRICE_INPUT_PER_MTOK", 0.2)
     )
     price_cached_input_per_mtok: float = field(
-        default_factory=lambda: _float_env("GEN_PRICE_CACHED_INPUT_PER_MTOK", 0.2)
+        default_factory=lambda: _float_env("GEN_PRICE_CACHED_INPUT_PER_MTOK", 0.02)
     )
     price_output_per_mtok: float = field(
-        default_factory=lambda: _float_env("GEN_PRICE_OUTPUT_PER_MTOK", 12.0)
+        default_factory=lambda: _float_env("GEN_PRICE_OUTPUT_PER_MTOK", 1.2)
     )
 
     def approved(self) -> bool:

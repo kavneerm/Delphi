@@ -21,7 +21,7 @@ from infra.storage import Storage, Versions
 FULL_EPISODES = 36
 FULL_DECISIONS_PER_EPISODE = 1008
 FULL_BUDGET_CAP_USD = 1500.0
-FULL_CONCURRENCY = 3
+FULL_CONCURRENCY = 16
 
 
 def episode_config(config: GenConfig, seed: int, *, cost_check: bool) -> EnvConfig:
@@ -192,8 +192,8 @@ async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
 async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str, Any]:
     """Generate the budget-capped initial lake, stopping only at episode boundaries.
 
-    Three calls are in flight at most. This stays below the 500k TPM ceiling with
-    the observed 12k-token prompt shape, while the fixed episode count is
+    Sixteen calls are in flight at most. This stays below Luna's 2M TPM ceiling
+    with the observed 12k-token prompt shape, while the fixed episode count is
     conservative even if prompt caching vanishes.
     """
     if episodes != FULL_EPISODES:
@@ -232,7 +232,7 @@ async def run_full(config: GenConfig, episodes: int = FULL_EPISODES) -> dict[str
     try:
         keys: list[str] = []
         # Episode.run is synchronous, but each GenAgent hands its request back to
-        # this event loop. A batch of three worker threads therefore keeps three
+        # this event loop. A batch of sixteen worker threads therefore keeps sixteen
         # requests in flight (rather than accidentally serialising 1,008 calls per
         # episode), while the batch boundary is a safe, observable budget checkpoint.
         for first_seed in range(1, episodes + 1, config.concurrency):

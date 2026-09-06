@@ -102,3 +102,6 @@ infra/.terraform/
 *.tfvars
 *.tfvars.json
 crash.log
+
+# Terraform packages the contact Lambda into this on every plan/apply. Build output.
+infra/.build/

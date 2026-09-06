@@ -49,6 +49,8 @@ const MIME: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.json': 'application/json; charset=utf-8',
+  '.mp4': 'video/mp4',
+  '.jpg': 'image/jpeg',
 };
 
 export interface StaticServer {

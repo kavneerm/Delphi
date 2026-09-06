@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Svalbard orbital dependency wargame — Inevitable Frontier</title>
+<!-- No webfont. This page is the whole of a site whose argument is about who controls
+     access to things; loading a typeface from Google would hand every reader's request to
+     a third party to make the UI 2% nicer. The stack below is what Roboto was standing in
+     for on every platform that has it. -->
+<style>
+  :root{
+    --ocean:#081F3F; --shelf:#1E3350; --coast:#7E94A9; --grey:#D3D5D8; --cream:#F5E8D2;
+    --text:#F1F1F1; --muted:#AAAAAA; --line:rgba(255,255,255,.12); --hover:rgba(255,255,255,.1);
+    --amber:#E3A92A; --red:#D9534F; --green:#57B37A;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--grey);font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased}
+  body{background:var(--grey) url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2725.456%27%20height%3D%2725.456%27%3E%3Cdefs%3E%3Cpattern%20id%3D%27p%27%20width%3D%2718%27%20height%3D%2718%27%20patternUnits%3D%27userSpaceOnUse%27%20patternTransform%3D%27rotate%2845%29%27%3E%3Crect%20width%3D%2718%27%20height%3D%2718%27%20fill%3D%27%23D3D5D8%27%2F%3E%3Cpath%20d%3D%27M0%200h18M0%209h18M0%200v18M9%200v18%27%20stroke%3D%27%23BCC0C6%27%20stroke-width%3D%272.2%27%2F%3E%3Cpath%20d%3D%27M0%204.5h18M0%2013.5h18M4.5%200v18M13.5%200v18%27%20stroke%3D%27%23E1E3E6%27%20stroke-width%3D%271.4%27%2F%3E%3Cg%20fill%3D%27%23F1F2F4%27%3E%3Crect%20x%3D%27-1%27%20y%3D%27-1%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%278%27%20y%3D%278%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%278%27%20y%3D%27-1%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%27-1%27%20y%3D%278%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%2717%27%20y%3D%27-1%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%27-1%27%20y%3D%2717%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%2717%27%20y%3D%278%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%278%27%20y%3D%2717%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3Crect%20x%3D%2717%27%20y%3D%2717%27%20width%3D%272%27%20height%3D%272%27%2F%3E%3C%2Fg%3E%3C%2Fpattern%3E%3C%2Fdefs%3E%3Crect%20width%3D%2725.456%27%20height%3D%2725.456%27%20fill%3D%27url%28%23p%29%27%2F%3E%3C%2Fsvg%3E") 0 0/12.7px 12.7px repeat}
+  .app{height:100vh;padding:6px;display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,26%);gap:6px}
+
+  /* ---------- theatre (space + map) ---------- */
+  .theatre{position:relative;background:#000;overflow:hidden;border-radius:4px;display:flex;flex-direction:column}
+  .space{position:relative;flex:0 0 16%;min-height:104px;background:#000;overflow:hidden}
+  .stars{position:absolute;inset:0}
+  .horizon{position:absolute;left:0;right:0;bottom:0;height:46%;background:linear-gradient(to bottom,rgba(8,31,63,0) 0%,rgba(8,31,63,.55) 60%,var(--ocean) 100%);pointer-events:none}
+  .limb{position:absolute;left:-10%;right:-10%;bottom:-6px;height:14px;border-top:1px solid rgba(126,148,169,.5);border-radius:50% 50% 0 0;pointer-events:none}
+  .orbits{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .orbits path{fill:none;stroke:rgba(126,148,169,.35);stroke-width:1;stroke-dasharray:3 6}
+  .orbits text{font-size:11px;font-weight:500;letter-spacing:.06em;fill:var(--muted)}
+  .sat{position:absolute;width:40px;height:25px;cursor:grab;touch-action:none;user-select:none;transform:translate(-50%,-50%)}
+  .sat:active{cursor:grabbing}
+  .sat svg{width:100%;height:100%;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+  .sat .tag{position:absolute;left:50%;top:100%;transform:translateX(-50%);white-space:nowrap;font-size:9px;color:var(--muted);letter-spacing:.03em}
+  .sat.selected .tag{color:var(--cream)}
+  .sat.selected svg{filter:drop-shadow(0 0 8px rgba(245,232,210,.55))}
+
+  .map{position:relative;flex:1;background:var(--ocean) url(../media/svalbard.jpg) center/cover no-repeat;min-height:0}
+  .map::before{content:"";position:absolute;inset:0 0 auto 0;height:70px;background:linear-gradient(to bottom,var(--ocean),rgba(8,31,63,0));pointer-events:none}
+  .links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .theatre-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .gs{position:absolute;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;border:2px solid var(--cream);background:var(--ocean);box-shadow:0 0 0 4px rgba(8,31,63,.6)}
+  .gs::after{content:attr(data-name);position:absolute;left:18px;top:-3px;white-space:nowrap;font-size:11.5px;font-weight:500;color:var(--cream);text-shadow:0 1px 3px #000;opacity:0;transition:opacity .15s}
+  .gs:hover::after,.gs:focus::after{opacity:1}
+  /* Units sit on the map the way ground stations do: absolutely placed by percentage,
+     named only on hover so 30 labels do not bury the coastline. The glyph is rotated to
+     the unit's course inside the box, which leaves the label upright. */
+  /* Arrival veil. The bridge page fades to black on its last frame; this starts black and
+     lifts, so the two documents meet on the same colour and the handoff reads as one shot
+     rather than a navigation. It is painted by CSS and removed by script, so a reader with
+     no JavaScript never sees it at all. */
+  .arrival{position:fixed;inset:0;background:#000;z-index:999;pointer-events:none;opacity:1;transition:opacity 460ms ease;animation:arrival-failsafe 1ms linear 1.8s forwards}
+  .arrival.lift{opacity:0;animation:none}
+  /* The failsafe is the point: the veil is removed by script on a healthy page, but a JS
+     error anywhere above would otherwise leave the reader on a black rectangle forever.
+     CSS lifts it regardless after 1.8s. */
+  @keyframes arrival-failsafe{to{opacity:0;visibility:hidden}}
+  @media (prefers-reduced-motion:reduce){.arrival{display:none}}
+  /* Setup dialog. Sits above the arrival veil so the two resolve together rather than
+     showing black, then the theatre, then a box on top of it. */
+  .setup{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(4,10,20,.72);backdrop-filter:blur(3px)}
+  .setup[hidden]{display:none}
+  .setup-card{width:min(520px,100%);max-height:calc(100vh - 40px);overflow-y:auto;background:#0d1930;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+  .setup-card h2{margin:0 0 4px;font-size:17px;font-weight:500;color:var(--cream)}
+  .setup-sub{margin:0 0 16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+  .setup-field{display:block;margin-bottom:12px}
+  .setup-field>span{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .setup-field input,.setup-field textarea{width:100%;box-sizing:border-box;background:#08142b;border:1px solid rgba(255,255,255,.16);border-radius:5px;color:var(--text);font:inherit;font-size:13px;padding:8px 10px;resize:vertical}
+  .setup-field textarea{line-height:1.5;min-height:118px}
+  .setup-field input:focus,.setup-field textarea:focus{outline:2px solid var(--amber);outline-offset:-1px;border-color:transparent}
+  .setup-field input::placeholder,.setup-field textarea::placeholder{color:#6f7d92}
+  .setup-row{display:flex;gap:10px;align-items:center;margin-top:16px}
+  .setup-demo{flex:none;height:34px;padding:0 14px;border:1px solid rgba(255,255,255,.22);border-radius:6px;background:none;color:var(--text);font:inherit;font-size:12.5px;cursor:pointer}
+  .setup-demo:hover{background:var(--hover)}
+  .setup-demo[aria-pressed=true]{background:var(--amber);border-color:var(--amber);color:#14213d;font-weight:500}
+  .setup-go{margin-left:auto;height:34px;padding:0 20px;border:0;border-radius:6px;background:var(--cream);color:#0f1a2e;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+  .setup-go:hover{background:#fff}
+  .setup-demo:focus-visible,.setup-go:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @media (max-width:560px){.setup-row{flex-wrap:wrap}.setup-go{margin-left:0;width:100%}}
+  .unit{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:default}
+  .unit .glyph{display:block;width:100%;height:100%;transform-origin:50% 50%}
+  .unit .glyph svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,.75));display:block}
+  .unit::after{content:attr(data-name);position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:1px;white-space:nowrap;font-size:11px;font-weight:500;color:var(--cream);text-shadow:0 1px 3px #000,0 0 7px #000;opacity:0;transition:opacity .15s;pointer-events:none;z-index:3}
+  .unit:hover::after,.unit:focus::after,.unit:focus-visible::after{opacity:1}
+  .unit:hover,.unit:focus{z-index:20}
+  .unit:hover .glyph svg,.unit:focus .glyph svg{filter:drop-shadow(0 0 7px rgba(245,232,210,.5))}
+  .unit:focus{outline:none}
+  .unit:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:2px}
+  @media (prefers-reduced-motion:reduce){.unit::after{transition:none}}
+  .gs.degraded{border-color:var(--amber)} .gs.lost{border-color:var(--red)}
+
+  .clock{position:absolute;right:14px;top:12px;text-align:right}
+  .clock strong{display:block;font-size:22px;font-weight:500;color:var(--text);letter-spacing:.02em;line-height:1;font-variant-numeric:tabular-nums}
+
+  /* ---------- feed (YouTube live chat idiom) ---------- */
+  .feed{display:flex;flex-direction:column;background:var(--ocean);border-radius:4px;overflow:hidden;min-height:0;border:1px solid var(--line)}
+  .feed-head{display:flex;align-items:center;gap:8px;height:48px;padding:0 8px 0 16px;border-bottom:1px solid var(--line);flex:none}
+  .feed-head h1{margin:0;font-size:16px;font-weight:500;display:flex;align-items:center;gap:6px;flex:1}
+  .feed-head h1 svg{width:20px;height:20px;fill:currentColor}
+  .feed-op{flex:none;font-size:11px;color:var(--muted);letter-spacing:.03em;white-space:nowrap}
+  .icon-btn{width:40px;height:40px;border:0;background:none;color:var(--text);border-radius:50%;display:grid;place-items:center;cursor:pointer;padding:0}
+  .icon-btn svg{width:24px;height:24px;fill:currentColor}
+  .icon-btn:hover{background:var(--hover)}
+  .icon-btn:focus-visible,.chip:focus-visible,.picker>button:focus-visible,.mic:focus-visible,.send:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+  .filters{display:flex;gap:5px;padding:12px 14px 8px;flex:none;flex-wrap:wrap}
+  .chip{flex:none;height:26px;padding:0 9px;border:0;border-radius:7px;background:var(--hover);color:var(--text);font:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+  .chip:hover{background:rgba(255,255,255,.2)}
+  .chip[aria-pressed=true]{background:#f1f1f1;color:#0f0f0f}
+  .stream{flex:1;overflow:auto;padding:4px 0;scroll-behavior:smooth}
+  .stream::-webkit-scrollbar{width:8px}.stream::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
+  .ev{display:grid;grid-template-columns:8px 1fr;gap:10px;padding:8px 16px;font-size:13px;line-height:18px}
+  .ev:hover{background:rgba(255,255,255,.04)}
+  .ev .dot{margin-top:5px}
+  .ev .meta{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--muted)}
+  .ev .meta b{font-weight:500;color:var(--text)}
+  .ev p{margin:2px 0 0;color:var(--text)}
+  .ev.thinking p{color:var(--muted)}
+  .ev.system .meta b{color:var(--muted)}
+  .ev.system p{color:var(--muted);font-size:12px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .compose{display:flex;flex-direction:column;gap:8px;padding:8px 16px 12px;border-top:1px solid var(--line);flex:none}
+  .compose-top{display:flex;align-items:center;gap:12px}
+  .compose input{flex:1;background:none;border:0;border-bottom:1px solid var(--muted);color:var(--text);padding:8px 0 6px;font:inherit;font-size:13px;outline:none;border-radius:0}
+  .compose input:focus{border-bottom:2px solid #fff;padding-bottom:5px}
+  .compose input::placeholder{color:var(--muted)}
+  .compose-row{display:flex;align-items:center}
+  .compose-row .spacer{flex:1}
+  .picker{position:relative}
+  .picker>button{display:flex;align-items:center;gap:6px;background:none;border:0;color:var(--text);padding:0 8px;height:32px;border-radius:16px;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+  .picker.posture>button{color:var(--muted);font-weight:400}
+  .picker>button:hover{background:var(--hover)}
+  .picker .chev{width:18px;height:18px;fill:var(--muted);transition:transform .15s}
+  .picker.open .chev{transform:rotate(180deg)}
+  .menu{position:absolute;left:0;bottom:calc(100% + 6px);min-width:240px;background:var(--shelf);border-radius:12px;padding:8px 0;z-index:5;display:none;box-shadow:0 4px 32px rgba(0,0,0,.5)}
+  .picker.open .menu{display:block}
+  .menu div{padding:0 16px;height:44px;cursor:pointer;display:flex;gap:16px;align-items:center;font-size:14px}
+  .menu div:hover{background:var(--hover)}
+  .menu div[aria-selected=true]{background:rgba(255,255,255,.05)}
+  .menu small{display:block;color:var(--muted);font-size:12px;line-height:14px}
+  .menu>div>span:not(.dot){display:block;line-height:16px}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .mic{background:none;border:0;color:var(--text);width:40px;height:40px;border-radius:50%;cursor:pointer;display:grid;place-items:center;padding:0}
+  .mic svg{width:22px;height:22px;fill:currentColor}
+  .mic:hover{background:var(--hover)}
+  .mic[aria-pressed=true]{color:#ff4e45}
+  .send{background:var(--cream);color:var(--ocean);border:0;width:32px;height:32px;border-radius:50%;cursor:pointer;position:relative;margin-left:6px;padding:0}
+  .send::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;border-top:2px solid var(--ocean);border-left:2px solid var(--ocean);transform:translate(-50%,-30%) rotate(45deg)}
+  .send:hover{background:#fff}
+
+  /* ---------- player controls ---------- */
+  .bar{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:0 12px 4px;display:flex;flex-direction:column;background:linear-gradient(to top,rgba(0,0,0,.6),rgba(0,0,0,0) 100%);opacity:0;transition:opacity .2s;pointer-events:none}
+  .theatre:hover .bar,.theatre.show .bar,.bar:focus-within{opacity:1;pointer-events:auto}
+  .theatre.idle:not(.show) .bar{opacity:0;pointer-events:none}
+  .tl{position:relative;height:16px;display:flex;align-items:center;padding-top:16px}
+  #scrub{-webkit-appearance:none;appearance:none;width:100%;height:3px;margin:0;background:rgba(255,255,255,.3);outline:none;cursor:pointer;background-image:linear-gradient(var(--grey),var(--grey));background-size:0% 100%;background-repeat:no-repeat;transition:height .1s}
+  .tl:hover #scrub{height:5px}
+  #scrub::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--grey);border:0;transform:scale(0);transition:transform .1s}
+  .tl:hover #scrub::-webkit-slider-thumb,#scrub:focus-visible::-webkit-slider-thumb{transform:scale(1)}
+  #scrub::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--grey);border:0}
+  .ctl-row{display:flex;align-items:center;height:44px}
+  .ctl{display:flex;align-items:center}
+  .ctl button{background:none;border:0;color:#fff;width:44px;height:44px;cursor:pointer;display:grid;place-items:center;padding:0;opacity:.9}
+  .ctl button:hover{opacity:1}
+  .ctl button svg{width:24px;height:24px;fill:currentColor}
+  .ctl button.play svg{width:28px;height:28px}
+  .ctl button:focus-visible,#speedBtn:focus-visible,#scrub:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+  .ctl .now{margin-left:6px;font-size:13px;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 2px rgba(0,0,0,.5)}
+  .ctl-row .spacer{flex:1}
+  #speedBtn{background:none;border:0;color:#fff;font:inherit;font-size:13px;font-weight:500;height:44px;padding:0 12px;cursor:pointer;opacity:.9}
+  #speedBtn:hover{opacity:1}
+
+  @media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:60vh 1fr;height:auto;min-height:100vh}}
+</style>
+</head>
+<body>
+<div class="arrival" id="arrival" aria-hidden="true"></div>
+
+<!-- Shown on arrival, over the theatre. The scenario clock and the fleet are held until
+     Begin, so the reader configures a run rather than catching one already in progress. -->
+<div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+  <form class="setup-card" id="setupForm">
+    <h2 id="setupTitle">Configure the simulation</h2>
+    <p class="setup-sub">Name the run, name yourself, and describe the situation the actors wake up into.</p>
+
+    <label class="setup-field">
+      <span>Simulation</span>
+      <input id="setupSim" name="sim" type="text" autocomplete="off" placeholder="Svalbard orbital dependency" />
+    </label>
+
+    <label class="setup-field">
+      <span>Operator</span>
+      <input id="setupOp" name="op" type="text" autocomplete="off" placeholder="Your name or callsign" />
+    </label>
+
+    <label class="setup-field">
+      <span>System prompt</span>
+      <textarea id="setupPrompt" name="prompt" rows="5"
+        placeholder="Describe the situation. What has just happened, and what do the actors know about it?"></textarea>
+    </label>
+
+    <div class="setup-row">
+      <button type="button" class="setup-demo" id="setupDemo" aria-pressed="false">Use demo scenario</button>
+      <button type="submit" class="setup-go">Begin</button>
+    </div>
+  </form>
+</div>
+
+<div class="app">
+
+  <section class="theatre" aria-label="Operational theatre">
+    <div class="space" id="space">
+      <canvas class="stars" id="stars"></canvas>
+      <div class="horizon"></div>
+      <div class="limb"></div>
+      <svg class="orbits" id="orbits" aria-hidden="true"></svg>
+      <div class="clock"><strong id="clock">14:02:00Z</strong></div>
+    </div>
+    <div class="map" id="map">
+      <div class="gs" id="gs-nya" tabindex="0" data-name="Ny-Ålesund" style="left:30.3%;top:39.8%"></div>
+      <div class="gs" id="gs-lyr" tabindex="0" data-name="Longyearbyen" style="left:40.6%;top:50.9%"></div>
+      <div class="gs" id="gs-bjo" tabindex="0" data-name="Bjørnøya" style="left:47.5%;top:94.5%"></div>
+    </div>
+    <svg class="theatre-links" id="links"></svg>
+  <div class="bar" aria-label="Scenario playback">
+      <div class="tl"><input type="range" id="scrub" min="0" max="3600" step="10" value="0" aria-label="Scrub scenario time"></div>
+      <div class="ctl-row">
+        <div class="ctl">
+          <button type="button" id="play" class="play" aria-label="Pause" aria-pressed="true"><svg viewBox="0 0 24 24"><path id="playIcon" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button>
+          <button type="button" id="back" aria-label="Back 5 minutes"><svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6zM12.5 12l8.5 6V6z"/></svg></button>
+          <button type="button" id="fwd" aria-label="Forward 5 minutes"><svg viewBox="0 0 24 24"><path d="M13 6v12l8.5-6zM11.5 12L3 6v12z"/></svg></button>
+          <span class="now" id="tlNow">14:02Z</span>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" id="speedBtn" aria-label="Playback speed, click to cycle" title="Click to change speed">0.5×</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="feed" aria-label="Live feed">
+    <div class="feed-head">
+      <h1 id="feedTitle">Live feed</h1><span class="feed-op" id="feedOperator" hidden></span>
+    </div>
+    <div class="filters" role="group" aria-label="Filter feed">
+      <button class="chip" aria-pressed="true" data-f="all">All</button>
+      <button class="chip" aria-pressed="false" data-f="action">Actions</button>
+      <button class="chip" aria-pressed="false" data-f="thinking">Thinking</button>
+      <button class="chip" aria-pressed="false" data-f="system">System</button>
+      <button class="chip" aria-pressed="false" data-f="mine">Your actor</button>
+    </div>
+    <div class="stream" id="stream" aria-live="polite"></div>
+    <form class="compose" id="compose">
+      <div class="compose-top"><input id="cmd" placeholder="Issue an order…" autocomplete="off"></div>
+      <div class="compose-row">
+        <div class="picker" id="picker">
+          <button type="button" id="pickBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dot" id="pickDot"></span><span id="pickName"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div class="menu" role="listbox" id="menu"></div>
+        </div>
+        <div class="picker posture" id="postureWrap">
+          <button type="button" id="postureBtn" aria-haspopup="listbox" aria-expanded="false" aria-label="Actor posture"><span id="postureName">Balanced</span></button>
+          <div class="menu" role="listbox" id="postureMenu">
+            <div role="option" data-p="Cautious"><span>Cautious<small>Verifies before acting</small></span></div>
+            <div role="option" data-p="Balanced" aria-selected="true"><span>Balanced<small>Default judgement</small></span></div>
+            <div role="option" data-p="Aggressive"><span>Aggressive<small>Acts on partial information</small></span></div>
+          </div>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="mic" id="mic" aria-label="Dictate order" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>
+        <button class="send" type="submit" aria-label="Send"></button>
+      </div>
+    </form>
+  </aside>
+
+
+
+
+</div>
+
+<script>
+/* ---------- actors (the "model picker") ---------- */
+const ACTORS = [
+  {id:'nor', name:'Norwegian Joint HQ',      role:'Blue – theatre command',       color:'#5E8FD6'},
+  {id:'ksat',name:'KSAT Ground Ops',         role:'Blue – satellite operator',    color:'#57B37A'},
+  {id:'rus', name:'Northern Fleet',          role:'Red – naval & EW',             color:'#D9534F'},
+  {id:'sar', name:'Svalbard Governor',       role:'Civil – local authority',      color:'#E3A92A'},
+  {id:'obs', name:'Observer',                role:'Watch all actors',             color:'#7E94A9'},
+];
+let me = ACTORS[0];
+const A = Object.fromEntries(ACTORS.map(a=>[a.id,a]));
+
+/* ---------- satellites & links ---------- */
+/* Top band is HEO, not GEO: geostationary satellites cannot see Svalbard at 78°N. The
+   persistent Arctic relays fly highly elliptical orbits, which is what the three satellites
+   drawn there are. The `geo` key is an internal id and stays; only the label changes. */
+const ORBITS={ geo:{y:.17,k:.07,label:'HEO'}, meo:{y:.50,k:.13,label:'MEO'}, leo:{y:.83,k:.19,label:'LEO'} };
+const arcY=(o,x)=>ORBITS[o].y+ORBITS[o].k*Math.pow(x-.5,2)*2;   /* gentle curve echoing the Earth limb */
+const SATS = [
+  {id:'s1', name:'SvalSat-1',   type:'comms',   orbit:'geo', x:.16, links:[['gs-nya','ok']]},
+  {id:'s2', name:'SvalSat-2',   type:'comms',   orbit:'geo', x:.50, links:[['gs-nya','ok'],['gs-lyr','ok']]},
+  {id:'s7', name:'Polar Relay', type:'relay',   orbit:'geo', x:.82, links:[['gs-lyr','ok'],['gs-bjo','ok']]},
+  {id:'s5', name:'NorSat-Q',    type:'nav',     orbit:'meo', x:.26, links:[['gs-lyr','ok']]},
+  {id:'s4', name:'Kalvøy-3',    type:'relay',   orbit:'meo', x:.58, links:[['gs-lyr','ok'],['gs-bjo','degraded']]},
+  {id:'s9', name:'Sentinel-N',  type:'bus',     orbit:'meo', x:.88, links:[['gs-lyr','degraded']]},
+  {id:'s3', name:'Arctic Eye',  type:'eo',      orbit:'leo', x:.20, links:[['gs-lyr','ok']]},
+  {id:'s6', name:'Barents-1',   type:'sar',     orbit:'leo', x:.46, links:[['gs-bjo','ok']]},
+  {id:'s8', name:'AISSat-4',    type:'cubesat', orbit:'leo', x:.72, links:[['gs-bjo','ok']]},
+];
+const space = document.getElementById('space'), theatre = document.querySelector('.theatre');
+const linksSvg = document.getElementById('links');
+
+function satSVG(i,type){
+  const g=`<defs>
+      <linearGradient id="sheen${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ab5ff" stop-opacity=".22"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient>
+      <linearGradient id="mli${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9b25a"/><stop offset=".35" stop-color="#a8792a"/><stop offset=".6" stop-color="#c79b3f"/><stop offset="1" stop-color="#6e4d16"/></linearGradient>
+      <linearGradient id="metal${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6e9ee"/><stop offset=".5" stop-color="#9aa1ad"/><stop offset="1" stop-color="#5b6270"/></linearGradient>
+      <linearGradient id="white${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6f7f9"/><stop offset=".6" stop-color="#c3c9d2"/><stop offset="1" stop-color="#7c8592"/></linearGradient>
+      <linearGradient id="shade${i}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient>
+      <linearGradient id="drum${i}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0b1330"/><stop offset=".3" stop-color="#26397a"/><stop offset=".55" stop-color="#16224a"/><stop offset="1" stop-color="#070b1c"/></linearGradient>
+      <radialGradient id="dish${i}" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".7" stop-color="#b9c0ca"/><stop offset="1" stop-color="#6f7783"/></radialGradient>
+    </defs>`;
+  const cells=(x,y,w,h,cw=8.2,ch=8.4)=>{let s='';for(let c=0;c<Math.floor(w/cw);c++)for(let r=0;r<Math.floor(h/ch);r++)s+=`<rect x="${x+1+c*cw}" y="${y+1+r*ch}" width="${cw-.8}" height="${ch-.8}" fill="#16224a" stroke="#2a3d78" stroke-width=".35"/>`;return s;};
+  const panel=(x,y,w,h,cw,ch)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx=".6" fill="#0d1531" stroke="#3a4a7a" stroke-width=".6"/>${cells(x,y,w,h,cw,ch)}<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#sheen${i})"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx=".6" fill="none" stroke="#7d8db8" stroke-width=".4" opacity=".6"/>`;
+  const box=(x,y,w,h,fill)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="url(#${fill}${i})" stroke="#2f2f35" stroke-width=".6"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="url(#shade${i})"/>`;
+  const dish=(cx,cy,rx,ry,rot)=>`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#dish${i})" stroke="#7a8290" stroke-width=".6" transform="rotate(${rot} ${cx} ${cy})"/><path d="M${cx} ${cy} l${rx*.35} ${-ry*1.4}" stroke="#c9ced6" stroke-width=".7"/><circle cx="${cx+rx*.35}" cy="${cy-ry*1.4}" r="1" fill="#e6e9ee"/>`;
+  let body;
+  switch(type){
+    case 'comms': body=`<g transform="rotate(-16)"><rect x="-52" y="-1.2" width="104" height="2.4" fill="url(#metal${i})"/>${panel(-53,-13.5,42,27)}${panel(11,-13.5,42,27)}${box(-11,-10,22,20,'mli')}<rect x="-11.5" y="-11" width="23" height="1.6" fill="#3b3f47"/><rect x="-11.5" y="9.4" width="23" height="1.6" fill="#3b3f47"/><path d="M-4 -10 L-1 -18" stroke="#c9ced6" stroke-width="1"/>${dish(2,-21,8,4.5,-22)}<line x1="-2" y1="10" x2="-5" y2="24" stroke="#c9ced6" stroke-width=".7"/></g>`; break;
+    case 'eo': body=`<g transform="rotate(12)"><rect x="-8" y="-9" width="16" height="18" rx="2" fill="url(#white${i})" stroke="#5b6270" stroke-width=".6"/><rect x="-8" y="-9" width="16" height="18" rx="2" fill="url(#shade${i})"/><rect x="-6" y="9" width="12" height="9" fill="url(#mli${i})" stroke="#4a3410" stroke-width=".5"/><circle cx="0" cy="22" r="4.5" fill="#1a1d24" stroke="#8d95a2" stroke-width=".8"/><circle cx="0" cy="22" r="2.2" fill="#2e4a8a" opacity=".9"/><rect x="8" y="-1" width="6" height="2" fill="#8a8f99"/>${panel(14,-9,46,18,7.6,8.5)}<rect x="-14" y="-1" width="6" height="2" fill="#8a8f99"/>${panel(-60,-9,46,18,7.6,8.5)}<line x1="-3" y1="-9" x2="-5" y2="-19" stroke="#c9ced6" stroke-width=".6"/></g>`; break;
+    case 'nav': body=`<g transform="rotate(-8)"><rect x="-13" y="-19" width="26" height="38" rx="13" fill="url(#drum${i})" stroke="#3a4a7a" stroke-width=".6"/>${(()=>{let s='';for(let r=0;r<4;r++)s+=`<rect x="-11" y="${-17+r*9}" width="22" height="7.5" fill="none" stroke="#3f5aa8" stroke-width=".4"/>`;return s;})()}<rect x="-13" y="-19" width="26" height="38" rx="13" fill="url(#sheen${i})"/><ellipse cx="0" cy="-19" rx="13" ry="3" fill="url(#metal${i})"/><rect x="-4" y="-27" width="8" height="6" fill="url(#mli${i})" stroke="#4a3410" stroke-width=".5"/>${dish(0,-31,9,3.6,0)}<ellipse cx="0" cy="19" rx="13" ry="3" fill="#4a505b"/><circle cx="0" cy="23" r="2" fill="#6f7783"/></g>`; break;
+    case 'relay': body=`<g transform="rotate(-20)">${panel(-34,-8,26,16,8.2,7.4)}${panel(8,-8,26,16,8.2,7.4)}<rect x="-8" y="-1" width="16" height="2" fill="url(#metal${i})"/>${box(-7,-8,14,16,'mli')}<path d="M0 -8 L0 -14" stroke="#c9ced6" stroke-width="1"/><ellipse cx="0" cy="-22" rx="17" ry="8.5" fill="url(#dish${i})" stroke="#7a8290" stroke-width=".7"/><ellipse cx="0" cy="-22" rx="17" ry="8.5" fill="none" stroke="#fff" stroke-width=".4" opacity=".5" transform="scale(.7) translate(0 -9.4)"/><path d="M0 -22 L3 -33" stroke="#9aa0ab" stroke-width=".8"/><circle cx="3" cy="-33.5" r="1.4" fill="#e6e9ee"/><line x1="0" y1="8" x2="0" y2="16" stroke="#c9ced6" stroke-width=".7"/></g>`; break;
+    case 'cubesat': body=`<g transform="rotate(20)"><rect x="-6" y="-16" width="12" height="32" rx=".8" fill="url(#white${i})" stroke="#4a505b" stroke-width=".6"/>${cells(-5.5,-15.5,11,31,5.5,7.6)}<rect x="-6" y="-16" width="12" height="32" fill="url(#shade${i})"/><rect x="6" y="-14" width="2" height="4" fill="#8a8f99"/>${panel(8,-16,24,12,5.8,5.6)}<rect x="6" y="10" width="2" height="4" fill="#8a8f99"/>${panel(8,4,24,12,5.8,5.6)}<rect x="-8" y="-14" width="2" height="4" fill="#8a8f99"/>${panel(-32,-16,24,12,5.8,5.6)}<rect x="-8" y="10" width="2" height="4" fill="#8a8f99"/>${panel(-32,4,24,12,5.8,5.6)}<line x1="0" y1="-16" x2="2" y2="-26" stroke="#c9ced6" stroke-width=".6"/><line x1="0" y1="16" x2="-2" y2="26" stroke="#c9ced6" stroke-width=".6"/></g>`; break;
+    case 'sar': body=`<g transform="rotate(-6)"><rect x="-50" y="-6" width="100" height="12" rx="1" fill="url(#white${i})" stroke="#5b6270" stroke-width=".6"/>${(()=>{let s='';for(let c=0;c<10;c++)s+=`<rect x="${-49+c*10}" y="-5" width="9" height="10" fill="none" stroke="#8d95a2" stroke-width=".4"/>`;return s;})()}<rect x="-50" y="-6" width="100" height="12" fill="url(#shade${i})"/><rect x="-9" y="6" width="18" height="16" rx="1" fill="url(#mli${i})" stroke="#4a3410" stroke-width=".6"/><rect x="-9" y="6" width="18" height="16" fill="url(#shade${i})"/>${panel(9,9,26,11,8.2,10)}${panel(-35,9,26,11,8.2,10)}<line x1="5" y1="22" x2="7" y2="30" stroke="#c9ced6" stroke-width=".6"/></g>`; break;
+    default: body=`<g transform="rotate(-14)"><rect x="-40" y="-1" width="80" height="2" fill="url(#metal${i})"/>${panel(-41,-10,30,20,7.4,9.5)}${panel(11,-10,30,20,7.4,9.5)}${box(-10,-9,20,18,'white')}<rect x="-10" y="-9" width="20" height="18" fill="none" stroke="#c9ced6" stroke-width=".4" opacity=".5"/>${dish(-2,-16,6,3.2,-30)}<line x1="4" y1="9" x2="8" y2="20" stroke="#c9ced6" stroke-width=".6"/></g>`;
+  }
+  return `<svg viewBox="-56 -34 112 68" aria-hidden="true">${g}${body}</svg>`;
+}
+SATS.forEach((s,i)=>{
+  const el=document.createElement('div'); el.className='sat'; el.id=s.id; el.tabIndex=0;
+  el.setAttribute('aria-label',s.name);
+  el.innerHTML = satSVG(i,s.type)+`<span class="tag">${s.name}</span>`;
+  space.appendChild(el); s.el=el; place(s);
+  let drag=null;
+  el.addEventListener('pointerdown',e=>{drag={dx:e.clientX-el.offsetLeft,dy:e.clientY-el.offsetTop};el.setPointerCapture(e.pointerId);select(s)});
+  el.addEventListener('pointermove',e=>{ if(!drag)return;
+    const r=space.getBoundingClientRect();
+    s.x=Math.min(.96,Math.max(.04,(e.clientX-drag.dx)/r.width)); place(s); draw(); });
+  el.addEventListener('pointerup',()=>{ if(drag){drag=null; push('system','Orbit updated',`${s.name} repositioned; link geometry recomputed.`); recomputeLinks(s);} });
+  el.addEventListener('keydown',e=>{const k={ArrowLeft:-.02,ArrowRight:.02}[e.key]; if(!k)return; e.preventDefault(); s.x=Math.min(.96,Math.max(.04,s.x+k)); place(s); draw(); recomputeLinks(s);});
+});
+function place(s){s.el.style.left=(s.x*100)+'%'; s.el.style.top=(arcY(s.orbit,s.x)*100)+'%';}
+function drawOrbits(){
+  const w=space.clientWidth, ht=space.clientHeight; if(!w||!ht) return; let out='';
+  for(const o in ORBITS){ let d=''; for(let i=0;i<=40;i++){ const x=i/40; d+=(i?'L':'M')+(x*w).toFixed(1)+' '+(arcY(o,x)*ht).toFixed(1)+' '; }
+    out+=`<path d="${d}"/><text x="14" y="${(arcY(o,0)*ht-8).toFixed(1)}">${ORBITS[o].label}</text>`; }
+  document.getElementById('orbits').innerHTML=out;
+}
+function select(s){SATS.forEach(o=>o.el.classList.toggle('selected',o===s));}
+
+/* ---------- military units ----------
+ * Same idiom as satSVG(): inline SVG on a centred origin, per-instance gradient ids, a
+ * shade pass over every solid body, fine repeated detail at stroke widths under 1.
+ *
+ * Two deliberate departures, both cartographic rather than stylistic:
+ *   - Plan view, not elevation. The satellites sit in a sky panel and are seen side-on;
+ *     these sit on a map, and a side-on ship on a map reads as a toy.
+ *   - Actor colour is a marking (pennant, roundel, hull band), never the body fill. Five
+ *     actors filling whole hulls turns the archipelago into confetti and destroys the
+ *     grey-metal register the satellites establish.
+ */
+function unitSVG(i, type, mark){
+  const M = mark || '#9aa3b2';
+  /* Ownership has to be readable at a glance, so it is not a marking on a grey hull — the
+     whole body carries the actor's colour. Every structural gradient stop is mixed toward
+     it, which tints the mass while leaving the light-to-dark ramp that gives the sprite its
+     form. A flat fill would read as a silhouette; this reads as a green ship. */
+  const _hx = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const _q  = v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');
+  const [MR,MG,MB] = _hx(M);
+  const mix = (base, t) => { const [r,g,b] = _hx(base);
+    return '#' + _q(r+(MR-r)*t) + _q(g+(MG-g)*t) + _q(b+(MB-b)*t); };
+  const g = `<defs>
+      <linearGradient id="uhull${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix('#98a1ae',0.62)}"/><stop offset=".34" stop-color="${mix('#8b94a1',0.62)}"/><stop offset=".7" stop-color="${mix('#6a7280',0.62)}"/><stop offset="1" stop-color="${mix('#525a67',0.62)}"/></linearGradient>
+      <linearGradient id="udeck${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix('#939bA8',0.62)}"/><stop offset=".5" stop-color="${mix('#69717e',0.62)}"/><stop offset="1" stop-color="${mix('#394049',0.62)}"/></linearGradient>
+      <linearGradient id="usteel${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${mix('#e6e9ee',0.5)}"/><stop offset=".5" stop-color="${mix('#9aa1ad',0.5)}"/><stop offset="1" stop-color="${mix('#5b6270',0.5)}"/></linearGradient>
+      <linearGradient id="udark${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix('#4b535f',0.45)}"/><stop offset=".5" stop-color="${mix('#2b313a',0.45)}"/><stop offset="1" stop-color="${mix('#161a20',0.45)}"/></linearGradient>
+      <linearGradient id="ushade${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".13"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
+      <linearGradient id="uearth${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix('#6d6a5c',0.55)}"/><stop offset=".5" stop-color="${mix('#4e4c42',0.55)}"/><stop offset="1" stop-color="${mix('#2c2b25',0.55)}"/></linearGradient>
+      <linearGradient id="umli${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9b25a"/><stop offset=".35" stop-color="#a8792a"/><stop offset=".6" stop-color="#c79b3f"/><stop offset="1" stop-color="#6e4d16"/></linearGradient>
+      <radialGradient id="udish${i}" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="${mix('#f4f6f8',0.42)}"/><stop offset=".7" stop-color="${mix('#b9c0ca',0.42)}"/><stop offset="1" stop-color="${mix('#6f7783',0.42)}"/></radialGradient>
+      <linearGradient id="uwake${i}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#dfe8f2" stop-opacity="0"/><stop offset="1" stop-color="#dfe8f2" stop-opacity=".38"/></linearGradient>
+    </defs>`;
+
+  /* A ship seen from above: sharp bow at +x, transom at -x. Real length:beam runs about
+     9:1 for an escort and 5:1 for an auxiliary, and holding to that is most of what tells
+     hull types apart once the sprite is 46px wide. `fine` is the bow taper as a fraction
+     of length. */
+  const hull=(L,B,fine=.30,fill='uhull')=>{
+    const b=B/2, n=L*fine, x=L/2;
+    return `<path d="M${x} 0 Q${x-n*.34} ${-b*.72} ${x-n} ${-b} L${-x+2.4} ${-b} Q${-x} ${-b} ${-x} ${-b*.80} L${-x} ${b*.80} Q${-x} ${b} ${-x+2.4} ${b} L${x-n} ${b} Q${x-n*.34} ${b*.72} ${x} 0 Z" fill="url(#${fill}${i})" stroke="#1b1f26" stroke-width=".85" stroke-linejoin="round"/>`;
+  };
+  /* The sheer line. A plan-view hull with a flat fill reads as a plank; this thin inboard
+     highlight is what makes it read as a hull with freeboard. */
+  const sheer=(L,B,fine=.30)=>{
+    const b=B/2, n=L*fine, x=L/2;
+    return `<path d="M${x-n*.5} ${-b*.55} L${-x+2.6} ${-b*.62}" fill="none" stroke="#cdd4de" stroke-width=".55" opacity=".5"/>`;
+  };
+  const hullShade=(L,B,fine=.30)=>{
+    const b=B/2, n=L*fine, x=L/2;
+    return `<path d="M${x} 0 Q${x-n*.34} ${-b*.72} ${x-n} ${-b} L${-x+2.4} ${-b} Q${-x} ${-b} ${-x} ${-b*.80} L${-x} ${b*.80} Q${-x} ${b} ${-x+2.4} ${b} L${x-n} ${b} Q${x-n*.34} ${b*.72} ${x} 0 Z" fill="url(#ushade${i})"/>`;
+  };
+  /* Wake. Deliberately faint and narrow: a solid triangle off the stern is the same shape
+     as a bow, and at map scale the eye picks the brighter of the two and reads the ship
+     as running backwards. */
+  const wakeAft=(L,B)=>{
+    // The viewBox stops at x=-56. A fixed 15-unit tail runs past it on every hull longer
+    // than 82, and SVG clips silently, so the wake ended in a hard vertical cut.
+    const t=Math.max(4, Math.min(15, 54-L/2));
+    return `<path d="M${-L/2} ${-B*.30} Q${-L/2-t*.6} ${-B*.34} ${-L/2-t} 0 Q${-L/2-t*.6} ${B*.34} ${-L/2} ${B*.30} Z" fill="url(#uwake${i})" opacity=".34"/>`;
+  };
+  /* Deck furniture. Small enough that it survives as texture, not shape, at map scale. */
+  const sup=(x,y,w,h,r=.8,f='udeck')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="url(#${f}${i})" stroke="#20252c" stroke-width=".5"/>`;
+  const turret=(x,y,s=1,rot=0)=>`<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})"><path d="M-3 -3.1 L1.4 -3.1 L3.4 -1.5 L3.4 1.5 L1.4 3.1 L-3 3.1 Z" fill="url(#usteel${i})" stroke="#20252c" stroke-width=".5"/><rect x="3" y="-.45" width="7.5" height=".9" fill="#c2c8d1" stroke="#2b3038" stroke-width=".25"/></g>`;
+  const vls=(x,y,cols,rows)=>{let s='';for(let c=0;c<cols;c++)for(let r=0;r<rows;r++)s+=`<rect x="${x+c*2.1}" y="${y+r*2.1}" width="1.6" height="1.6" fill="#191d23" stroke="#7f8794" stroke-width=".28"/>`;return s;};
+  const mast=(x,y,h=7)=>`<line x1="${x}" y1="${y}" x2="${x}" y2="${y-h}" stroke="#c9ced6" stroke-width=".65"/><line x1="${x-2.4}" y1="${y-h*.62}" x2="${x+2.4}" y2="${y-h*.62}" stroke="#c9ced6" stroke-width=".5"/><circle cx="${x}" cy="${y-h}" r=".9" fill="#e6e9ee"/>`;
+  const dish=(cx,cy,rx,ry,rot=0)=>`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#udish${i})" stroke="#7a8290" stroke-width=".55" transform="rotate(${rot} ${cx} ${cy})"/>`;
+  /* Actor colour, applied as a marking. A pennant band across the hull reads at 44px where
+     a roundel does not; aircraft get the roundel because a band across a wing does not. */
+  const band=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${mix('#f2f5f8',.25)}" opacity=".9" stroke="#101318" stroke-width=".4"/>`;
+  const roundel=(cx,cy,r)=>`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${M}" stroke="#12151a" stroke-width=".4"/><circle cx="${cx}" cy="${cy}" r="${r*.42}" fill="#e9edf2" opacity=".85"/>`;
+  /* Land vehicles read as a plan-view box with tracks/wheels; the tracks are what stop an
+     armour icon looking like a crate. */
+  const tracks=(L,B)=>`<rect x="${-L/2}" y="${-B/2-1.9}" width="${L}" height="2.6" rx=".5" fill="url(#udark${i})" stroke="#12151a" stroke-width=".4"/><rect x="${-L/2}" y="${B/2-.7}" width="${L}" height="2.6" rx=".5" fill="url(#udark${i})" stroke="#12151a" stroke-width=".4"/>${(()=>{let s='';for(let c=0;c<Math.floor(L/2.4);c++){s+=`<line x1="${-L/2+1.2+c*2.4}" y1="${-B/2-1.9}" x2="${-L/2+1.2+c*2.4}" y2="${-B/2+.7}" stroke="#5b6270" stroke-width=".3"/><line x1="${-L/2+1.2+c*2.4}" y1="${B/2-.7}" x2="${-L/2+1.2+c*2.4}" y2="${B/2+1.9}" stroke="#5b6270" stroke-width=".3"/>`}return s})()}`;
+  /* Fixed installations sit on a graded apron so they do not float on the coastline. */
+  const apron=(w,h)=>`<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="1.5" fill="#3a4048" stroke="#606774" stroke-width=".6" opacity=".92"/><rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="1.5" fill="url(#ushade${i})"/>`;
+  const revet=(x,y)=>`<path d="M${x-3.4} ${y+2.6} L${x-2.2} ${y-2.6} L${x+2.2} ${y-2.6} L${x+3.4} ${y+2.6}" fill="none" stroke="#8d95a2" stroke-width=".8"/>`;
+  /* Aircraft: swept planform, light from above, actor roundel on the port wing. */
+  const jet=(sweep,span,len,twin)=>`
+    <path d="M0 ${-len*.5} L${len*.13} ${-len*.16} L${span/2} ${len*.5*sweep} L${span/2-3.2} ${len*.5*sweep+2.6} L${len*.1} ${len*.1} L${len*.14} ${len*.42} L${len*.3} ${len*.54} L${len*.3} ${len*.6} L0 ${len*.5} L${-len*.3} ${len*.6} L${-len*.3} ${len*.54} L${-len*.14} ${len*.42} L${-len*.1} ${len*.1} L${-span/2+3.2} ${len*.5*sweep+2.6} L${-span/2} ${len*.5*sweep} L${-len*.13} ${-len*.16} Z" fill="url(#usteel${i})" stroke="#2b3038" stroke-width=".6" stroke-linejoin="round"/>
+    ${twin?`<rect x="-3.4" y="${len*.1}" width="2.2" height="6" rx=".8" fill="url(#udark${i})" stroke="#20252c" stroke-width=".4"/><rect x="1.2" y="${len*.1}" width="2.2" height="6" rx=".8" fill="url(#udark${i})" stroke="#20252c" stroke-width=".4"/>`:`<rect x="-1.5" y="${len*.12}" width="3" height="6" rx=".9" fill="url(#udark${i})" stroke="#20252c" stroke-width=".4"/>`}
+    <path d="M0 ${-len*.5} L${len*.13} ${-len*.16} L${span/2} ${len*.5*sweep} L${span/2-3.2} ${len*.5*sweep+2.6} L${len*.1} ${len*.1} L${len*.14} ${len*.42} L${len*.3} ${len*.54} L${len*.3} ${len*.6} L0 ${len*.5} L${-len*.3} ${len*.6} L${-len*.3} ${len*.54} L${-len*.14} ${len*.42} L${-len*.1} ${len*.1} L${-span/2+3.2} ${len*.5*sweep+2.6} L${-span/2} ${len*.5*sweep} L${-len*.13} ${-len*.16} Z" fill="url(#ushade${i})"/>
+    <path d="M0 ${-len*.5} L${len*.13} ${-len*.16} L${-len*.13} ${-len*.16} Z" fill="#20252c" opacity=".55"/>`;
+
+  let body;
+  switch(type){
+
+  /* ---- surface combatants & auxiliaries ---- */
+  case 'carrier':      /* the angled flight deck is the silhouette; the hull barely shows */
+    body=`${wakeAft(104,26)}${hull(104,26,.22)}
+      <path d="M-46 -14 L44 -14 L50 -8 L50 8 L44 14 L-46 14 Z" fill="url(#udeck${i})" stroke="#1b1f26" stroke-width=".7"/>
+      <path d="M-45 -11.6 L30 -11.6" stroke="#e9edf2" stroke-width=".7" stroke-dasharray="5.5 3.4" opacity=".85"/>
+      <path d="M-45 5 L38 10.6" stroke="#e9edf2" stroke-width=".7" stroke-dasharray="5.5 3.4" opacity=".85"/>
+      <path d="M-46 -14 L44 -14 L50 -8 L50 8 L44 14 L-46 14 Z" fill="url(#ushade${i})"/>
+      ${sup(6,-13.4,18,7,.8,'usteel')}${mast(13,-13.6,9)}${dish(19,-10.6,3,1.8,20)}
+      <circle cx="-27" cy="-6" r="3.2" fill="none" stroke="#c9ced6" stroke-width=".5"/>
+      <circle cx="-14" cy="7.5" r="3.2" fill="none" stroke="#c9ced6" stroke-width=".5"/>
+      ${band(-42,-14,3.6,28)}`;
+    break;
+  case 'cruiser':
+    body=`${wakeAft(96,12)}${hull(96,12,.30)}
+      ${sup(-10,-4.2,30,8.4,1)}${sup(-26,-3,12,6,.8,'usteel')}
+      ${turret(34,0,1.15)}${turret(-38,0,1.05,180)}
+      ${vls(12,-5,5,5)}${vls(-31,-4,4,4)}
+      ${mast(-2,-4.4,10)}${dish(9,-.4,3.4,2,0)}
+      ${sheer(96,12,.30)}${band(-44,-6,3,12)}${hullShade(96,12,.30)}`;
+    break;
+  case 'destroyer':
+    body=`${wakeAft(88,10.5)}${hull(88,10.5,.31)}
+      ${sup(-8,-3.6,26,7.2,1)}${sup(-23,-2.6,10,5.2,.8,'usteel')}
+      ${turret(30,0,1)}${vls(9,-4.2,4,4)}${vls(-27,-3.2,3,3)}
+      ${mast(-1,-3.8,9)}${dish(8,-.3,2.8,1.7,0)}
+      <rect x="-24" y="-2.8" width="4" height="5.6" fill="#191d23" stroke="#7f8794" stroke-width=".35"/>
+      ${sheer(88,10.5,.31)}${band(-39,-5.25,2.8,10.5)}${hullShade(88,10.5,.31)}`;
+    break;
+  case 'frigate':
+    body=`${wakeAft(76,9.5)}${hull(76,9.5,.31)}
+      ${sup(-7,-3.2,22,6.4,.9)}${turret(25,0,.9)}
+      ${vls(6,-3.6,3,3)}${mast(-1,-3.4,8)}${dish(7,-.3,2.4,1.5,0)}
+      ${sup(-27,-3,9,6,.7,'udark')}
+      ${sheer(76,9.5,.31)}${band(-33,-4.75,2.6,9.5)}${hullShade(76,9.5,.31)}`;
+    break;
+  case 'corvette':
+    body=`${wakeAft(58,8.5)}${hull(58,8.5,.33)}
+      ${sup(-5,-2.9,17,5.8,.9)}${turret(18,0,.78)}
+      ${mast(-2,-3.1,7)}${vls(2,-3.2,2,3)}
+      ${sheer(58,8.5,.33)}${band(-25,-4.25,2.2,8.5)}${hullShade(58,8.5,.33)}`;
+    break;
+  case 'amphib':       /* well deck aft, flat helo deck, blunter bow than an escort */
+    body=`${wakeAft(92,20)}${hull(92,20,.20)}
+      <path d="M-42 -9 L46 -9 L46 9 L-42 9 Z" fill="url(#udeck${i})" stroke="#1b1f26" stroke-width=".6"/>
+      <path d="M-42 -9 L46 -9 L46 9 L-42 9 Z" fill="url(#ushade${i})"/>
+      ${sup(24,-7.6,16,15.2,1,'usteel')}${mast(32,-7.8,8)}
+      <circle cx="-8" cy="0" r="5" fill="none" stroke="#c9ced6" stroke-width=".55"/>
+      <circle cx="-25" cy="0" r="5" fill="none" stroke="#c9ced6" stroke-width=".55"/>
+      <rect x="-46" y="-6" width="5" height="12" fill="#191d23" stroke="#7f8794" stroke-width=".45"/>
+      ${band(-38,-10,3,20)}`;
+    break;
+  case 'icebreaker':   /* blunt raked bow, deckhouse well forward, ice-strengthened waterline */
+    body=`${wakeAft(70,17)}
+      <path d="M35 0 Q30 -6.6 24 -8.5 L-29 -8.5 Q-33 -8.5 -33 -6.4 L-33 6.4 Q-33 8.5 -29 8.5 L24 8.5 Q30 6.6 35 0 Z" fill="url(#uhull${i})" stroke="#1b1f26" stroke-width=".85" stroke-linejoin="round"/>
+      ${sup(-8,-6,22,12,1)}${sup(0,-4,10,8,.7,'usteel')}${mast(-4,-6.2,8)}
+      <path d="M20 -7.6 L30.5 0 L20 7.6" fill="none" stroke="#e6e9ee" stroke-width=".8" opacity=".85"/>
+      <circle cx="-21" cy="0" r="4.4" fill="none" stroke="#c9ced6" stroke-width=".55"/>
+      ${band(-31,-8.5,3,17)}
+      <path d="M35 0 Q30 -6.6 24 -8.5 L-29 -8.5 Q-33 -8.5 -33 -6.4 L-33 6.4 Q-33 8.5 -29 8.5 L24 8.5 Q30 6.6 35 0 Z" fill="url(#ushade${i})"/>`;
+    break;
+  case 'replenish':    /* the RAS rigs amidships are the identifying feature */
+    body=`${wakeAft(92,15)}${hull(92,15,.24)}
+      ${sup(-34,-5.2,18,10.4,1)}${mast(-27,-5.4,8)}
+      <rect x="-10" y="-6.4" width="42" height="12.8" rx=".7" fill="url(#udark${i})" stroke="#1b1f26" stroke-width=".55"/>
+      ${(()=>{let s='';for(let c=0;c<4;c++)s+=`<line x1="${-5+c*10.4}" y1="-9" x2="${-5+c*10.4}" y2="9" stroke="#aeb6c2" stroke-width=".6"/><circle cx="${-5+c*10.4}" cy="-9" r=".9" fill="#c9ced6"/><circle cx="${-5+c*10.4}" cy="9" r=".9" fill="#c9ced6"/>`;return s})()}
+      ${sheer(92,15,.24)}${band(-42,-7.5,2.8,15)}${hullShade(92,15,.24)}`;
+    break;
+
+  /* ---- sub-surface ----
+     Part-submerged: solid sail and forward hull, the whole body slightly transparent, and
+     a dashed contact ellipse. A fully opaque submarine on a sea map is indistinguishable
+     from a small surface ship, which is exactly the wrong reading. */
+  case 'ssn':
+    body=`<g opacity=".92">
+      <path d="M44 0 Q44 -6.4 33 -6.8 L-34 -6.4 Q-44 -6 -44 0 Q-44 6 -34 6.4 L33 6.8 Q44 6.4 44 0 Z" fill="url(#udark${i})" stroke="#98a1ae" stroke-width=".7"/>
+      <path d="M2 -6.6 L14 -6.6 L15.6 -15 L4.4 -15 Z" fill="url(#udark${i})" stroke="#aeb6c2" stroke-width=".6"/>
+      <line x1="10" y1="-15" x2="10" y2="-21" stroke="#c9ced6" stroke-width=".6"/><circle cx="10" cy="-21" r=".9" fill="#e6e9ee"/>
+      <path d="M-40 -6 L-48 -11.4 M-40 6 L-48 11.4" stroke="#aeb6c2" stroke-width=".9"/>
+      <path d="M-8 -6.5 L-8 6.5" stroke="#5b6270" stroke-width=".4"/>
+      <path d="M44 0 Q44 -6.4 33 -6.8 L-34 -6.4 Q-44 -6 -44 0 Q-44 6 -34 6.4 L33 6.8 Q44 6.4 44 0 Z" fill="url(#ushade${i})"/>
+      ${band(-24,-6.6,2.6,13.2)}
+      <ellipse cx="0" cy="0" rx="50" ry="12" fill="none" stroke="${M}" stroke-width=".6" stroke-dasharray="3 3.4" opacity=".5"/></g>`;
+    break;
+  case 'ssbn':         /* longer, with the missile deck spelled out */
+    body=`<g opacity=".92">
+      <path d="M48 0 Q48 -7.4 36 -7.8 L-38 -7.4 Q-49 -7 -49 0 Q-49 7 -38 7.4 L36 7.8 Q48 7.4 48 0 Z" fill="url(#udark${i})" stroke="#98a1ae" stroke-width=".7"/>
+      ${(()=>{let s='';for(let c=0;c<8;c++)s+=`<circle cx="${-20+c*5.6}" cy="-2.7" r="1.5" fill="#12151a" stroke="#aeb6c2" stroke-width=".35"/><circle cx="${-20+c*5.6}" cy="2.7" r="1.5" fill="#12151a" stroke="#aeb6c2" stroke-width=".35"/>`;return s})()}
+      <path d="M20 -7.6 L31 -7.6 L32.4 -16 L21.6 -16 Z" fill="url(#udark${i})" stroke="#aeb6c2" stroke-width=".6"/>
+      <line x1="26" y1="-16" x2="26" y2="-22" stroke="#c9ced6" stroke-width=".6"/><circle cx="26" cy="-22" r=".9" fill="#e6e9ee"/>
+      <path d="M-45 -7 L-53 -12.6 M-45 7 L-53 12.6" stroke="#aeb6c2" stroke-width=".9"/>
+      <path d="M48 0 Q48 -7.4 36 -7.8 L-38 -7.4 Q-49 -7 -49 0 Q-49 7 -38 7.4 L36 7.8 Q48 7.4 48 0 Z" fill="url(#ushade${i})"/>
+      ${band(-34,-7.6,2.8,15.2)}
+      <ellipse cx="0" cy="0" rx="53" ry="13" fill="none" stroke="${M}" stroke-width=".6" stroke-dasharray="3 3.4" opacity=".5"/></g>`;
+    break;
+  case 'diesel':
+    body=`<g opacity=".92">
+      <path d="M31 0 Q31 -5.4 22 -5.8 L-24 -5.4 Q-32 -5 -32 0 Q-32 5 -24 5.4 L22 5.8 Q31 5.4 31 0 Z" fill="url(#udark${i})" stroke="#98a1ae" stroke-width=".65"/>
+      <path d="M0 -5.6 L10 -5.6 L11.4 -12.4 L1.6 -12.4 Z" fill="url(#udark${i})" stroke="#aeb6c2" stroke-width=".55"/>
+      <line x1="6.4" y1="-12.4" x2="6.4" y2="-17.4" stroke="#c9ced6" stroke-width=".55"/><circle cx="6.4" cy="-17.4" r=".8" fill="#e6e9ee"/>
+      <path d="M-28 -5.2 L-35 -9.6 M-28 5.2 L-35 9.6" stroke="#aeb6c2" stroke-width=".8"/>
+      <path d="M31 0 Q31 -5.4 22 -5.8 L-24 -5.4 Q-32 -5 -32 0 Q-32 5 -24 5.4 L22 5.8 Q31 5.4 31 0 Z" fill="url(#ushade${i})"/>
+      ${band(-16,-5.6,2.2,11.2)}
+      <ellipse cx="0" cy="0" rx="38" ry="10" fill="none" stroke="${M}" stroke-width=".55" stroke-dasharray="3 3.4" opacity=".45"/></g>`;
+    break;
+  case 'uuv':
+    body=`<g opacity=".95">
+      <path d="M22 0 Q22 -3.6 16 -3.9 L-16 -3.6 Q-23 -3.4 -23 0 Q-23 3.4 -16 3.6 L16 3.9 Q22 3.6 22 0 Z" fill="url(#udark${i})" stroke="#aeb6c2" stroke-width=".6"/>
+      <path d="M-19 -3.4 L-25 -7.4 M-19 3.4 L-25 7.4" stroke="#aeb6c2" stroke-width=".7"/>
+      <path d="M22 0 Q22 -3.6 16 -3.9 L-16 -3.6 Q-23 -3.4 -23 0 Q-23 3.4 -16 3.6 L16 3.9 Q22 3.6 22 0 Z" fill="url(#ushade${i})"/>
+      <rect x="-5" y="-3.9" width="2.2" height="7.8" fill="${M}" stroke="#101318" stroke-width=".4"/>
+      <circle cx="16" cy="0" r="1.8" fill="#12151a" stroke="#c9ced6" stroke-width=".4"/>
+      <ellipse cx="0" cy="0" rx="29" ry="8" fill="none" stroke="${M}" stroke-width=".5" stroke-dasharray="2.4 3" opacity=".45"/></g>`;
+    break;
+
+  /* ---- air ---- */
+  case 'fighter':  body=`<g transform="rotate(0)">${jet(.62,44,34,true)}${roundel(-11,7,2.5)}<rect x="-.9" y="-13" width="1.8" height="6" fill="#c2c8d1"/></g>`; break;
+  case 'bomber':   body=`<g>${jet(.74,60,42,true)}${roundel(-16,10,2.9)}<path d="M0 -21 L4 -8 L-4 -8 Z" fill="#20252c" opacity=".5"/></g>`; break;
+  case 'aew':      /* the rotating radome is the identifier and must survive at small size */
+    body=`<g>${jet(.34,52,34,true)}
+      <ellipse cx="0" cy="2" rx="13" ry="4.6" fill="url(#udish${i})" stroke="#5b6270" stroke-width=".6" opacity=".95"/>
+      <ellipse cx="0" cy="2" rx="13" ry="4.6" fill="url(#ushade${i})"/>
+      <rect x="-1.4" y="-2" width="2.8" height="4.6" fill="#8d95a2"/>${roundel(-15,7.5,2.6)}</g>`;
+    break;
+  case 'tanker':
+    body=`<g>${jet(.3,58,38,true)}
+      <path d="M-4 14 L-14 21 M4 14 L14 21" stroke="#c9ced6" stroke-width=".8"/>
+      <circle cx="-14" cy="21" r="1.5" fill="#aeb6c2"/><circle cx="14" cy="21" r="1.5" fill="#aeb6c2"/>
+      ${roundel(-16,8,2.8)}</g>`;
+    break;
+  case 'mpa':      /* maritime patrol: straight wing, MAD boom aft */
+    body=`<g>${jet(.16,56,36,true)}
+      <rect x="-.9" y="17" width="1.8" height="9" rx=".6" fill="#8d95a2" stroke="#2b3038" stroke-width=".3"/>
+      <ellipse cx="0" cy="6" rx="4.6" ry="2.4" fill="url(#udark${i})" stroke="#7f8794" stroke-width=".45"/>
+      ${roundel(-15,5,2.6)}</g>`;
+    break;
+  case 'transport':
+    body=`<g>${jet(.2,62,40,true)}
+      <rect x="-5.5" y="-6" width="11" height="20" rx="2.4" fill="url(#usteel${i})" stroke="#2b3038" stroke-width=".5"/>
+      <rect x="-5.5" y="-6" width="11" height="20" rx="2.4" fill="url(#ushade${i})"/>
+      ${roundel(-17,9,2.9)}</g>`;
+    break;
+  case 'helo':     /* rotor disc drawn as a translucent circle, blades over it */
+    body=`<g>
+      <path d="M0 -15 Q4.6 -13 5 -4 L4.4 9 L2.6 16 L-2.6 16 L-4.4 9 L-5 -4 Q-4.6 -13 0 -15 Z" fill="url(#usteel${i})" stroke="#2b3038" stroke-width=".55"/>
+      <path d="M0 -15 Q4.6 -13 5 -4 L4.4 9 L2.6 16 L-2.6 16 L-4.4 9 L-5 -4 Q-4.6 -13 0 -15 Z" fill="url(#ushade${i})"/>
+      <path d="M-2.4 16 L-9 19 L-9 21 L2.4 21 L2.4 16" fill="url(#udark${i})" stroke="#2b3038" stroke-width=".4"/>
+      <circle cx="0" cy="-2" r="21" fill="#cfd8e4" opacity=".1" stroke="#cfd8e4" stroke-width=".4" stroke-opacity=".3"/>
+      <g stroke="#dde3ea" stroke-width="1" opacity=".8"><line x1="0" y1="-2" x2="19" y2="-9"/><line x1="0" y1="-2" x2="16" y2="12"/><line x1="0" y1="-2" x2="-19" y2="-9"/><line x1="0" y1="-2" x2="-16" y2="12"/></g>
+      <circle cx="0" cy="-2" r="1.8" fill="#8d95a2" stroke="#2b3038" stroke-width=".4"/>
+      ${roundel(0,7,2.4)}</g>`;
+    break;
+  case 'uav':      /* high-aspect straight wing, V-tail — deliberately spindly */
+    body=`<g>
+      <rect x="-31" y="-1.4" width="62" height="2.8" rx="1.2" fill="url(#usteel${i})" stroke="#2b3038" stroke-width=".45"/>
+      <path d="M0 -16 Q3 -14 3.2 -6 L2.6 14 L-2.6 14 L-3.2 -6 Q-3 -14 0 -16 Z" fill="url(#usteel${i})" stroke="#2b3038" stroke-width=".5"/>
+      <path d="M0 -16 Q3 -14 3.2 -6 L2.6 14 L-2.6 14 L-3.2 -6 Q-3 -14 0 -16 Z" fill="url(#ushade${i})"/>
+      <path d="M0 12 L11 20 M0 12 L-11 20" stroke="#aeb6c2" stroke-width="1.4" stroke-linecap="round"/>
+      <ellipse cx="0" cy="-10" rx="3.4" ry="3" fill="url(#udish${i})" stroke="#5b6270" stroke-width=".45"/>
+      ${roundel(-13,2,2.2)}</g>`;
+    break;
+
+  /* ---- land ---- */
+  case 'armour':
+    body=`<g>${tracks(24,13)}
+      <rect x="-12" y="-6.5" width="24" height="13" rx="1" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".55"/>
+      <path d="M-4 -5 L6 -5 L9 -2.4 L9 2.4 L6 5 L-4 5 Q-7 5 -7 2.6 L-7 -2.6 Q-7 -5 -4 -5 Z" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".5"/>
+      <rect x="8" y="-.6" width="17" height="1.2" fill="#8d95a2" stroke="#12151a" stroke-width=".3"/>
+      <rect x="-12" y="-6.5" width="24" height="13" rx="1" fill="url(#ushade${i})"/>
+      ${band(-11,-6.5,2.2,13)}</g>`;
+    break;
+  case 'mech':     /* wheeled IFV: wheels, not tracks, and a smaller turret */
+    body=`<g>
+      <rect x="-11" y="-6" width="22" height="12" rx="1.2" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".55"/>
+      ${(()=>{let s='';for(let c=0;c<3;c++){s+=`<rect x="${-9+c*7}" y="-8.4" width="4.6" height="2.8" rx="1.2" fill="#1b1f25" stroke="#5b6270" stroke-width=".35"/><rect x="${-9+c*7}" y="5.6" width="4.6" height="2.8" rx="1.2" fill="#1b1f25" stroke="#5b6270" stroke-width=".35"/>`}return s})()}
+      <rect x="-2" y="-3.4" width="8" height="6.8" rx=".8" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".45"/>
+      <rect x="5" y="-.45" width="10" height=".9" fill="#8d95a2"/>
+      <rect x="-11" y="-6" width="22" height="12" rx="1.2" fill="url(#ushade${i})"/>
+      ${band(-10,-6,2,12)}</g>`;
+    break;
+  case 'artillery':
+    body=`<g>${tracks(21,12)}
+      <rect x="-10.5" y="-6" width="21" height="12" rx="1" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".55"/>
+      <rect x="-6" y="-4.4" width="11" height="8.8" rx=".8" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".45"/>
+      <rect x="4" y="-.7" width="26" height="1.4" fill="#8d95a2" stroke="#12151a" stroke-width=".3"/>
+      <rect x="28" y="-1.3" width="3" height="2.6" rx=".5" fill="#aeb6c2"/>
+      <rect x="-10.5" y="-6" width="21" height="12" rx="1" fill="url(#ushade${i})"/>
+      ${band(-9.5,-6,2,12)}</g>`;
+    break;
+  case 'sam':      /* launcher elevated, canisters visible — the point of the icon */
+    body=`<g>
+      <rect x="-11" y="-6.4" width="22" height="12.8" rx="1.2" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".55"/>
+      ${(()=>{let s='';for(let c=0;c<3;c++){s+=`<rect x="${-9+c*7}" y="-8.8" width="4.6" height="2.8" rx="1.2" fill="#1b1f25" stroke="#5b6270" stroke-width=".35"/><rect x="${-9+c*7}" y="6" width="4.6" height="2.8" rx="1.2" fill="#1b1f25" stroke="#5b6270" stroke-width=".35"/>`}return s})()}
+      <g transform="translate(0 -1) rotate(-34)">
+        ${(()=>{let s='';for(let c=0;c<4;c++)s+=`<rect x="-9" y="${-5.2+c*2.7}" width="20" height="2.2" rx=".5" fill="url(#usteel${i})" stroke="#20252c" stroke-width=".4"/>`;return s})()}
+      </g>
+      <rect x="-11" y="-6.4" width="22" height="12.8" rx="1.2" fill="url(#ushade${i})"/>
+      ${band(-10,-6.4,2,12.8)}</g>`;
+    break;
+  case 'radar':    /* mobile phased array: the panel face, tilted */
+    body=`<g>
+      <rect x="-10" y="-6" width="20" height="12" rx="1.2" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".55"/>
+      ${(()=>{let s='';for(let c=0;c<3;c++){s+=`<rect x="${-8+c*6.4}" y="-8.4" width="4.4" height="2.8" rx="1.2" fill="#1b1f25" stroke="#5b6270" stroke-width=".35"/><rect x="${-8+c*6.4}" y="5.6" width="4.4" height="2.8" rx="1.2" fill="#1b1f25" stroke="#5b6270" stroke-width=".35"/>`}return s})()}
+      <g transform="translate(1 -2) rotate(-24)">
+        <rect x="-3" y="-13" width="6" height="26" rx=".8" fill="url(#usteel${i})" stroke="#20252c" stroke-width=".5"/>
+        ${(()=>{let s='';for(let r=0;r<7;r++)s+=`<rect x="-2.2" y="${-12+r*3.5}" width="4.4" height="2.7" fill="none" stroke="#6f7783" stroke-width=".3"/>`;return s})()}
+        <rect x="-3" y="-13" width="6" height="26" rx=".8" fill="url(#ushade${i})"/>
+      </g>
+      ${band(-9,-6,2,12)}</g>`;
+    break;
+  case 'infantry': /* a section, not a vehicle: four figures on a cleared position */
+    body=`<g>
+      <path d="M-15 7 Q0 11 15 7 L15 9.5 Q0 13.5 -15 9.5 Z" fill="#3a4048" stroke="#606774" stroke-width=".5" opacity=".8"/>
+      ${(()=>{let s='';for(let c=0;c<4;c++){const x=-11.4+c*7.6;s+=`<circle cx="${x}" cy="-6.4" r="2.5" fill="url(#usteel${i})" stroke="#20252c" stroke-width=".45"/><path d="M${x} -3.9 L${x} 3.4 M${x-3} -1.4 L${x+3} -1.4 M${x} 3.4 L${x-2.4} 7.4 M${x} 3.4 L${x+2.4} 7.4" stroke="#aeb6c2" stroke-width="1.15" stroke-linecap="round" fill="none"/><line x1="${x+1.6}" y1="-3" x2="${x+5}" y2="-5.4" stroke="#c9ced6" stroke-width=".6"/>`}return s})()}
+      <rect x="-16.5" y="-11.5" width="2.4" height="6" fill="${M}"/></g>`;
+    break;
+
+  /* ---- fixed installations ----
+     Squared to the map rather than rotated: these do not move, and a tilted airbase reads
+     as an error. */
+  case 'airbase':
+    body=`<g>${apron(64,34)}
+      <rect x="-29" y="-6" width="58" height="9" rx=".6" fill="#242931" stroke="#7f8794" stroke-width=".5"/>
+      <line x1="-26" y1="-1.5" x2="26" y2="-1.5" stroke="#e9edf2" stroke-width=".55" stroke-dasharray="5 3.4" opacity=".85"/>
+      <rect x="-29" y="6" width="30" height="6" rx=".5" fill="#2b313a" stroke="#606774" stroke-width=".4"/>
+      ${revet(9,10)}${revet(18,10)}${revet(27,10)}
+      ${sup(-26,-14,14,6,.6,'usteel')}${mast(-19,-14.2,7)}
+      <rect x="6" y="-15" width="10" height="7" rx=".6" fill="url(#usteel${i})" stroke="#20252c" stroke-width=".45"/>
+      <rect x="6" y="-15" width="10" height="7" rx=".6" fill="url(#ushade${i})"/>
+      ${band(-31,-17,3,34)}</g>`;
+    break;
+  case 'navalbase':
+    body=`<g>${apron(56,36)}
+      <rect x="-26" y="-15" width="20" height="30" rx=".6" fill="#2b313a" stroke="#7f8794" stroke-width=".5"/>
+      ${(()=>{let s='';for(let r=0;r<4;r++)s+=`<rect x="-4" y="${-14+r*7.6}" width="26" height="3" rx=".5" fill="#3f4650" stroke="#8d95a2" stroke-width=".45"/>`;return s})()}
+      <path d="M22 -17 L22 17" stroke="#606774" stroke-width=".8"/>
+      ${sup(-24,-13,16,7,.6,'usteel')}${dish(-8,-11,3,2,10)}${mast(-16,-13.2,7)}
+      <circle cx="-16" cy="8" r="3.2" fill="none" stroke="#c9ced6" stroke-width=".45"/>
+      ${band(-28,-18,3,36)}</g>`;
+    break;
+  case 'radarstn':  /* geodesic radome — matches the real KSAT skyline */
+    body=`<g>${apron(38,30)}
+      <circle cx="-4" cy="-3" r="11" fill="url(#udish${i})" stroke="#6f7783" stroke-width=".6"/>
+      ${(()=>{let s='';const P=[[0,-11],[10.4,-3.4],[6.5,9],[-6.5,9],[-10.4,-3.4]];let p='';P.forEach((q,k)=>{p+=`${k?'L':'M'}${-4+q[0]} ${-3+q[1]}`});s+=`<path d="${p}Z" fill="none" stroke="#8d95a2" stroke-width=".4" opacity=".8"/>`;
+        for(const q of P)s+=`<line x1="-4" y1="-3" x2="${-4+q[0]}" y2="${-3+q[1]}" stroke="#8d95a2" stroke-width=".35" opacity=".65"/>`;return s})()}
+      <circle cx="-4" cy="-3" r="11" fill="url(#ushade${i})"/>
+      <rect x="-8" y="8" width="8" height="5" fill="#3f4650" stroke="#7f8794" stroke-width=".4"/>
+      ${dish(11,4,5,3.4,-18)}<line x1="11" y1="4" x2="11" y2="12" stroke="#8d95a2" stroke-width=".7"/>
+      ${band(-20,-16,2.6,30)}</g>`;
+    break;
+  case 'missilesite':
+    body=`<g>${apron(44,32)}
+      ${(()=>{let s='';for(let c=0;c<3;c++){const x=-13+c*13;s+=`<rect x="${x-5}" y="-11" width="10" height="15" rx=".8" fill="#242931" stroke="#7f8794" stroke-width=".5"/><rect x="${x-3.4}" y="-9.6" width="6.8" height="12.2" fill="#12151a" stroke="#9aa1ad" stroke-width=".35"/><path d="M${x} -9.6 L${x} 2.6" stroke="#5b6270" stroke-width=".3"/>${revet(x,10)}`}return s})()}
+      ${sup(-20,8,10,6,.6,'udark')}${mast(-15,7.8,6)}
+      ${band(-23,-17,2.6,32)}</g>`;
+    break;
+  case 'c2':        /* hardened bunker: berm, blast doors, mast farm */
+    body=`<g>${apron(38,28)}
+      <path d="M-15 -9 L15 -9 L18 0 L15 9 L-15 9 L-18 0 Z" fill="url(#uearth${i})" stroke="#12151a" stroke-width=".6"/>
+      <path d="M-15 -9 L15 -9 L18 0 L15 9 L-15 9 L-18 0 Z" fill="url(#ushade${i})"/>
+      <rect x="-4" y="4" width="8" height="5" fill="#12151a" stroke="#8d95a2" stroke-width=".45"/>
+      ${(()=>{let s='';for(let c=0;c<3;c++)s+=`<line x1="${-9+c*9}" y1="-9" x2="${-9+c*9}" y2="-17" stroke="#c9ced6" stroke-width=".5"/><circle cx="${-9+c*9}" cy="-17" r=".7" fill="#e6e9ee"/>`;return s})()}
+      <line x1="-9" y1="-13.4" x2="9" y2="-13.4" stroke="#c9ced6" stroke-width=".4"/>
+      ${dish(13,-6,4,2.6,25)}
+      ${band(-20,-15,2.6,28)}</g>`;
+    break;
+  case 'groundstn': /* the antenna farm KSAT actually operates */
+    body=`<g>${apron(42,30)}
+      ${dish(-10,-4,8,6.4,-20)}<line x1="-10" y1="2" x2="-10" y2="9" stroke="#8d95a2" stroke-width=".8"/>
+      ${dish(7,-6,6,4.8,-20)}<line x1="7" y1="-1" x2="7" y2="6" stroke="#8d95a2" stroke-width=".7"/>
+      ${dish(15,4,4.2,3.4,-20)}<line x1="15" y1="7" x2="15" y2="12" stroke="#8d95a2" stroke-width=".6"/>
+      <rect x="-19" y="6" width="12" height="7" rx=".6" fill="url(#usteel${i})" stroke="#20252c" stroke-width=".45"/>
+      <rect x="-19" y="6" width="12" height="7" rx=".6" fill="url(#ushade${i})"/>
+      ${mast(-16,5.8,7)}
+      ${band(-22,-16,2.6,30)}</g>`;
+    break;
+
+  default:
+    body=`<circle cx="0" cy="0" r="9" fill="url(#usteel${i})" stroke="#2b3038" stroke-width=".7"/><circle cx="0" cy="0" r="9" fill="url(#ushade${i})"/>${band(-10,-2,20,4)}`;
+  }
+  /* Categories are drawn at their natural relative sizes, which leaves the small ones
+     occupying a third of the box and illegible at map scale. Scale each group so every
+     sprite fills a comparable share of the viewBox without breaking relative sizes
+     *within* a group — a corvette must still read as smaller than a cruiser. */
+  const SCALE={fighter:1.22,bomber:1.12,aew:1.22,tanker:1.16,mpa:1.20,transport:1.08,helo:1.34,uav:1.06,
+               armour:1.85,mech:1.85,artillery:1.65,sam:1.75,radar:1.8,infantry:1.7,
+               airbase:1.28,navalbase:1.3,radarstn:1.6,missilesite:1.45,c2:1.55,groundstn:1.5,
+               uuv:1.4};
+  const k=SCALE[type];
+  /* Aircraft are drawn nose-up because that is how a planform reads on its own; ships are
+     drawn bow-right. Left alone, a unit's `h` would mean "east" for a hull and "north" for
+     an airframe. Rotate the air bodies so +x is the nose for every unit and one heading
+     convention covers the whole force. */
+  const AIRROT={fighter:1,bomber:1,aew:1,tanker:1,mpa:1,transport:1,helo:1,uav:1};
+  const pre = (k?`scale(${k})`:'') + (AIRROT[type]?' rotate(90)':'');
+  return `<svg viewBox="-56 -34 112 68" aria-hidden="true">${g}${pre?`<g transform="${pre}">${body}</g>`:body}</svg>`;
+}
+
+/* ---------- force laydown ----------
+ * Positions are percentages of the map image, checked against the coastline rather than
+ * spread evenly: escorts sit in open water, land units on Spitsbergen, installations on
+ * ground that actually exists. `h` is course in degrees clockwise from east, so the sprite
+ * (bow at +x) points where the unit is going.
+ *
+ * Colour is the owning actor's, and it is the only thing that varies between two units of
+ * the same class — which is the point of keeping it a marking rather than a body fill.
+ */
+const UNIT_SIZE={carrier:66,cruiser:60,destroyer:56,frigate:50,corvette:42,amphib:60,icebreaker:48,replenish:58,
+                 ssn:56,ssbn:60,diesel:44,uuv:30,
+                 fighter:34,bomber:40,aew:38,tanker:40,mpa:38,transport:40,helo:30,uav:44,
+                 armour:32,mech:32,artillery:34,sam:34,radar:32,infantry:34,
+                 airbase:52,navalbase:48,radarstn:34,missilesite:40,c2:34,groundstn:38};
+const UNITS = [
+  /* --- Norwegian Joint HQ (blue) --- */
+  {id:'n1', a:'nor', t:'frigate',   n:'USS Constellation (FFG-62)',        x:0.215, y:0.517, h:26},
+  {id:'n2', a:'nor', t:'destroyer', n:'USS Delbert D. Black',        x:0.300, y:0.735, h:-58},
+  {id:'n3', a:'nor', t:'corvette',  n:'USCGC Stone (WMSL-758)',                 x:0.296, y:0.545, h:8},
+  {id:'n4', a:'nor', t:'icebreaker',n:'USCGC Healy',                 x:0.268, y:0.274, h:-14},
+  {id:'n5', a:'nor', t:'ssn',    n:'USS Delaware (SSN-791)',                 x:0.180, y:0.641, h:34},
+  {id:'n6', a:'nor', t:'mpa',       n:'P-8A Poseidon — Patrol 41',   x:0.660, y:0.410, h:0},
+  {id:'n7', a:'nor', t:'fighter',   n:'F-35A — Viking 2',            x:0.470, y:0.354, h:0},
+  {id:'n8', a:'nor', t:'helo',      n:'NH90 — Arctic 6',             x:0.318, y:0.459, h:0},
+  {id:'n9', a:'nor', t:'airbase',   n:'Svalbard Lufthavn — dispersal',x:0.398, y:0.562, h:0},
+  {id:'n10',a:'nor', t:'sam',       n:'NASAMS Battery — Adventdalen',x:0.452, y:0.504, h:0},
+  {id:'n11',a:'nor', t:'radar',     n:'Mobile AD Radar — Kapp Linné',x:0.335, y:0.515, h:0},
+  {id:'n12',a:'nor', t:'infantry',  n:'HV-16 Section — Longyearbyen',x:0.433, y:0.526, h:0},
+  {id:'n13',a:'nor', t:'c2',        n:'Joint HQ Forward — Bolterdalen',x:0.462, y:0.551, h:0},
+  {id:'n14',a:'nor', t:'armour',    n:'CV90 Troop — Adventdalen',    x:0.478, y:0.527, h:0},
+
+  /* --- KSAT ground segment (green) --- */
+  {id:'k1', a:'ksat',t:'groundstn', n:'SvalSat — Platåberget',       x:0.443, y:0.468, h:0},
+  {id:'k2', a:'ksat',t:'radarstn',  n:'Ny-Ålesund Radome',           x:0.314, y:0.393, h:0},
+  {id:'k3', a:'ksat',t:'groundstn', n:'Sveagruva Relay',           x:0.400, y:0.620, h:0},
+
+  /* --- Northern Fleet (red) --- */
+  {id:'r1', a:'rus', t:'cruiser',   n:'Pyotr Velikiy',               x:0.862, y:0.517, h:196},
+  {id:'r2', a:'rus', t:'destroyer', n:'Severomorsk',                 x:0.792, y:0.607, h:206},
+  {id:'r3', a:'rus', t:'frigate',   n:'Admiral Gorshkov',            x:0.868, y:0.396, h:212},
+  {id:'r4', a:'rus', t:'replenish', n:'Sergey Osipov',               x:0.872, y:0.470, h:200},
+  {id:'r5', a:'rus', t:'amphib',    n:'Ivan Gren',                   x:0.845, y:0.673, h:188},
+  {id:'r6', a:'rus', t:'ssn',       n:'K-560 (submerged contact)',   x:0.742, y:0.253, h:186},
+  {id:'r7', a:'rus', t:'ssbn',      n:'Delta IV (bastion patrol)',   x:0.866, y:0.640, h:170},
+  {id:'r8', a:'rus', t:'diesel',    n:'Kilo — Storfjorden approach', x:0.588, y:0.750, h:150},
+  {id:'r9', a:'rus', t:'bomber',    n:'Tu-142 — Bear F',             x:0.700, y:0.256, h:0},
+  {id:'r10',a:'rus', t:'uav',       n:'Orion UAV — Barents track',   x:0.735, y:0.319, h:0},
+  {id:'r11',a:'rus', t:'radar',     n:'EW Detachment — Kong Karls Land',x:0.750, y:0.404,h:0},
+  {id:'r12',a:'rus', t:'missilesite',n:'Coastal Battery — Edgeøya',  x:0.575, y:0.620, h:0},
+
+  /* --- Svalbard Governor, civil (amber) --- */
+  {id:'s1', a:'sar', t:'icebreaker',n:'MS Polarsyssel',              x:0.318, y:0.585, h:-20},
+  {id:'s2', a:'sar', t:'helo',      n:'SAR Super Puma — Sysselmester',x:0.300, y:0.493, h:0},
+  {id:'s3', a:'sar', t:'infantry',  n:'Rescue Party — Barentsburg',  x:0.352, y:0.567, h:0},
+
+  /* --- Observer (grey) --- */
+  {id:'o1', a:'obs', t:'uuv',       n:'Unattributed UUV — Storfjorden',x:0.528, y:0.678, h:120},
+  {id:'o2', a:'obs', t:'corvette',  n:'Unflagged trawler — loitering',x:0.628, y:0.745, h:150},
+];
+
+const mapEl = document.getElementById('map');
+
+/* The map is painted `center/contain`, so the plate is letterboxed rather than cropped and
+ * its scale still changes with the viewport. A percentage of the *element* is therefore
+ * geographically meaningless: the same `top:45%` is a different fjord at a different window
+ * size.
+ *
+ * So unit coordinates are fractions of the *image*, and this converts them to element
+ * pixels using the same cover arithmetic the browser uses. Positions then hold still over
+ * the coastline at every viewport, which is the only reason the laydown check means
+ * anything.
+ */
+/* Natural size of the plate. Seeded with the current file's dimensions so the first paint
+ * is right, then corrected from the image itself once it loads — replacing
+ * media/svalbard.jpg with a differently-sized crop must not silently displace every unit.
+ * Unit coordinates are fractions of the image, so a plate with different *borders* still
+ * needs its laydown re-derived; this only handles a different pixel size. */
+const MAP_IMG = {w:987, h:686};
+function mapGeom(){
+  const ew=mapEl.clientWidth, eh=mapEl.clientHeight;
+  /* `cover`, matching the CSS: max, not min. The plate fills the panel edge to edge with
+     no letterbox, at the cost of cropping whatever axis is proportionally longer. How much
+     that crops depends on the viewport, so check:laydown sweeps window sizes and fails if
+     any unit is cropped off the map rather than merely near its edge. */
+  const s=Math.max(ew/MAP_IMG.w, eh/MAP_IMG.h);
+  const dw=MAP_IMG.w*s, dh=MAP_IMG.h*s;
+  return {dw, dh, ox:(ew-dw)/2, oy:(eh-dh)/2};
+}
+function placeUnits(){
+  const g=mapGeom();
+  for(const u of UNITS){
+    if(!u.el) continue;
+    u.el.style.left=(g.ox+u.x*g.dw).toFixed(1)+'px';
+    u.el.style.top =(g.oy+u.y*g.dh).toFixed(1)+'px';
+  }
+}
+UNITS.forEach((u,idx)=>{
+  const el=document.createElement('div');
+  el.className='unit'; el.id='u-'+u.id; el.tabIndex=0;
+  el.dataset.name=u.n; el.dataset.type=u.t; el.dataset.actor=u.a;
+  el.dataset.ix=String(u.x); el.dataset.iy=String(u.y); el.dataset.h=String(u.h);
+  el.setAttribute('aria-label',`${u.n} — ${A[u.a].name}`);
+  const w=UNIT_SIZE[u.t]||44;
+  el.style.width=w+'px'; el.style.height=Math.round(w*0.607)+'px';
+  /* Offset by 1000 so unit gradient ids can never collide with the satellites'. */
+  el.innerHTML=`<span class="glyph" style="transform:rotate(${-u.h}deg)">${unitSVG(1000+idx,u.t,A[u.a].color)}</span>`;
+  mapEl.appendChild(el);
+  u.el=el;
+});
+/* ---------- movement ----------
+ * Everything that can move, moves. Each mobile unit patrols a short leg along its own
+ * course and turns at each end, rather than wandering: a random walk puts destroyers on
+ * glaciers within a minute, and a one-way track empties the map. Turning in place also
+ * means the sprite is never sailing stern-first — the glyph re-points on the turn.
+ *
+ * The leg is deliberately short. Both of its endpoints are asserted to be legal terrain by
+ * check:laydown, and the shorter the leg the less of the coastline that assertion has to
+ * hold across.
+ */
+const LEG = {sea:0.030, sub:0.024, air:0.075};
+const KIND = t =>
+  ['fighter','bomber','aew','tanker','mpa','transport','helo','uav'].includes(t) ? 'air'
+  : ['ssn','ssbn','diesel','uuv'].includes(t) ? 'sub'
+  : ['carrier','cruiser','destroyer','frigate','corvette','amphib','icebreaker','replenish'].includes(t) ? 'sea'
+  : null;
+
+for (const u of UNITS) {
+  u.kind = KIND(u.t);
+  if (!u.kind) continue;
+  u.el.dataset.kind = u.kind;
+  u.el.dataset.leg = String(LEG[u.kind]);
+  u.bx = u.x; u.by = u.y;                       // the authored station, never overwritten
+  u.leg = LEG[u.kind];
+  u.p = Math.sin(u.id.charCodeAt(1) * 2.3) * 0.6;   // spread the fleet along its legs
+  u.dir = 1;
+  u.spd = (u.kind === 'air' ? 0.055 : 0.017) * (0.75 + ((u.id.charCodeAt(1) % 5) / 10));
+}
+const MOBILE = UNITS.filter(u => u.kind);
+
+function stepUnits(dt){
+  for (const u of MOBILE) {
+    u.p += u.dir * u.spd * dt;
+    if (u.p > 1) { u.p = 1; u.dir = -1; }
+    else if (u.p < -1) { u.p = -1; u.dir = 1; }
+    const rad = -u.h * Math.PI / 180;
+    /* The plate is wider than it is tall, so a step of `leg` in x and in y are different
+       distances on the ground. Scaling y by the aspect keeps a course of 45 degrees looking
+       like 45 degrees. */
+    u.x = u.bx + Math.cos(rad) * u.leg * u.p;
+    u.y = u.by + Math.sin(rad) * u.leg * u.p * (MAP_IMG.w / MAP_IMG.h);
+    const glyph = u.el.firstElementChild;
+    if (glyph) glyph.style.transform = `rotate(${-u.h + (u.dir < 0 ? 180 : 0)}deg)`;
+  }
+  placeUnits();
+}
+
+placeUnits();
+addEventListener('resize', placeUnits, {passive:true});
+
+(function(){
+  const url = /url\("?(.+?)"?\)/.exec(getComputedStyle(mapEl).backgroundImage)?.[1];
+  if(!url) return;
+  const probe = new Image();
+  probe.onload = () => {
+    if(!probe.naturalWidth || !probe.naturalHeight) return;
+    MAP_IMG.w = probe.naturalWidth; MAP_IMG.h = probe.naturalHeight;
+    placeUnits();
+  };
+  probe.src = url;
+})();
+
+/* Motion follows the scenario clock: pausing the playback pauses the fleet, which is what
+   a reader expects from a pause button. Readers who ask for reduced motion get the static
+   laydown — the positions are the information, the movement is decoration. */
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  let last = performance.now();
+  const tick = now => {
+    const dt = Math.min(0.05, (now - last) / 1000);   // clamp so a background tab does not teleport the fleet
+    last = now;
+    if (playing) stepUnits(dt);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* Lift the arrival veil only after the units have been placed, so the first thing the
+   reader sees is the finished theatre rather than sprites snapping into position. */
+(function(){
+  const veil=document.getElementById('arrival'); if(!veil) return;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    veil.classList.add('lift');
+    setTimeout(()=>veil.remove(), 700);
+  }));
+})();
+
+/* simple line-of-sight model: farther horizontal offset from ground station → worse link */
+function recomputeLinks(s){
+  const tr=theatre.getBoundingClientRect(), sr=s.el.getBoundingClientRect();
+  s.links.forEach(l=>{
+    const g=document.getElementById(l[0]).getBoundingClientRect();
+    const d=Math.abs((sr.left+sr.width/2)-(g.left+g.width/2))/tr.width;
+    const st = s.storm ? 'lost' : d>.42?'lost': d>.25?'degraded':'ok';   // a bird in safe mode has no link to recompute
+    if(st!==l[1]){ l[1]=st;
+      push(st==='ok'?'action':'system', st==='ok'?'Link restored':'Link '+st, `${s.name} ↔ ${gsName(l[0])} is now ${st}.`, 'ksat'); }
+  });
+  draw();
+}
+const gsName=id=>document.getElementById(id).dataset.name;
+function draw(){
+  const tr=theatre.getBoundingClientRect(); let out='';
+  const gsState={};
+  SATS.forEach(s=>{ const sr=s.el.getBoundingClientRect(); const sx=sr.left+sr.width/2-tr.left, sy=sr.top+sr.height/2-tr.top+6;
+    s.links.forEach(([gid,st])=>{ const g=document.getElementById(gid).getBoundingClientRect(); const gx=g.left+g.width/2-tr.left, gy=g.top+g.height/2-tr.top;
+      const col= st==='ok'?'#7E94A9': st==='degraded'?'#E3A92A':'#D9534F';
+      const dash= st==='ok'?'': st==='degraded'?'stroke-dasharray="7 5"':'stroke-dasharray="2 5"';
+      const cx=(sx+gx)/2, cy=Math.min(sy,gy)+Math.abs(gy-sy)*.35;
+      out+=`<path d="M${sx} ${sy} Q${cx} ${cy} ${gx} ${gy}" fill="none" stroke="${col}" stroke-width="1.1" ${dash} opacity=".8"/>`;
+      gsState[gid]=Math.max(gsState[gid]||0, st==='ok'?0:st==='degraded'?1:2);
+    });
+  });
+  linksSvg.innerHTML=out;
+  document.querySelectorAll('.gs').forEach(g=>{const v=gsState[g.id]??2; g.classList.toggle('degraded',v===1); g.classList.toggle('lost',v===2);});
+}
+/* stars + relayout: one observer, work deferred to the next frame */
+const cv=document.getElementById('stars');
+function stars(){
+  const w=space.clientWidth, ht=space.clientHeight; if(!w||!ht) return;
+  cv.width=w; cv.height=ht; const c=cv.getContext('2d'); c.clearRect(0,0,w,ht);
+  let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let i=0;i<260;i++){ const a=rnd(); c.fillStyle=`rgba(${200+rnd()*55|0},${210+rnd()*45|0},255,${.25+a*.7})`;
+    c.beginPath(); c.arc(rnd()*w,rnd()*ht*.85,rnd()*1.1+.2,0,7); c.fill(); }
+}
+let rafPending=false;
+function relayout(){ if(rafPending) return; rafPending=true; requestAnimationFrame(()=>{ rafPending=false; stars(); drawOrbits(); draw(); }); }
+new ResizeObserver(relayout).observe(theatre);
+window.addEventListener('resize',relayout);
+
+/* ---------- feed ---------- */
+const stream=document.getElementById('stream'); let filter='all';
+const SCRIPT=[
+  ['thinking','','Ground-station uplink from Ny-Ålesund is our only path to SvalSat-1. If it drops, the Kalvøy relay has to carry the whole northern picture.','nor'],
+  ['action','','Tasked Arctic Eye for a pass over Storfjorden at 14:40Z. Requesting priority downlink at Longyearbyen.','nor'],
+  ['thinking','','Bjørnøya is reporting intermittent carrier on the Kalvøy-3 downlink. Weather, or interference? Need two more passes to say.','ksat'],
+  ['action','','Switched Bjørnøya to backup antenna. Monitoring bit-error rate.','ksat'],
+  ['thinking','','Blue is leaning on a single relay for the Barents picture. Degrade that and their targeting cycle slows by hours.','rus'],
+  ['action','','EW detachment ordered to raise noise floor on the Kalvøy-3 downlink band near Bjørnøya. Deniable, low power.','rus'],
+  ['thinking','','If comms go dark the settlements need a fallback: HF radio schedule, fuel for the generators, and someone at the Governor\'s office who knows the plan.','sar'],
+  ['action','','Issued a precautionary advisory to Longyearbyen and Ny-Ålesund: verify HF sets and satellite phone batteries.','sar'],
+  ['system','Sensor','Longyearbyen tracking station reports carrier-to-noise on Kalvøy-3 down 6 dB over the last pass.',''],
+  ['thinking','','That 6 dB drop is too clean for weather. Recommend we re-route Barents traffic through SvalSat-1 while it\'s overhead.','ksat'],
+  ['action','','Re-routed Barents traffic to SvalSat-1 via Ny-Ålesund. Kalvøy-3 held in reserve.','ksat'],
+  ['thinking','','They moved the traffic. Good—now the Ny-Ålesund uplink is the single point of failure.','rus'],
+  ['action','','Directed Northern Fleet auxiliary to loiter 40 nm west of Prins Karls Forland under fisheries cover.','rus'],
+  ['thinking','','A vessel loitering west of the Forland, right under the Ny-Ålesund look angle. That is not a coincidence.','nor'],
+  ['action','','Requested Coast Guard to query the vessel and asked KSAT for spectrum monitoring on the Ny-Ålesund uplink.','nor'],
+];
+/* ---- simulation clock ---- */
+const T0=14*3600+2*60; let sim=0, speed=1, playing=true, lastReal=performance.now();
+const DEC_INTERVAL=120;               /* one scripted decision every 2 scenario minutes at 1x */
+const events=[];                      /* {t,kind,title,text,actor,el} */
+const fmt=t=>{const s=T0+Math.floor(t);return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')+'Z';};
+const fmtShort=t=>fmt(t).slice(0,5)+'Z';
+const ts=()=>fmt(sim);
+
+function push(kind,title,text,actor,t){
+  const ev={t:t??sim,kind,title,text,actor:actor||''}; events.push(ev); events.sort((a,b)=>a.t-b.t);
+  render(); return ev;
+}
+function render(){
+  events.forEach(ev=>{
+    if(!ev.el){ const a=A[ev.actor]||{name:ev.title,color:'#E3A92A'}; const el=document.createElement('div');
+      el.className='ev '+ev.kind; el.dataset.kind=ev.kind; el.dataset.actor=ev.actor;
+      el.innerHTML=`<span class="dot" style="background:${a.color}"></span><div><div class="meta"><b>${a.name}</b><span>${fmt(ev.t)}</span></div><p>${ev.text}</p></div>`;
+      ev.el=el; }
+    el_pos(ev);
+  });
+  applyFilter();
+}
+function el_pos(ev){ const next=events[events.indexOf(ev)+1]; if(next&&next.el&&next.el.parentNode===stream) stream.insertBefore(ev.el,next.el); else if(ev.el.parentNode!==stream) stream.appendChild(ev.el); }
+function applyFilter(){
+  events.forEach(ev=>{
+    const inTime=ev.t<=sim;
+    const show=inTime&&(filter==='all'||(filter==='mine'?ev.actor===me.id:ev.kind===filter));
+    ev.el.style.display=show?'':'none'; ev.el.classList.toggle('mine',ev.actor===me.id);
+  });
+  stream.scrollTop=stream.scrollHeight;
+}
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c===b));applyFilter();});
+
+/* scripted decisions pre-placed on the timeline */
+SCRIPT.forEach((e,i)=>push(e[0],e[1],e[2],e[3],(i+1)*DEC_INTERVAL));
+
+/* controls */
+const scrub=document.getElementById('scrub'), clockEl=document.getElementById('clock');
+function setSim(t){ sim=Math.max(0,Math.min(3600,t)); scrub.value=sim; scrub.style.backgroundSize=(sim/36)+'% 100%';
+  clockEl.textContent=fmt(sim);
+  document.getElementById('tlNow').textContent=fmtShort(sim);
+  const vis=events.filter(e=>e.t<=sim).length; if(vis!==setSim.last){setSim.last=vis; applyFilter();} }
+scrub.oninput=()=>setSim(+scrub.value);
+document.getElementById('back').onclick=()=>setSim(sim-300);
+document.getElementById('fwd').onclick=()=>setSim(sim+300);
+/* ---------- setup ----------
+ * The dialog configures a run before it starts. Everything entered here is used: the
+ * simulation name titles the document and the feed, the operator name is who the compose
+ * box issues orders as, and the system prompt is pushed into the feed at t=0 as the
+ * situation the actors wake up into. A dialog whose fields went nowhere would be scenery.
+ */
+const DEMO_PROMPT =
+  'A severe geomagnetic storm has degraded or disabled commercial satellites carrying US ' +
+  'communications assets across the high Arctic. Transponders on the affected spacecraft ' +
+  'are unresponsive or intermittent, and the operators cannot yet say which failures are ' +
+  'permanent. Svalbard has lost most civil communications and its position and timing ' +
+  'services are unreliable. No actor knows whether this is weather or interference, and ' +
+  'nobody can prove it either way.';
+const DEMO_NAME = 'Svalbard Geomagnetic Storm';
+
+const setup = document.getElementById('setup');
+const setupForm = document.getElementById('setupForm');
+const setupSim = document.getElementById('setupSim');
+const setupOp = document.getElementById('setupOp');
+const setupPrompt = document.getElementById('setupPrompt');
+const setupDemo = document.getElementById('setupDemo');
+
+const playBtn=document.getElementById('play');
+playBtn.onclick=()=>{playing=!playing; document.getElementById('playIcon').setAttribute('d',playing?'M6 5h4v14H6zM14 5h4v14h-4z':'M7 5v14l12-7z'); playBtn.setAttribute('aria-label',playing?'Pause':'Play'); playBtn.setAttribute('aria-pressed',playing);};
+const SPEEDS=[0.5,1,1.5,2,3]; const speedBtn=document.getElementById('speedBtn');
+speedBtn.onclick=()=>{ speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%SPEEDS.length]; speedBtn.textContent=speed+'×'; };
+/* Label from the variable, not from the markup. The two were separate copies of the same
+   number, so changing the starting speed left the button lying about it. */
+speedBtn.textContent = speed + '×';
+document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT'||e.target.classList.contains('sat'))return; if(e.code==='Space'){e.preventDefault();playBtn.click();} });
+
+/* Icon and label live on the button, so both paths that change `playing` go through here
+   rather than each setting the path data themselves. */
+function setPlaying(on){
+  playing = on;
+  document.getElementById('playIcon').setAttribute('d', on ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M7 5v14l12-7z');
+  playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+  playBtn.setAttribute('aria-pressed', String(on));
+}
+
+setPlaying(false);                       // held until Begin
+setup.hidden = false;
+
+/* Whatever the reader had typed before the demo was loaded, so turning it off puts them
+   back where they were. Clearing to empty instead loses their work to a mis-click, and
+   only writing when the field is empty makes the button silently do nothing. */
+let priorPrompt = '', priorName = '';
+
+setupDemo.addEventListener('click', () => {
+  const on = setupDemo.getAttribute('aria-pressed') !== 'true';
+  setupDemo.setAttribute('aria-pressed', String(on));
+  setupDemo.textContent = on ? 'Demo scenario loaded' : 'Use demo scenario';
+  if (on) {
+    priorPrompt = setupPrompt.value;
+    priorName = setupSim.value;
+    setupPrompt.value = DEMO_PROMPT;
+    if (!setupSim.value.trim()) setupSim.value = DEMO_NAME;
+  } else {
+    setupPrompt.value = priorPrompt;
+    if (setupSim.value === DEMO_NAME) setupSim.value = priorName;
+  }
+  /* focus() puts the caret at the end, which scrolls a filled textarea past its own first
+     line — the reader sees the middle of the brief and no beginning. */
+  setupPrompt.focus();
+  setupPrompt.setSelectionRange(0, 0);
+  setupPrompt.scrollTop = 0;
+});
+
+setupForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = setupSim.value.trim() || 'Svalbard orbital dependency';
+  const operator = setupOp.value.trim();
+  const prompt = setupPrompt.value.trim();
+
+  document.title = `${name} — Inevitable Frontier`;
+  document.getElementById('feedTitle').textContent = name;
+  /* The operator names the person at the console, not the actor. Rewriting `me` would put
+     that name on every event attributed to the actor and into the picker, which is a
+     different claim than the one being made here. */
+  if (operator) {
+    document.getElementById('cmd').placeholder = `Issue an order as ${operator}…`;
+    document.getElementById('feedOperator').textContent = operator;
+    document.getElementById('feedOperator').hidden = false;
+  }
+  /* At t=0 so it sits above every scripted event and reads as the brief, not as something
+     that happened two minutes in. */
+  if (prompt) push('system', 'Situation', prompt, '', 0);
+
+  setup.hidden = true;
+  setPlaying(true);
+  playBtn.focus();
+});
+
+/* Escape starts the run with whatever is filled in. The dialog is a setup step, not a
+   gate — nobody should be trapped in it. */
+setup.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); setupForm.requestSubmit(); }
+});
+setupSim.focus();
+
+/* 1 real second = 30 scenario seconds at 1x */
+function loop(now){ const dt=(now-lastReal)/1000; lastReal=now; if(playing&&sim<3600) setSim(sim+dt*30*speed); requestAnimationFrame(loop); }
+requestAnimationFrame(loop); setSim(0);
+
+/* picker */
+const picker=document.getElementById('picker'),menu=document.getElementById('menu'),btn=document.getElementById('pickBtn');
+function setActor(a){ me=a; document.getElementById('pickName').textContent=a.name; document.getElementById('pickDot').style.background=a.color; document.getElementById('cmd').placeholder='Issue an order as '+a.name+'…';
+  [...menu.children].forEach(d=>d.setAttribute('aria-selected',d.dataset.id===a.id)); applyFilter(); }
+ACTORS.forEach(a=>{const d=document.createElement('div'); d.role='option'; d.dataset.id=a.id; d.innerHTML=`<span class="dot" style="background:${a.color}"></span><span>${a.name}<small>${a.role}</small></span>`;
+  d.onclick=()=>{setActor(a); picker.classList.remove('open'); btn.setAttribute('aria-expanded','false'); push('system','Control','You are now commanding '+a.name+'.','');}; menu.appendChild(d);});
+btn.onclick=()=>{const o=picker.classList.toggle('open'); btn.setAttribute('aria-expanded',o);};
+document.addEventListener('click',e=>{if(!picker.contains(e.target)){picker.classList.remove('open');btn.setAttribute('aria-expanded','false');}});
+
+/* posture (the "effort" analogue) */
+let posture='Balanced';
+const pw=document.getElementById('postureWrap'), pb=document.getElementById('postureBtn');
+pb.onclick=e=>{e.stopPropagation(); const o=pw.classList.toggle('open'); pb.setAttribute('aria-expanded',o);};
+document.querySelectorAll('#postureMenu div').forEach(d=>d.onclick=()=>{posture=d.dataset.p; document.getElementById('postureName').textContent=posture; document.querySelectorAll('#postureMenu div').forEach(x=>x.setAttribute('aria-selected',x===d)); pw.classList.remove('open'); pb.setAttribute('aria-expanded','false'); push('system','Control',me.name+' posture set to '+posture.toLowerCase()+'.','');});
+document.addEventListener('click',e=>{if(!pw.contains(e.target)){pw.classList.remove('open');pb.setAttribute('aria-expanded','false');}});
+
+/* dictation */
+const micBtn=document.getElementById('mic'), cmd=document.getElementById('cmd');
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null, base='';
+micBtn.onclick=()=>{
+  if(!SR){ cmd.placeholder='Dictation needs a browser with speech recognition (Chrome, Edge, Safari).'; return; }
+  if(rec){ rec.stop(); return; }
+  rec=new SR(); rec.continuous=true; rec.interimResults=true; rec.lang='en-US'; base=cmd.value?cmd.value.trim()+' ':'';
+  rec.onresult=ev=>{ let fin='',tmp=''; for(let i=0;i<ev.results.length;i++){ const r=ev.results[i]; if(r.isFinal) fin+=r[0].transcript; else tmp+=r[0].transcript; } cmd.value=base+fin+tmp; };
+  rec.onend=()=>{ rec=null; micBtn.setAttribute('aria-pressed','false'); micBtn.setAttribute('aria-label','Dictate order'); cmd.focus(); };
+  rec.onerror=()=>{ rec&&rec.stop(); };
+  rec.start(); micBtn.setAttribute('aria-pressed','true'); micBtn.setAttribute('aria-label','Stop dictation');
+};
+setActor(me);
+
+/* orders */
+document.getElementById('compose').onsubmit=e=>{e.preventDefault(); if(rec) rec.stop(); if(!cmd.value.trim())return; push('action','',cmd.value.trim(),me.id); cmd.value='';};
+
+relayout();
+
+/* youtube-style: controls fade after the pointer sits still */
+let idleT; theatre.addEventListener('pointermove',()=>{ theatre.classList.remove('idle'); clearTimeout(idleT); idleT=setTimeout(()=>theatre.classList.add('idle'),2500); });
+theatre.addEventListener('pointerleave',()=>{ clearTimeout(idleT); theatre.classList.remove('idle'); });
+</script>
+<!-- The engine. A module so Vite bundles it and its JSON; it runs after the classic script
+     above has built the page, and reaches that script's top-level bindings (push, me, cmd,
+     posture, sim) by name — a classic script's let/const live in the global lexical scope a
+     module shares. Nothing above is changed; this layers the gate over the order box. -->
+<script type="module">
+import { Engine } from '../engine/engine.ts';
+import { HumanModel, RemoteModel } from '../engine/model.ts';
+import assets from '../engine/assets.json';
+import specs from '../engine/specs.json';
+
+const engine = new Engine(assets, specs, { t0Minutes: 14 * 60 });
+
+/* The page's five actors predate the catalog's ten seats. KSAT and the Governor both
+   resolve to Norway: the catalog has no KSAT seat, and gives Norway the ground segment and
+   the coast guard. The observer holds no seat, and every order it issues says so. Replacing
+   ACTORS with the catalog's seats is the clean fix and is out of this pass. */
+const SEAT_OF_ACTOR = { nor: 'norway', ksat: 'norway', sar: 'norway', rus: 'northern_fleet', obs: null };
+const seatOf = () => SEAT_OF_ACTOR[me.id] ?? null;
+
+for (const seat of engine.catalog.specs.keys()) engine.attach(seat, new HumanModel());
+
+/* Feed identities for the gate's answers, so a rejection is red and a release is amber
+   without the feed code knowing the engine exists. */
+Object.assign(A, {
+  gate_allow:     { name: 'Allowed',           color: '#57B37A' },
+  gate_pending:   { name: 'Pending release',   color: '#E3A92A' },
+  gate_recommend: { name: 'Recommendation',    color: '#5E8FD6' },
+  gate_reject:    { name: 'Rejected',          color: '#D9534F' },
+});
+
+/* Orders are typed. The first word is an action if it names one — `jam svalsat_ground`,
+   `board yantar with kv_svalbard`, `image storfjorden` — and anything that is not an order
+   is intent: it goes in the feed as it always did, and the engine logs it as a hold. */
+const ALIAS = {
+  board: 'board_vessel', image: 'task_imagery_pass', imagery: 'task_imagery_pass',
+  demarche: 'private_demarche', attribute: 'public_attribution', throttle: 'geofence_or_throttle',
+  geofence: 'geofence_or_throttle', disclose: 'disclose_incident', share: 'share_telemetry',
+  cyber: 'ground_cyber', inspect: 'counter_rpo', respond: 'terrestrial_response',
+};
+const PLACES = { storfjorden: { lat: 78.0, lon: 19.0, radius_km: 25 }, isfjorden: { lat: 78.2, lon: 14.5, radius_km: 25 },
+                 barentsburg: { lat: 78.06, lon: 14.21, radius_km: 15 }, hinlopen: { lat: 79.5, lon: 19.0, radius_km: 30 } };
+
+function parse(text, seat) {
+  const words = text.trim().toLowerCase().replace(/[^a-z0-9_ .,-]/g, '').split(/\s+/);
+  const head = words[0]?.replace(/-/g, '_');
+  const action = ALIAS[head] ?? (engine.catalog.actions.includes(head) ? head : null);
+  if (!action) return null;
+  const order = { seat, action, text };
+  const ids = engine.catalog.byId;
+  for (let i = 1; i < words.length; i++) {
+    const w = words[i].replace(/-/g, '_');
+    if ((w === 'with' || w === 'from' || w === 'using') && ids.has(words[i + 1]?.replace(/-/g, '_'))) { order.asset_id = words[++i].replace(/-/g, '_'); continue; }
+    if (ids.has(w) && !order.target_id) { order.target_id = w; continue; }
+    if (PLACES[w] && !order.area) { order.area = PLACES[w]; continue; }
+    const m = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(w);
+    if (m && !order.area) order.area = { lat: +m[1], lon: +m[2], radius_km: 25 };
+  }
+  return order;
+}
+
+function echo(verdict, order) {
+  const what = order.target_id ? `${order.action} → ${engine.catalog.byId.get(order.target_id)?.name ?? order.target_id}`
+             : order.area ? `${order.action} over ${order.area.lat.toFixed(1)}N ${order.area.lon.toFixed(1)}E` : order.action;
+  const line = { allow: `✓ ${what} — ${verdict.reason}`, pending: `⏳ ${what} — ${verdict.reason}`,
+                 recommend: `→ ${what} — ${verdict.reason}`, reject: `✗ ${what} — ${verdict.reason}` }[verdict.kind];
+  push('system', '', line, `gate_${verdict.kind}`);
+}
+
+const compose = document.getElementById('compose');
+compose.onsubmit = (e) => {
+  e.preventDefault();
+  if (typeof rec !== 'undefined' && rec) rec.stop();
+  const text = cmd.value.trim();
+  if (!text) return;
+  push('action', '', text, me.id);
+  cmd.value = '';
+  const seat = seatOf();
+  if (!seat) { push('system', '', `✗ ${me.name} holds no seat — it observes`, 'gate_reject'); return; }
+  engine.setPosture(seat, posture);
+  const order = parse(text, seat) ?? { seat, action: 'hold', text };
+  if (order.action !== 'hold' || order === null) { echo(engine.order(order), order); }
+  else engine.order(order);                          // intent is logged, not judged aloud
+};
+
+/* Severity follows the setup: the demo scenario is a severe storm.
+
+   Under G5 the catalog's storm factors take Ku-band LEO to 15% and leave the HEO relays at
+   80% and MEO navigation at 40% — so it is the LEO shell that goes dark, not the relays.
+   The map says the same thing: every LEO link is marked lost and the three birds are put in
+   safe mode in the engine, so an order that needs Arctic Eye is refused for the right
+   reason. HEO and MEO links reset to ok so the outage reads as the storm and nothing else. */
+document.getElementById('setupForm').addEventListener('submit', () => {
+  const demo = document.getElementById('setupDemo').getAttribute('aria-pressed') === 'true';
+  engine.setSeverity(demo ? 'G5' : 'G4');
+  if (!demo) return;
+  for (const sat of SATS) {
+    sat.storm = sat.orbit === 'leo';
+    for (const l of sat.links) l[1] = sat.storm ? 'lost' : 'ok';
+  }
+  draw();
+  for (const id of ['arctic_eye', 'barents_1', 'aissat_4']) engine.safeMode(id);
+  const text = 'G5 geomagnetic storm. The LEO shell is in safe mode — Ku-band links to Arctic Eye, Barents-1 and AISSat-4 are lost. The HEO relays and MEO navigation are degraded but holding.';
+  engine.inject(text);
+  push('system', 'Storm', text, '');
+});
+
+/* The engine's clock is the scenario clock. Effects expire and release-holders wake on it. */
+let lastTick = -1;
+(function tickEngine() {
+  const minutes = Math.floor((typeof sim === 'number' ? sim : 0) / 60);
+  if (minutes !== lastTick && typeof playing !== 'undefined' && playing) {
+    lastTick = minutes;
+    engine.tick(minutes).then((made) => {
+      for (const { seat, decision, verdict } of made) {
+        // Only a real model's decisions reach the feed; a NullModel's holds are silence.
+        if (decision.rationale?.startsWith('no model attached')) continue;
+        push('system', '', `${seat}: ${decision.action}${decision.rationale ? ' — ' + decision.rationale : ''} → ${verdict.kind}`, `gate_${verdict.kind}`);
+      }
+    });
+  }
+  requestAnimationFrame(tickEngine);
+})();
+
+/* Until the model is trained, this is how a seat comes alive — from the console:
+     engine.attach('northern_fleet', new RemoteModel('https://…/decide', engine.catalog.actions))
+   The gate is the same one the order box goes through. */
+window.engine = engine;
+window.RemoteModel = RemoteModel;
+</script>
+</body>
+</html>

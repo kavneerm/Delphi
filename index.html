@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inevitable Frontier — Svalbard orbital dependency wargame</title>
+    <meta
+      name="description"
+      content="A brief transition into the Svalbard orbital dependency wargame, an interactive simulation of how a satellite outage cascades through an Arctic archipelago."
+    />
+    <!--
+      The front door. The letter site it used to bridge from is retired; this is now the
+      whole of inevitablefrontier.org above /wargame/.
+
+      It replaces itself in history rather than pushing, so the clip does not sit between
+      the reader and Back — from the simulation, Back leaves the site rather than replaying
+      three seconds of video.
+    -->
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; background: #000; }
+      body { display: grid; place-items: center; overflow: hidden; }
+
+      .bridge {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Starts hidden and is revealed once playback actually begins. A poster-less video
+           that has not decoded its first frame paints white in some engines, which reads
+           as a flash of blank page between two black documents. */
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+      .bridge.playing { opacity: 1; }
+
+      /* The last beat: fade to black so the cut into the theatre has somewhere to land. */
+      .veil {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 320ms ease;
+      }
+      .veil.on { opacity: 1; }
+
+      .skip {
+        position: fixed;
+        right: clamp(1rem, 4vw, 2.5rem);
+        bottom: clamp(1rem, 4vw, 2.5rem);
+        z-index: 3;
+        padding: 0.55rem 1.1rem;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 2px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #f1f1f1;
+        font: 500 0.8rem/1 ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .skip:hover, .skip:focus-visible { background: rgba(255, 255, 255, 0.16); }
+
+      /* Without JavaScript the clip is simply the page, and the link below it is the way
+         on. Nothing here is required to reach the simulation. */
+      .fallback {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2;
+        color: #f1f1f1;
+        font: 400 1rem/1.6 ui-serif, Georgia, serif;
+        text-align: center;
+      }
+      .fallback a { color: #f1f1f1; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .bridge, .veil { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- A real element in the markup, not built in script: Vite only fingerprints assets it
+         can see in the HTML, and a src assembled at runtime would ship unhashed. -->
+    <video
+      class="bridge"
+      id="bridge"
+      src="./media/intro.mp4"
+      muted
+      playsinline
+      preload="auto"
+      aria-hidden="true"
+    ></video>
+    <div class="veil" id="veil" aria-hidden="true"></div>
+
+    <p class="fallback" id="fallback">
+      <a href="/wargame/">Continue to the simulation</a>
+    </p>
+
+    <a class="skip" href="/wargame/" id="skip">Skip</a>
+
+    <script>
+      (function () {
+        var NEXT = '/wargame/';
+        var video = document.getElementById('bridge');
+        var veil = document.getElementById('veil');
+        var fallback = document.getElementById('fallback');
+        var done = false;
+
+        /* replace(), not assign(): the bridge must not sit in history, or Back from the
+           simulation replays the clip and the reader is stuck in a loop. */
+        function go() {
+          if (done) return;
+          done = true;
+          /* Left for check:bridge to read after the navigation: how far the clip actually
+             got. Without it the gate cannot tell a played transition from a dead one. */
+          try {
+            sessionStorage.setItem('bridge:progress', String(video.currentTime || 0));
+            sessionStorage.setItem('bridge:revealed', video.classList.contains('playing') ? '1' : '0');
+          } catch (e) { /* private mode; the transition still works */ }
+          location.replace(NEXT);
+        }
+
+        /* Start the wargame document downloading while the clip plays, so the handoff at
+           the last frame lands on a warm cache rather than a blank page. */
+        var pre = document.createElement('link');
+        pre.rel = 'prefetch';
+        pre.href = NEXT;
+        document.head.appendChild(pre);
+
+        var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduced) { go(); return; }
+
+        fallback.hidden = true;
+
+        /* Fade out slightly before the end and navigate on the fade, not on 'ended'. The
+           last frames of a short clip are where a stall is most likely, and arriving via a
+           timeout that never fires is worse than arriving a beat early. */
+        video.addEventListener('timeupdate', function () {
+          if (video.duration && video.currentTime > video.duration - 0.45) veil.classList.add('on');
+        });
+        video.addEventListener('playing', function () { video.classList.add('playing'); });
+        video.addEventListener('ended', go);
+        video.addEventListener('error', go);
+
+        /* Autoplay can be refused even muted, and a cold connection can accept play() and
+           then buffer nothing. `paused` cannot tell those apart from playing — it goes
+           false the instant play() resolves — so the test is whether the clip has actually
+           advanced. Without this the reader sat on black for the full hard ceiling. */
+        var watchdog = setTimeout(function () {
+          if (video.currentTime === 0 || video.readyState < 3) go();
+        }, 1200);
+
+        /* Having started is not having kept going. If the clip stops advancing mid-way,
+           leave rather than waiting out the ceiling on a frozen frame. */
+        var seen = 0, stalled = 0;
+        var pulse = setInterval(function () {
+          if (done) { clearInterval(pulse); return; }
+          if (video.currentTime > seen + 0.01) { seen = video.currentTime; stalled = 0; clearTimeout(watchdog); }
+          else if (seen > 0 && ++stalled >= 4) { go(); }
+        }, 250);
+
+        /* A hard ceiling. Whatever happens to the media element, nobody is held here. */
+        setTimeout(go, 6000);
+
+        var p = video.play();
+        if (p && p.catch) p.catch(go);
+
+        document.getElementById('skip').addEventListener('click', function (e) {
+          e.preventDefault();
+          go();
+        });
+        addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') go();
+        });
+        addEventListener('pointerdown', go);
+      })();
+    </script>
+  </body>
+</html>

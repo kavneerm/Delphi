@@ -1,0 +1,643 @@
+# Delphi — Svalbard asset catalog
+# Feed to the UI (sprites, labels, tooltips) and the backend (capability gating).
+# Names: real classes, plausible hull names. Anything marked `real: true` is an actual
+# named platform or site; everything else is an analog. Positions are approximate
+# lat/lon at T+0 (storm onset, 14:00Z). Bands: HEO/high-latitude relay, MEO, LEO.
+#
+# The UI currently labels the top band "GEO". Relabel it "HEO" — geostationary
+# satellites cannot see Svalbard (78°N); the persistent Arctic relays fly highly
+# elliptical orbits. The three satellites drawn in that band are HEO below.
+
+schema_version: 1
+
+# ------------------------------------------------------------------
+# CAPABILITY VOCABULARY (backend uses these strings; UI shows icons)
+# ------------------------------------------------------------------
+capabilities:
+  sensors:   [radar_surface, radar_air, eo_ir, sar, elint, sigint, ais_rx, sonar, space_track, magnetometer]
+  comms:     [ehf_protected, x_band_mil, ka_band, ku_band_leo, l_band_narrow, hf, uhf_satcom, fiber, line_of_sight]
+  effects:   [jam_gnss, jam_satcom_uplink, jam_satcom_downlink, dazzle_eo, cyber_ground, cable_interfere, rpo_inspect, kinetic_asat, boarding, escort]
+  mobility:  [fixed, slow_surface, fast_surface, submerged, air_manned, air_uav, orbital]
+
+# ------------------------------------------------------------------
+# SATELLITES
+# ------------------------------------------------------------------
+satellites:
+
+  # --- HEO (persistent Arctic relays; drawn in the top band) ---
+  - id: svalsat_1
+    name: SvalSat-1
+    analog_of: ASBM-1 (Space Norway HEOSAT)   # hosts EPS-R, Norwegian X-band, Viasat Ka
+    owner: norway
+    co_tenants: [usspacecom, starlink]         # US EPS-R payload; commercial Ka payload
+    band: HEO
+    orbit: {perigee_km: 8100, apogee_km: 43500, period_h: 16}
+    comms: [ehf_protected, x_band_mil, ka_band]
+    sensors: [magnetometer]
+    storm_vulnerability: {safe_mode_p_G4: 0.03, safe_mode_p_G5: 0.10, link_degradation: high_auroral}
+    coverage: arctic_above_65N
+    notes: One of a pair; each covers the Arctic ~10 h of every 16. Losing one opens an 8-hour gap per orbit.
+
+  - id: svalsat_2
+    name: SvalSat-2
+    analog_of: ASBM-2
+    owner: norway
+    co_tenants: [usspacecom, starlink]
+    band: HEO
+    orbit: {perigee_km: 8100, apogee_km: 43500, period_h: 16, phase_offset_h: 8}
+    comms: [ehf_protected, x_band_mil, ka_band]
+    sensors: [magnetometer]
+    storm_vulnerability: {safe_mode_p_G4: 0.03, safe_mode_p_G5: 0.10, link_degradation: high_auroral}
+    coverage: arctic_above_65N
+
+  - id: polar_relay
+    name: Polar Relay
+    analog_of: Legacy EPS payload on a US HEO host (understood to also carry SBIRS-HEO and SIGINT)
+    owner: usspacecom
+    band: HEO
+    orbit: {perigee_km: 2100, apogee_km: 37750, period_h: 12, inclination_deg: 62.8}
+    comms: [ehf_protected]
+    sensors: [eo_ir, sigint]                   # missile warning + collection
+    storm_vulnerability: {safe_mode_p_G4: 0.04, safe_mode_p_G5: 0.12, link_degradation: high_auroral}
+    coverage: northern_hemisphere
+    classified: true
+    notes: Older hardware. A safe-mode trip degrades comms, missile warning, and SIGINT at once.
+
+  # --- MEO ---
+  - id: norsat_q
+    name: NorSat-Q
+    analog_of: GPS III (one of ~31; stands in for the constellation)
+    owner: usspacecom
+    band: MEO
+    orbit: {altitude_km: 20200, inclination_deg: 55}
+    comms: [l_band_narrow]
+    provides: [pnt]
+    storm_vulnerability: {safe_mode_p_G5: 0.01, link_degradation: scintillation}
+    notes: Survives the storm. Scintillation and Kola jamming degrade the signal, not the satellite.
+
+  - id: kalvoy_3
+    name: Kalvøy-3
+    analog_of: OneWeb-class polar broadband (1,200 km; drawn high for legibility)
+    owner: iridium                              # treated as the "survivor" commercial operator's mid-altitude asset
+    band: MEO
+    orbit: {altitude_km: 1200, inclination_deg: 87.4}
+    comms: [ku_band_leo]
+    storm_vulnerability: {safe_mode_p_G4: 0.05, safe_mode_p_G5: 0.15, drag_loss_p: 0.0}
+    notes: Above the drag zone. Link quality falls under the aurora; the satellite itself is likely fine.
+
+  - id: sentinel_n
+    name: Sentinel-N
+    analog_of: Sentinel-1-class SAR (ESA); drawn in MEO band for legibility, actually ~700 km
+    owner: norway                               # allied/European, tasked via Norway in this scenario
+    band: MEO
+    orbit: {altitude_km: 700, inclination_deg: 98.2, sun_synchronous: true}
+    sensors: [sar]
+    comms: [x_band_mil]                         # downlinks at SvalSat ground station
+    storm_vulnerability: {safe_mode_p_G5: 0.08, downlink_dependency: svalbard_ground}
+    notes: Sees through cloud and polar night. Pass-based; ~every 100 min. Useless if Longyearbyen downlink is down.
+
+  # --- LEO ---
+  - id: arctic_eye
+    name: Arctic Eye
+    analog_of: Commercial EO imager (Maxar/Planet-class), ~500 km
+    owner: starlink                             # commercial ISR provider; contracted to usspacecom and norway
+    band: LEO
+    orbit: {altitude_km: 500, inclination_deg: 97.5}
+    sensors: [eo_ir]
+    comms: [x_band_mil]
+    storm_vulnerability: {safe_mode_p_G4: 0.10, safe_mode_p_G5: 0.30, drag_loss_p_G5: 0.05}
+    effects_vulnerable_to: [dazzle_eo, jam_satcom_downlink]
+    notes: Taskable per pass. Can be dazzled from the ground during a pass over Kola.
+
+  - id: barents_1
+    name: Barents-1
+    analog_of: Starlink/Starshield-class broadband node (stands in for the polar shell)
+    owner: starlink
+    band: LEO
+    orbit: {altitude_km: 560, inclination_deg: 97.6}
+    comms: [ku_band_leo]
+    hosted_payloads: [usspacecom_relay]         # Starshield-style government payload
+    storm_vulnerability: {safe_mode_p_G4: 0.20, safe_mode_p_G5: 0.50, drag_loss_p_G5: 0.10, tracking_loss: true}
+    effects_vulnerable_to: [jam_satcom_uplink, cyber_ground]
+    notes: Most of the Arctic's bandwidth. First to go in the storm. Operator holds the telemetry that distinguishes drag from interference.
+
+  - id: aissat_4
+    name: AISSat-4
+    analog_of: NorSat/AISSat maritime-tracking microsat
+    owner: norway
+    band: LEO
+    orbit: {altitude_km: 600, inclination_deg: 98}
+    sensors: [ais_rx]
+    comms: [uhf_satcom]
+    storm_vulnerability: {safe_mode_p_G5: 0.20}
+    effects_vulnerable_to: [jam_satcom_downlink]
+    notes: Builds the surface picture from cooperative ships. Blind to anyone with AIS off.
+
+  # --- Add these if the UI can take more sprites ---
+  - id: polarnet_shell
+    name: Polarnet
+    analog_of: Iridium constellation (780 km, 66 sats; drawn as one sprite)
+    owner: iridium
+    band: LEO
+    orbit: {altitude_km: 780, inclination_deg: 86.4}
+    comms: [l_band_narrow]
+    storm_vulnerability: {safe_mode_p_G5: 0.10, drag_loss_p: 0.0}
+    notes: The survivor. Narrowband voice/data; suddenly the Arctic's only reliable commercial link.
+
+  - id: kosmos_2xxx
+    name: Kosmos-2 (unlisted)
+    analog_of: Russian co-orbital inspector (Kosmos-2558-class)
+    owner: northern_fleet                       # operational control; kremlin authorizes
+    band: LEO
+    orbit: {altitude_km: 520, inclination_deg: 97.5}
+    effects: [rpo_inspect]
+    sensors: [eo_ir, elint]
+    notes: Appears in the catalog as a "military satellite." Can be maneuvered toward Arctic Eye or Barents-1. Intent unknowable from tracking alone.
+
+  - id: yaogan_n
+    name: Yaogan-N
+    analog_of: Chinese EO/SAR reconnaissance satellite
+    owner: china
+    band: LEO
+    orbit: {altitude_km: 650, inclination_deg: 98}
+    sensors: [sar, eo_ir]
+    notes: China's independent picture. Whether it shares what it sees is a China-persona decision.
+
+# ------------------------------------------------------------------
+# GROUND SITES
+# ------------------------------------------------------------------
+ground_sites:
+
+  - id: svalsat_ground
+    name: SvalSat (Platåberget, Longyearbyen)
+    real: true
+    owner: norway                               # operated by KSAT; Norway seat controls it
+    lat: 78.23
+    lon: 15.39
+    role: polar ground station, 100+ antennas; downlink for nearly every polar-orbiting satellite
+    comms: [fiber, x_band_mil, ka_band]
+    dependencies: [svalbard_cable_1, svalbard_cable_2, longyearbyen_power]
+    effects_vulnerable_to: [cyber_ground, cable_interfere, jam_satcom_downlink]
+    storm_vulnerability: {gic_outage_p_G5: 0.15}
+    treaty_note: Svalbard Treaty bars military use; Norway interprets strictly. Russia disputes.
+
+  - id: ny_alesund_station
+    name: Ny-Ålesund uplink
+    real: true
+    owner: norway
+    lat: 78.93
+    lon: 11.93
+    role: science station and secondary uplink; only path to SvalSat-1 in the opening state
+    comms: [fiber, x_band_mil]
+    neighbors: [yellow_river_station]
+
+  - id: yellow_river_station
+    name: Yellow River Station (Ny-Ålesund)
+    real: true
+    owner: china
+    lat: 78.92
+    lon: 11.93
+    role: Chinese Arctic research station; ionospheric and auroral instruments
+    sensors: [magnetometer]
+    notes: Gives China an independent read on the storm. Under treaty, civilian.
+
+  - id: isfjord_radio
+    name: Isfjord Radio
+    real: true
+    owner: norway
+    lat: 78.06
+    lon: 13.62
+    comms: [hf, line_of_sight]
+    role: coastal radio; HF fallback for the archipelago
+
+  - id: bjornoya_met
+    name: Bjørnøya station
+    real: true
+    owner: norway
+    lat: 74.50
+    lon: 19.00
+    role: met station; reports Kalvøy-3 downlink carrier quality in the UI feed
+    comms: [hf, l_band_narrow]
+
+  - id: barentsburg
+    name: Barentsburg (Trust Arktikugol)
+    real: true
+    owner: kremlin                              # Russian state company; civilians
+    lat: 78.06
+    lon: 14.21
+    role: Russian settlement; ~400 residents; helipad; own comms
+    comms: [ka_band, hf]
+    notes: Source of the "Russian citizens endangered" narrative and of Russian helicopter movements the treaty tolerates.
+
+  - id: longyearbyen_gateway
+    name: Longyearbyen LEO gateway
+    owner: starlink
+    lat: 78.22
+    lon: 15.63
+    role: commercial gateway for Barents-1 shell and Kalvøy-3 users on the archipelago
+    comms: [ku_band_leo, fiber]
+    effects_vulnerable_to: [cyber_ground, jam_satcom_uplink]
+
+  - id: svalbard_cable_1
+    name: Svalbard fibre 1
+    real: true
+    owner: norway
+    path: Longyearbyen → Andøya (mainland)
+    comms: [fiber]
+    effects_vulnerable_to: [cable_interfere]
+    notes: One of two. Cable 2 was damaged in Jan 2022, never attributed.
+
+  - id: svalbard_cable_2
+    name: Svalbard fibre 2
+    real: true
+    owner: norway
+    path: Longyearbyen → Andøya
+    comms: [fiber]
+    effects_vulnerable_to: [cable_interfere]
+
+  - id: andoya_station
+    name: Andøya Space (mainland)
+    real: true
+    owner: norway
+    lat: 69.29
+    lon: 16.02
+    role: mainland ground station and rocket range; cable landing; US aircraft stage here (treaty keeps them off Svalbard)
+    comms: [fiber, x_band_mil, ka_band]
+
+  - id: vardo_radar
+    name: Globus III (Vardø)
+    real: true
+    owner: norway                               # US-funded, Norwegian-operated
+    lat: 70.37
+    lon: 31.10
+    sensors: [space_track, radar_air]
+    role: space surveillance radar 50 km from the Russian border; watches Barents launches
+    notes: Constant Russian grievance. Its tracking is the best allied catalog input during the storm.
+
+  - id: pechenga_ew_site
+    name: Pechenga EW site
+    owner: northern_fleet
+    lat: 69.53
+    lon: 31.17
+    effects: [jam_gnss, jam_satcom_uplink, jam_satcom_downlink]
+    role: Kola-based electronic-warfare complex; source of the Finnmark GPS jamming since 2017
+    range_km: 300
+
+  - id: kola_laser_site
+    name: Kola optical site
+    owner: northern_fleet
+    lat: 68.9
+    lon: 33.1
+    effects: [dazzle_eo]
+    role: ground-based laser for dazzling imaging satellites on overhead passes
+
+  - id: severomorsk
+    name: Severomorsk (Northern Fleet HQ)
+    real: true
+    owner: northern_fleet
+    lat: 69.07
+    lon: 33.42
+    role: fleet headquarters; C2 node
+
+# ------------------------------------------------------------------
+# SHIPS
+# ------------------------------------------------------------------
+ships:
+
+  # --- Norway ---
+  - id: kv_svalbard
+    name: KV Svalbard
+    real: true
+    class: Svalbard-class icebreaking offshore patrol vessel (Coast Guard)
+    owner: norway
+    pos: {lat: 78.0, lon: 14.5}                 # Isfjorden approaches
+    mobility: slow_surface
+    sensors: [radar_surface, radar_air, eo_ir, ais_rx]
+    comms: [x_band_mil, ku_band_leo, l_band_narrow, hf]
+    effects: [boarding, escort]
+    role: the archipelago's sovereignty presence; can board a vessel, escort, or hold station over a cable
+
+  - id: hnoms_thor_heyerdahl
+    name: HNoMS Thor Heyerdahl
+    real: true
+    class: Fridtjof Nansen-class frigate
+    owner: norway
+    pos: {lat: 74.2, lon: 18.5}                 # south of Bjørnøya
+    mobility: fast_surface
+    sensors: [radar_surface, radar_air, sonar, eo_ir, elint]
+    comms: [x_band_mil, ehf_protected, ku_band_leo, hf]
+    effects: [escort]
+    role: Norway's most capable surface unit in the area; sonar picture of the Bear Gap
+
+  - id: kv_nordkapp
+    name: KV Nordkapp
+    real: true
+    class: Nordkapp-class coast guard vessel
+    owner: norway
+    pos: {lat: 76.5, lon: 20.0}
+    mobility: slow_surface
+    sensors: [radar_surface, ais_rx]
+    comms: [ku_band_leo, l_band_narrow, hf]
+    effects: [boarding, escort]
+
+  - id: polarsyssel
+    name: Polarsyssel
+    real: true
+    class: Governor of Svalbard's service vessel
+    owner: norway
+    pos: {lat: 78.2, lon: 15.6}                 # Longyearbyen
+    mobility: slow_surface
+    sensors: [radar_surface, ais_rx]
+    comms: [ku_band_leo, hf]
+    role: civil authority afloat; search and rescue; first responder to a distress call
+
+  # --- United States (kept off the archipelago per treaty) ---
+  - id: uss_delbert_black
+    name: USS Delbert D. Black
+    real: true
+    class: Arleigh Burke-class destroyer (Flight IIA)
+    owner: northcom                             # operationally assigned for the exercise
+    pos: {lat: 73.5, lon: 15.0}                 # Norwegian Sea, west of Bjørnøya
+    mobility: fast_surface
+    sensors: [radar_surface, radar_air, sonar, eo_ir, elint]
+    comms: [ehf_protected, uhf_satcom, x_band_mil, ku_band_leo, hf]
+    effects: [escort]
+    role: highest-end sensor in the scenario; the only Blue platform with protected comms that isn't a satellite
+
+  - id: uscgc_healy
+    name: USCGC Healy
+    real: true
+    class: Coast Guard heavy icebreaker
+    owner: northcom
+    pos: {lat: 79.5, lon: 8.0}                  # Fram Strait
+    mobility: slow_surface
+    sensors: [radar_surface, ais_rx]
+    comms: [ku_band_leo, l_band_narrow, hf]
+    role: science/ice mission; loses almost all bandwidth when Barents-1 goes down — the "1990s icebreaker" problem
+
+  - id: ssn_track_alpha
+    name: (submerged contact — Blue SSN)
+    class: Virginia-class attack submarine
+    owner: northcom
+    pos: {lat: 75.0, lon: 25.0}                 # Barents approaches; position uncertain to other seats
+    mobility: submerged
+    sensors: [sonar, elint]
+    comms: [ehf_protected, uhf_satcom]          # only when at periscope depth
+    visibility: hidden_unless_exposed
+    role: reporting-in requires surfacing an antenna; a maneuver that reveals it is an irreversible-class decision for NORTHCOM
+
+  # --- Russia, Northern Fleet ---
+  - id: admiral_gorshkov
+    name: Admiral Gorshkov
+    real: true
+    class: Project 22350 frigate
+    owner: northern_fleet
+    pos: {lat: 74.8, lon: 34.0}                 # Barents Sea, east of the archipelago
+    mobility: fast_surface
+    sensors: [radar_surface, radar_air, sonar, elint]
+    comms: [x_band_mil, hf, uhf_satcom]
+    effects: [jam_gnss, jam_satcom_uplink]      # shipborne EW
+    role: the Fleet's most modern surface combatant; its movement is the "ships move" inject
+
+  - id: severomorsk_ship
+    name: Severomorsk
+    real: true
+    class: Udaloy-class destroyer
+    owner: northern_fleet
+    pos: {lat: 75.6, lon: 30.5}
+    mobility: fast_surface
+    sensors: [radar_surface, sonar, elint]
+    comms: [x_band_mil, hf]
+    effects: [escort]
+
+  - id: yantar
+    name: Yantar
+    real: true
+    class: Project 22010 oceanographic research vessel (GUGI)
+    owner: northern_fleet
+    pos: {lat: 72.5, lon: 17.5}                 # loitering near the Svalbard cable route
+    mobility: slow_surface
+    sensors: [sonar]
+    comms: [x_band_mil, hf]
+    effects: [cable_interfere]
+    role: submersible-carrying "research" ship associated with subsea infrastructure; its presence near the cable is itself an inject
+
+  - id: severodvinsk
+    name: Severodvinsk
+    real: true
+    class: Yasen-class SSGN
+    owner: northern_fleet
+    pos: {lat: 76.0, lon: 28.0}
+    mobility: submerged
+    sensors: [sonar, elint]
+    comms: [hf, uhf_satcom]
+    visibility: hidden_unless_exposed
+    role: what the Blue SSN is tracking; whether it transits under storm cover is a Northern Fleet private-type question
+
+  - id: kapitan_rogov
+    name: Kapitan Rogov
+    class: stern trawler (fishing fleet)
+    owner: northern_fleet                       # civilian hull; Fleet seat may task it
+    pos: {lat: 76.8, lon: 24.0}
+    mobility: slow_surface
+    sensors: [ais_rx]
+    comms: [l_band_narrow, hf]
+    effects: [cable_interfere]                  # anchor drag
+    ais_status: intermittent
+    role: deniable; the Balticconnector pattern
+
+  - id: barentsburg_supply
+    name: Arktikugol supply vessel
+    class: general cargo
+    owner: kremlin
+    pos: {lat: 77.5, lon: 13.5}
+    mobility: slow_surface
+    comms: [l_band_narrow, hf]
+    role: legitimate treaty traffic to Barentsburg; a "humanitarian resupply" move the Kremlin can announce
+
+  # --- China ---
+  - id: xue_long_2
+    name: Xue Long 2
+    real: true
+    class: polar research icebreaker
+    owner: china
+    pos: {lat: 79.8, lon: 3.0}                  # Fram Strait, "research transit"
+    mobility: slow_surface
+    sensors: [radar_surface, ais_rx, elint]
+    comms: [ka_band, hf]
+    role: China's Arctic presence; can offer "assistance" to Ny-Ålesund; its ELINT fit is the unstated part
+
+  - id: yuan_wang_6
+    name: Yuan Wang 6
+    real: true
+    class: space-tracking ship
+    owner: china
+    pos: {lat: 70.5, lon: 5.0}                  # Norwegian Sea
+    mobility: slow_surface
+    sensors: [space_track, elint]
+    comms: [ka_band, hf]
+    role: independent tracking of every satellite in the scenario; China's resolving-information asset
+
+  # --- Civilian (rule actor; targets, not players) ---
+  - id: ms_nordstjernen
+    name: MS Nordstjernen
+    real: true
+    class: expedition cruise ship
+    owner: civilians
+    pos: {lat: 78.6, lon: 16.5}
+    mobility: slow_surface
+    comms: [ku_band_leo, l_band_narrow, hf]
+    role: 100+ passengers; loses comms and GPS; the distress-call inject
+
+  - id: fishing_fleet
+    name: Norwegian/Russian fishing fleet (aggregate)
+    owner: civilians
+    pos: {lat: 75.5, lon: 22.0}
+    count: 12
+    mobility: slow_surface
+    comms: [l_band_narrow, hf]
+    ais_status: mixed
+    role: clutter in the surface picture; some Russian hulls go dark when convenient
+
+# ------------------------------------------------------------------
+# AIRCRAFT AND DRONES
+# ------------------------------------------------------------------
+aircraft:
+
+  - id: p8_norway
+    name: P-8A Poseidon (333 Sqn)
+    real: true
+    owner: norway
+    base: Evenes
+    mobility: air_manned
+    sensors: [radar_surface, eo_ir, elint, sonar]   # sonobuoys
+    comms: [x_band_mil, ku_band_leo, uhf_satcom, hf]
+    endurance_h: 8
+    role: Norway's maritime patrol; the only allied asset that can re-find a submarine after the picture collapses
+
+  - id: p8_us
+    name: P-8A Poseidon (US, deployed)
+    real: true
+    owner: northcom
+    base: Andøya                                # mainland; treaty keeps it off Svalbard
+    mobility: air_manned
+    sensors: [radar_surface, eo_ir, elint, sonar]
+    comms: [ehf_protected, uhf_satcom, ku_band_leo, hf]
+    endurance_h: 8
+
+  - id: rc135
+    name: RC-135 Rivet Joint
+    real: true
+    owner: northcom
+    base: RAF Mildenhall (staging Andøya)
+    mobility: air_manned
+    sensors: [sigint, elint]
+    comms: [ehf_protected, uhf_satcom]
+    endurance_h: 10
+    role: characterizes the jamming — the asset that can say "that's Pechenga, not the storm"
+
+  - id: mq9b_seaguardian
+    name: MQ-9B SeaGuardian
+    real: true
+    owner: norway
+    base: Andøya
+    mobility: air_uav
+    sensors: [radar_surface, eo_ir, ais_rx]
+    comms: [ku_band_leo, l_band_narrow]         # BLOS control via commercial SATCOM
+    endurance_h: 24
+    storm_effect: loses BLOS control when Barents-1 shell is down; loiters on autonomy or returns
+    role: persistent surface surveillance — and the clearest casualty of commercial dependence
+
+  - id: tu142
+    name: Tu-142MK
+    real: true
+    owner: northern_fleet
+    base: Kipelovo
+    mobility: air_manned
+    sensors: [radar_surface, sonar, elint]
+    comms: [hf, uhf_satcom]
+    endurance_h: 14
+    role: Fleet's long-range maritime patrol; a sortie toward Svalbard is a signaling move
+
+  - id: il20
+    name: Il-20M
+    real: true
+    owner: northern_fleet
+    base: Olenya
+    mobility: air_manned
+    sensors: [elint, sigint]
+    comms: [hf]
+    role: collects on Blue's reaction — the "learn the response" incentive made physical
+
+  - id: orlan10
+    name: Orlan-10 (pair)
+    real: true
+    owner: northern_fleet
+    base: Admiral Gorshkov
+    mobility: air_uav
+    sensors: [eo_ir]
+    effects: [jam_gnss]                         # Leer-3 variant
+    comms: [line_of_sight]
+    endurance_h: 10
+    range_km: 120
+    role: local GPS jamming over the Barents; deniable, cheap
+
+  - id: ka27_barentsburg
+    name: Ka-27 (Barentsburg helipad)
+    owner: kremlin
+    base: Barentsburg
+    mobility: air_manned
+    sensors: [eo_ir]
+    comms: [hf, line_of_sight]
+    role: civil-registered; treaty-tolerated; a flight over Longyearbyen is a provocation Norway must decide how to read
+
+# ------------------------------------------------------------------
+# SEAT → CONTROLLED ASSETS
+# ------------------------------------------------------------------
+control:
+  northcom:       [uss_delbert_black, uscgc_healy, ssn_track_alpha, p8_us, rc135]
+  usspacecom:     [polar_relay, norsat_q]        # plus tasking authority over arctic_eye, barents_1 via contract
+  nsc:            []                             # authority only; releases irreversible actions
+  norway:         [svalsat_1, svalsat_2, sentinel_n, aissat_4, svalsat_ground, ny_alesund_station, isfjord_radio, bjornoya_met, svalbard_cable_1, svalbard_cable_2, andoya_station, vardo_radar, kv_svalbard, hnoms_thor_heyerdahl, kv_nordkapp, polarsyssel, p8_norway, mq9b_seaguardian]
+  kremlin:        [barentsburg, barentsburg_supply, ka27_barentsburg]   # plus authorization over northern_fleet effects
+  northern_fleet: [kosmos_2xxx, pechenga_ew_site, kola_laser_site, severomorsk, admiral_gorshkov, severomorsk_ship, yantar, severodvinsk, kapitan_rogov, tu142, il20, orlan10]
+  china:          [yaogan_n, yellow_river_station, xue_long_2, yuan_wang_6]
+  starlink:       [barents_1, arctic_eye, longyearbyen_gateway]
+  iridium:        [kalvoy_3, polarnet_shell]
+  civilians:      [ms_nordstjernen, fishing_fleet]
+
+# ------------------------------------------------------------------
+# ACTION → CAPABILITY GATING (backend)
+# An action is legal for a seat only if (a) the seat's spec allows it,
+# (b) the seat controls an asset with the required capability,
+# (c) that asset is in range/coverage of the target, and
+# (d) the asset's comms path is currently up (storm layer decides).
+# Otherwise the engine rejects with a reason string the UI can show.
+# ------------------------------------------------------------------
+action_requirements:
+  hold:                        {requires: []}
+  maneuver:                    {requires: [{any_of: [orbital, fast_surface, slow_surface, submerged, air_manned, air_uav]}]}
+  private_demarche:            {requires: [], channel: diplomatic, latency_h: 2}
+  public_attribution:          {requires: [], channel: public, latency_h: 0.5}
+  request_commercial_priority: {requires: [], target_owner_in: [starlink, iridium]}
+  share_telemetry:             {requires: [{owner_has: telemetry_of_target}]}
+  geofence_or_throttle:        {requires: [{controls_constellation: true}]}
+  disclose_incident:           {requires: [{owner_has: telemetry_of_target}]}
+  jam:                         {requires: [{effect: jam_gnss}], or: [{effect: jam_satcom_uplink}, {effect: jam_satcom_downlink}], range_check: true}
+  dazzle:                      {requires: [{effect: dazzle_eo}], target_type: satellite, pass_window_required: true}
+  ground_cyber:                {requires: [{effect: cyber_ground}], target_type: ground_site, attribution_lag_h: [24, 720]}
+  counter_rpo:                 {requires: [{effect: rpo_inspect}], target_type: satellite, closure_time_h: [12, 36]}
+  kinetic:                     {requires: [{effect: kinetic_asat}], release: nsc, debris: true}   # no seat holds this effect in the base scenario
+  terrestrial_response:        {requires: [{any_of: [fast_surface, air_manned]}], release: nsc}
+  # Norway-only extensions
+  board_vessel:                {requires: [{effect: boarding}], target_type: ship, range_km: 50, release: none, irreversible: false}
+  task_imagery_pass:           {requires: [{sensor: eo_ir}, {or_sensor: sar}], target_type: area, pass_window_required: true, downlink_required: true}
+
+# ------------------------------------------------------------------
+# STORM → COMMS DEGRADATION (how the backend should react)
+# For each asset, comms availability = base × storm_factor(band) × jamming_factor(range).
+# ------------------------------------------------------------------
+storm_factors:
+  G4: {ku_band_leo: 0.5, ka_band: 0.7, x_band_mil: 0.8, ehf_protected: 0.9, l_band_narrow: 0.6, hf: 0.3, uhf_satcom: 0.7, fiber: 1.0, line_of_sight: 1.0, pnt: 0.7}
+  G5: {ku_band_leo: 0.15, ka_band: 0.5, x_band_mil: 0.6, ehf_protected: 0.8, l_band_narrow: 0.4, hf: 0.1, uhf_satcom: 0.5, fiber: 0.95, line_of_sight: 1.0, pnt: 0.4}
+  carrington: {ku_band_leo: 0.0, ka_band: 0.2, x_band_mil: 0.4, ehf_protected: 0.6, l_band_narrow: 0.2, hf: 0.0, uhf_satcom: 0.3, fiber: 0.8, line_of_sight: 1.0, pnt: 0.2}

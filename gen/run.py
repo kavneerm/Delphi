@@ -25,7 +25,10 @@ def episode_config(config: GenConfig, seed: int, *, cost_check: bool) -> EnvConf
             "clock_mode": {
                 "mode": "checkpoint",
                 "schedule_type": "fixed",
-                "interval_s": 5400,
+                # The live cost gate samples one sealed decision from each seat;
+                # a full 72-hour episode would synchronize thousands of costly
+                # prompts and measure rate-limit behavior, not token economics.
+                "interval_s": 72 * 3600 + 1,
                 "seal_decisions": True,
             },
             "release_policy": {"policy": "auto", "approval_probability": 0.5},
@@ -61,8 +64,10 @@ async def run_cost_check(config: GenConfig, episodes: int) -> dict[str, Any]:
         return episode
 
     try:
-        tasks = [asyncio.to_thread(one, seed) for seed in range(1, episodes + 1)]
-        completed = await asyncio.gather(*tasks)
+        # Sequential episodes keep the ten-seat burst below the org TPM limit.
+        completed = []
+        for seed in range(1, episodes + 1):
+            completed.append(await asyncio.to_thread(one, seed))
         usage = client.usage.as_dict()
         usage["episodes"] = len(completed)
         usage["decisions"] = sum(len(episode.decision_records) for episode in completed)

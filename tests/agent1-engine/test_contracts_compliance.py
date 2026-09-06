@@ -119,3 +119,152 @@ def test_the_ladder_ids_from_the_fold_never_reappear() -> None:
     blob = json.dumps(episode.log.lines)
     for gone in ('"nato"', '"ksat"', '"seat": "hacktivist"'):
         assert gone not in blob
+
+
+def test_a_real_spec_pool_replaces_the_placeholders(tmp_path, monkeypatch) -> None:
+    """Regression: `load_pool` used `setdefault` against a dict that already held
+    a placeholder for every seat, so a real `specs/train/` was silently ignored
+    and every episode ran on placeholders. Caught by running the engine against
+    agent9-specs' actual pool.
+    """
+    import json
+
+    from engine.specs import PLACEHOLDER_SPEC_VERSION, load_pool, placeholder_specs
+
+    train = tmp_path / "train"
+    train.mkdir()
+    for seat, spec in placeholder_specs().items():
+        real = dict(spec)
+        real["spec_id"] = f"{seat}_real"
+        real["spec_version"] = "spec_v1"
+        (train / f"{seat}_real.json").write_text(json.dumps(real))
+    # A file that is not a spec must be skipped, not crash the load.
+    (train / "not_a_spec.json").write_text(json.dumps({"title": "exemplar card schema"}))
+
+    monkeypatch.setenv("PANOPTES_SPECS_DIR", str(tmp_path))
+    pool = load_pool()
+    assert set(pool) == set(SEATS)
+    for seat, spec in pool.items():
+        assert spec["spec_version"] != PLACEHOLDER_SPEC_VERSION, f"{seat} kept its placeholder"
+        assert spec["spec_id"] == f"{seat}_real"
+
+    # An explicit seat assignment still wins, and an unknown spec_id falls back.
+    assigned = load_pool({"nsc": "nsc_real", "norway": "no_such_spec"})
+    assert assigned["nsc"]["spec_id"] == "nsc_real"
+    assert assigned["norway"]["spec_version"] == PLACEHOLDER_SPEC_VERSION
+
+
+def test_a_scenario_file_drives_an_episode_end_to_end(tmp_path) -> None:
+    """`--replay <file>`: injects fire on schedule and ground truth reaches the
+    reveal without ever reaching a seat.
+    """
+    import json
+
+    from conftest import make_config, run
+
+    scenario = {
+        "replay_id": "test_scenario_file",
+        "replay_version": "v1",
+        "kind": "devset",
+        "duration_s": 8 * 3600,
+        "injects": [
+            {
+                "inject_id": "t-000",
+                "sim_time_s": 1800,
+                "recipients": ["all"],
+                "content": "A test bulletin that every seat can see.",
+                "confidence": 0.8,
+                "source": "test harness",
+            },
+            {
+                "inject_id": "t-001",
+                "sim_time_s": 7200,
+                "recipients": ["usspacecom"],
+                "content": "A restricted finding only one seat receives.",
+                "confidence": 0.6,
+                "source": "test harness",
+                "truthful": False,
+            },
+        ],
+        "ground_truth": {
+            "cause": "hostile_jam",
+            "responsible_actor": "northern_fleet",
+            "attribution_time_s": 14400,
+            "real_responses": {"usspacecom": "share_telemetry"},
+            "notes": "Synthetic scenario for the engine's own tests.",
+        },
+    }
+    path = tmp_path / "scenario.json"
+    path.write_text(json.dumps(scenario))
+
+    episode = run(make_config(replay_file=str(path), scenario_id="test_scenario_file"))
+    fired = {
+        line["payload"]["inject_id"]
+        for line in episode.log.lines
+        if line["type"] == "inject" and str(line["payload"]["inject_id"]).startswith("t-")
+    }
+    assert fired == {"t-000", "t-001"}
+
+    only_one = [
+        line
+        for line in episode.log.lines
+        if line["type"] == "inject" and line["payload"]["inject_id"] == "t-001"
+    ][0]
+    assert only_one["payload"]["recipients"] == ["usspacecom"]
+
+    # The file's ground truth drives the reveal...
+    reveal = [
+        line
+        for line in episode.log.lines
+        if line["type"] == "attribution_revealed" and "private_types" in line["payload"]
+    ][-1]
+    assert reveal["payload"]["cause"] == "hostile_jam"
+    assert reveal["payload"]["responsible_actor"] == "northern_fleet"
+
+    # ...and never reaches a seat's view, nor does the `truthful` scoring key.
+    for seat in episode.seats.played:
+        blob = json.dumps(episode.view(seat))
+        assert "Synthetic scenario for the engine" not in blob
+        assert "truthful" not in blob
+
+
+def test_beliefs_and_reasoning_ride_along_on_action_lines() -> None:
+    """agent7-ui asked for them so the log is self-sufficient for persona cards."""
+    from conftest import make_config, run
+
+    episode = run(make_config())
+    actions = [line for line in episode.log.lines if line["type"] == "action"]
+    assert actions
+    for line in actions:
+        beliefs = line["payload"]["beliefs"]
+        assert set(beliefs) >= {"hostile", "natural", "unknown", "per_actor"}
+        total = beliefs["hostile"] + beliefs["natural"] + beliefs["unknown"]
+        assert abs(total - 1.0) < 0.011
+        assert line["payload"]["reasoning"]
+
+
+def test_initial_orbital_elements_are_in_the_log() -> None:
+    """So a consumer can propagate its own arcs instead of copying engine.world."""
+    from conftest import make_config, run
+
+    episode = run(make_config())
+    lines = [
+        line
+        for line in episode.log.lines
+        if line["payload"].get("what") == "assets.initial_elements"
+    ]
+    assert len(lines) == 1
+    elements = lines[0]["payload"]["value"]
+    assert set(elements) == set(episode.world.all_asset_ids())
+    # The line is the t=0 snapshot, so it must match `initial_state()` and NOT
+    # the world at the end — a maneuver during the episode changes the orbit,
+    # which is exactly why a consumer needs the starting elements plus the
+    # maneuver action lines rather than a copy of the final state.
+    from engine.world import initial_state
+
+    start = initial_state()["assets"]
+    for asset_id, entry in elements.items():
+        if entry.get("orbit"):
+            assert entry["orbit"]["a_km"] == start[asset_id]["orbit"]["a_km"]
+            assert entry["orbit"]["e"] == start[asset_id]["orbit"]["e"]
+    assert lines[0]["payload"]["mu_earth_km3_s2"] > 0

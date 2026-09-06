@@ -30,11 +30,29 @@ For the UI specifically:
 * **the ladder** — `action` lines carry `payload.action.type`; rung order is
   `x-action-ladder` in `contracts/action_schema.json`, and rung index is
   meaningful. `payload.blocked` marks an action the engine refused.
-* **per-seat cards** — beliefs and reasoning are deliberately *not* in the event
-  log (they are lake-record fields, per `contracts/lake_record_schema.json`), so
-  a card should show last decision time, last action and the release state. If
-  the UI needs beliefs on screen, say so and the engine can add them to the
-  `action` payload under a new key — additional payload keys are always allowed.
+* **per-seat cards** — `action` lines now carry `payload.beliefs` and
+  `payload.reasoning`, the acting seat's own, so the log is self-sufficient for
+  a persona card. (agent7-ui asked; extra payload keys are always allowed.)
+  `beliefs` is the full `action_schema` object — `hostile`, `natural`,
+  `unknown`, `per_actor` — so a belief trajectory can be drawn straight off the
+  log. They also appear on blocked actions, which is often the interesting case:
+  what the seat believed when it tried something it was not allowed to do.
+
+  **One caution.** The event log is the god's-eye record, not a seat's view. In
+  *playback* that is exactly what you want. In a *live human-played* episode it
+  is not: rendering every seat's beliefs from the log would show the person at
+  NSC what Red believes. For live play, render from the seat's filtered view
+  over the bridge (`engine/bridge.py`), which is filtered by construction, and
+  use the log only for what has already been revealed.
+
+* **orbit arcs** — a `state_change` at `sim_time_s: 0` with
+  `payload.what == "assets.initial_elements"` carries every asset's two-body
+  elements at t=0, plus `mu_earth_km3_s2` and `earth_radius_km`. Propagate those
+  yourself for smooth arcs rather than interpolating the 30-minute
+  `assets.ground_tracks` samples, and stop keeping a hand-copy of
+  `engine.world`. The engine applies no perturbations, so a consumer doing the
+  standard mean-motion advance matches it exactly — the only thing that changes
+  an orbit mid-episode is an `action` line of type `maneuver`.
 * **release cycle** — `release_requested` then `release_granted` /
   `release_denied`, joined on `payload.release_id`.
 * **the reveal** — the final `attribution_revealed` line carries ground truth:

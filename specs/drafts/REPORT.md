@@ -19,8 +19,9 @@ rather than a reading exercise.
   QUESTIONS.md Q3).
 - **`specs/drafts/devset/<id>/{scenario,expected}.json` — 8 synthetic scenarios** with ground
   truth, per-seat belief bands and forbidden-action lists.
-- **`specs/drafts/validate_drafts.py`** — validates everything and checks the invariants the
-  schemas state only in prose.
+- **`specs/drafts/validate_drafts.py`** — validates everything, checks the invariants the
+  schemas state only in prose, and checks that every counterfactual arm `gen/specs.py` would
+  derive still fits `spec_id`'s 64-character ceiling.
 - **`specs/drafts/promote.py`** — moves approved drafts into `specs/train|holdout|exemplars|devset`.
 - **`specs/drafts/devset_view.py`** — projects the contract-shaped devset into the flat
   per-(scenario, seat) dicts `train/devset.py` expects, so that module needs one import line
@@ -63,6 +64,23 @@ pairwise disjoint; `unilateral` and `requires_release` are subsets of each actio
 `allowed_seats` in `contracts/action_schema.json#/x-action-ladder`; the three priors sum to
 1.0 within 0.01; no duplicate `spec_id`; and `scripts/check_quarantine.sh` passes over the
 whole draft tree.
+
+Two integration breaks found by reading the other agents' branches rather than by anyone
+reporting them, both fixed:
+
+1. **The dev set would not have loaded at all.** `train/gates.py:load_json_dir` globs
+   non-recursively and `train/devset.py` reads a flat `scenario["expected"]["action"]`. The
+   contract layout is one directory per scenario with the key held separately, so the loader
+   would find zero files and exit with *"no dev scenarios in specs/devset; agent9-specs has not
+   landed"* — a message that reads as my workstream being late. `devset_view.py` bridges it;
+   QUESTIONS.md Q6.
+2. **One spec_id broke counterfactual pair construction.** `gen/specs.py` names the B arm
+   `<spec_id>_cf_<field>_<new_value>`; the `private_type` suffix is 35 characters against
+   `spec_id`'s 64-character maximum, so `northern_fleet_correct_procedure` produced a 67-char
+   arm and would have failed re-validation inside `gen/sweep.py` — on the hidden-type seat whose
+   pairs `counterfactual_sensitivity` most depends on. Renamed to `northern_fleet_procedural`
+   (60-char arm) and `validate_drafts.py` now checks every spec against every flip it could
+   take, so it cannot regress. Verified the guard fires by reintroducing the old id.
 
 Coverage checked by hand: all three `northern_fleet` private types, all three `china` private
 types, and all four `psyche` values appear in the **train** pool, so `eval/holdout_mix.py` can

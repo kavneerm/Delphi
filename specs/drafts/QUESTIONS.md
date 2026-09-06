@@ -65,7 +65,7 @@ names are stable and `$ref`s into `spec_schema.json` and `action_schema.json` re
 ## 4. `spec_id` collision with `contracts/examples/spec_northern_fleet_cautious.json`
 
 The contracts example uses `spec_id: northern_fleet_cautious`. My three Northern Fleet variants
-use different ids (`northern_fleet_correct_procedure`, `_initiative`, `_covered_action`) so the
+use different ids (`northern_fleet_procedural`, `_initiative`, `_covered_action`) so the
 example can be promoted alongside them without a collision, but a human should decide whether the
 contracts example is part of the pool or only an illustration.
 

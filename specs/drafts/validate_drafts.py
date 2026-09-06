@@ -5,7 +5,9 @@ Three checks, one per draft family:
 * ``specs/drafts/*.json`` and ``specs/drafts/holdout/*.json`` are persona specs and
   validate against ``contracts/spec_schema.json``, plus the authority invariants that
   the schema cannot express (pairwise-disjoint lists, subset of the action ladder's
-  ``allowed_seats``) and the priors sum warning from the schema description.
+  ``allowed_seats``), the priors sum warning from the schema description, and that every
+  counterfactual arm gen/specs.py would derive from the spec still fits ``spec_id``'s
+  64-character ceiling.
 * ``specs/drafts/devset/<id>/{scenario,expected}.json`` validate against
   ``contracts/inject_schema.json``.
 * ``specs/drafts/exemplars/*.json`` validate against the local
@@ -62,6 +64,63 @@ def _validator(schema_name: str, registry: Registry) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=registry)
 
 
+#: What gen/specs.py flips to build the B arm of a counterfactual pair, mirrored from
+#: gen/specs.py::FLIP_TARGETS. Only the value lengths matter here — the arm's spec_id is
+#: "<spec_id>_cf_<field>_<new_value>", and spec_schema caps spec_id at 64 characters, so a
+#: long spec_id on a hidden-type seat silently breaks pair construction inside gen/sweep.py
+#: rather than here. contracts/targets.md scores counterfactual_sensitivity on those pairs.
+FLIP_TARGETS: dict[str, dict[str, str]] = {
+    "risk_posture": {
+        "risk_averse": "assertive",
+        "cautious": "assertive",
+        "balanced": "risk_acceptant",
+        "assertive": "cautious",
+        "risk_acceptant": "risk_averse",
+    },
+    "psyche": {
+        "revisionist": "regime_survival",
+        "revanchist": "opportunistic_cautious",
+        "opportunistic_cautious": "revanchist",
+        "regime_survival": "revisionist",
+    },
+    "private_type": {
+        "storm_reposition": "action_under_cover",
+        "opportunistic_isr": "action_under_cover",
+        "action_under_cover": "storm_reposition",
+        "honest_broker": "coordinated_with_russia",
+        "opportunistic_amplifier": "honest_broker",
+        "coordinated_with_russia": "honest_broker",
+    },
+    "time_horizon": {
+        "immediate": "years",
+        "days": "months",
+        "weeks": "immediate",
+        "months": "days",
+        "years": "immediate",
+    },
+}
+
+SPEC_ID_MAX = 64
+
+
+def _check_counterfactual_arms(spec: dict[str, Any]) -> list[str]:
+    """Every arm gen/specs.py could derive from this spec must be a legal spec_id."""
+    problems: list[str] = []
+    spec_id = spec.get("spec_id", "")
+    for field, table in FLIP_TARGETS.items():
+        value = spec.get(field)
+        if value not in table:
+            continue
+        arm = f"{spec_id}_cf_{field}_{table[value]}"
+        if len(arm) > SPEC_ID_MAX:
+            problems.append(
+                f"counterfactual arm for {field}={value} is {len(arm)} chars "
+                f"(max {SPEC_ID_MAX}): {arm} — shorten spec_id by "
+                f"{len(arm) - SPEC_ID_MAX}"
+            )
+    return problems
+
+
 def _allowed_seats_by_action() -> dict[str, set[str]]:
     ladder = json.loads((CONTRACTS / "action_schema.json").read_text())
     return {e["type"]: set(e["allowed_seats"]) for e in ladder["x-action-ladder"]}
@@ -94,6 +153,8 @@ def _check_spec_invariants(spec: dict[str, Any], allowed: dict[str, set[str]]) -
         total = sum(priors[k] for k in keys)
         if abs(total - 1.0) > 0.01:
             problems.append(f"priors sum to {total:.3f}, not 1.0")
+
+    problems += _check_counterfactual_arms(spec)
     return problems
 
 

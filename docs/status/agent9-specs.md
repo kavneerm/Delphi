@@ -57,6 +57,15 @@ notes: |
   Downgraded Q5: train/devset.py already parses targets.md at runtime to avoid naming a
   quarantined replay, which is a good workaround and lowers the urgency of the rename.
 
+  2026-09-05 — Second break found the same way. gen/specs.py names a counterfactual arm
+  '<spec_id>_cf_<field>_<new_value>'; the private_type suffix is 35 chars against spec_id's
+  64-char maxLength, so northern_fleet_correct_procedure produced a 67-char arm and would have
+  failed re-validation inside gen/sweep.py — on the hidden-type seat whose pairs
+  counterfactual_sensitivity most depends on. Renamed to northern_fleet_procedural (60-char
+  arm). validate_drafts.py now checks every spec against every flip it could take, and I
+  verified the guard fires by reintroducing the old id. Both breaks were invisible to schema
+  validation: they only appear when you read what the consumer actually does.
+
   PR: https://github.com/kavneerm/Delphi/pull/4
 
   Blocked on nothing. Downstream agents can read specs/drafts/ directly before promotion if the

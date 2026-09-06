@@ -116,6 +116,8 @@ Run `python specs/drafts/validate_drafts.py` yourself if you want to see it. It 
 - `p_hostile_prior + p_natural_prior + p_unknown_prior` sums to 1.0
 - no duplicate `spec_id` anywhere in the tree
 - `scripts/check_quarantine.sh` over the whole draft tree
+- every counterfactual arm `gen/specs.py` would derive (`<spec_id>_cf_<field>_<value>`) still
+  fits `spec_id`'s 64-character ceiling — this already caught one real break, see REPORT.md
 
 Coverage, checked by hand and stated so you can spot-check one row rather than all 29:
 

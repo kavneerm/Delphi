@@ -1,7 +1,7 @@
 # agent0-contracts
 state: DONE
 branch: agent0-contracts
-last_commit: PENDING
+last_commit: 7660c65
 interfaces_ready: [contracts/spec_schema.json, contracts/action_schema.json, contracts/event_log_schema.json, contracts/inject_schema.json, contracts/lake_record_schema.json, contracts/env_config_schema.json, contracts/s3_layout.md, contracts/seats.md, contracts/examples/]
 needs: []
 awaiting_human: contract review — delete the DRAFT lines from all ten files in contracts/ and answer contracts/QUESTIONS.md (Q2 pyproject.toml, Q6 metric scope, Q9a Norway holding geofence_or_throttle) before Wave 1 launches

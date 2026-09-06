@@ -41,6 +41,7 @@ test pins the prefix so the failure happens in CI rather than against AWS.
 | file | what it does |
 |---|---|
 | `infra/bootstrap.py` | idempotent converge of bucket + IAM. `--dry-run`, `--verify`, `--no-iam`, `--no-markers` |
+| `infra/selftest.py` | one-command proof that the live S3 write path works, using a contract-valid probe key that is removed by version id and leaves no trace |
 | `infra/audit.py` | read-only conformance audit of the bucket (or the mirror) against every section of `s3_layout.md`; exits 1 on a finding, so it works as a pre-flight check |
 | `infra/storage.py` | the single S3-or-local-mirror helper `contracts/s3_layout.md` §6 asks for; enforces the §4 metadata and the `project=svalbard` tag on every write |
 | `infra/teardown.sh` | tag-keyed teardown; dry-run until `--yes`; stages `--compute`, `--data`, `--iam`, `--all` |
@@ -74,6 +75,51 @@ strings the other agents' key builders produce (`engine/log.py:log_key`,
 `gen/storage.py:lake_key/lake_index_key/judge_key`). They all pass, so Engine's `logs/`
 keys and Gen's `lake/` keys are conformant as written; if a writer and the auditor ever
 drift apart, that test is where it surfaces.
+
+## The live write-path self test
+
+Three agents independently checked that they could really write to the bucket, each
+inventing a probe key of its own. The bucket's version history has the receipts:
+
+```
+lake/lake_v1/_parts/storage-selftest-0000/00000-…-nsc-0.json   agent3-gen   02:10:06
+lake/lake_v1/_parts/storage-selftest-0000/jsonl-probe.jsonl    agent3-gen   02:10:06
+runs/_selftest/agent4-train/probe.json                         agent4-train 02:10:57
+```
+
+Their claims are true — both write paths work against live S3, which a local-mirror
+test cannot establish. Two costs, though. `runs/_selftest/agent4-train/probe.json`
+matches no §3 key template (`<sweep_id>` is `sweep-<YYYYMMDD>-<NN>`), so it would have
+been an audit finding had it lingered. And all three were removed with a plain delete,
+which on a versioned bucket keeps *both* a noncurrent version and a delete marker; the
+`expire-noncurrent-30d` lifecycle rule will clear them, and I left them alone rather
+than purge another agent's artefacts.
+
+`python -m infra.selftest` is that check, done once, for everyone. The probe key is
+deliberately **contract-valid** —
+`logs/env_v0/lake_v0/selftest/seed=0/selftest-0-<8 hex>.jsonl` satisfies the §3 `logs/`
+template exactly — so it needs no auditor exemption and no seventh prefix. It is
+removed by version id rather than by a plain delete, so nothing is left behind at all.
+Against the live bucket:
+
+```
+  ok    write  — s3://svalbard-wargame/logs/env_v0/lake_v0/selftest/seed=0/selftest-0-a5f4d013.jsonl
+  ok    metadata round trip  — all 9 keys survived
+  ok    version tags  — env-version='env_v0' contracts-version='contracts_v1'
+  ok    bytes round trip  — 15 bytes
+  ok    content type  — 'application/x-ndjson' (§5)
+  ok    cost tag  — {'project': 'svalbard'} — infra/teardown.sh keys on this
+  ok    key is in contract
+  ok    cleanup leaves no trace  — purged 1 version(s) by id, no delete marker written
+
+8/8 checks passed
+```
+
+Verified afterwards with `list-object-versions`: the only thing under `logs/` is the
+`.keep` marker. It proves what a mirror test cannot — credentials and region resolve,
+the bucket admits the write, the nine metadata keys survive the `x-amz-meta-*` round
+trip, the content type is stored as sent, and the cost tag is attached so
+`teardown.sh` will find the object.
 
 ## Adjudication: three storage writers, one contract
 
@@ -136,6 +182,7 @@ worktrees, one per active agent, so the shared-HEAD failure cannot recur.
 ```bash
 export AWS_PROFILE=panoptes WARGAME_BUCKET=svalbard-wargame
 
+python -m infra.selftest                # can I really write to the bucket? (leaves nothing)
 python -m infra.audit                   # is everything in the bucket in contract?
 python -m infra.audit --prefix lake/    # one prefix
 python -m infra.audit --local           # the same key checks on the local mirror
@@ -223,7 +270,7 @@ pass as the `model` field.
 
 ```
 $ python -m pytest tests/agent8-infra -q
-106 passed
+111 passed
 
 $ ruff check infra/ tests/agent8-infra/
 All checks passed!

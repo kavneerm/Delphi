@@ -67,4 +67,16 @@ notes: |
   raise on their smoke/ and tmp/ keys if they ever flip that path to S3 (harmless
   today: those 24 objects are on the local mirror). engine/ and gen/ remain the two
   that still need the one-line adoption.
-  106 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.
+  2026-09-06 — Checked handoffs: agent4-train and agent3-gen both report verifying the
+  live S3 write path. Confirmed from the bucket's version history — their probes are
+  there, written and deleted around 02:10. Two costs: train's runs/_selftest/... key
+  matches no §3 template, and all three probes were removed with plain deletes, so a
+  versioned bucket kept a noncurrent version AND a delete marker for each (the
+  expire-noncurrent-30d rule clears them; I did not purge another agent's artefacts).
+  Added infra/selftest.py so nobody has to invent a fourth probe key: it writes to a
+  CONTRACT-VALID key (logs/env_v0/lake_v0/selftest/seed=0/selftest-0-<8hex>.jsonl,
+  which satisfies the §3 logs template, so no exemption and no seventh prefix), checks
+  the nine metadata keys, the content type, the cost tag and the bytes, then removes
+  the probe BY VERSION ID so it leaves no object, no version and no delete marker.
+  8/8 against live S3; verified afterwards that logs/ holds only .keep.
+  111 tests pass, ruff clean, quarantine clean. Bucket and role ARNs in infra/REPORT.md.

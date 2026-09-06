@@ -225,3 +225,52 @@ def test_exit_code_follows_the_findings(monkeypatch: pytest.MonkeyPatch, tmp_pat
     (tmp_path / "smoke").mkdir()
     (tmp_path / "smoke" / "x.json").write_text("{}")
     assert audit.main(["--local"]) == 1
+
+
+# ------------------------------------------------------------------- selftest
+
+
+def test_the_probe_key_is_itself_in_contract() -> None:
+    # The point of the probe key: it needs no exemption from the auditor, and no
+    # seventh prefix, because it satisfies the §3 logs/ template exactly.
+    from infra.selftest import probe_episode_id, probe_key
+
+    key = probe_key(probe_episode_id("deadbeef"))
+    assert key == "logs/env_v0/lake_v0/selftest/seed=0/selftest-0-deadbeef.jsonl"
+    assert audit.key_findings(key) == []
+
+
+def test_the_probe_key_is_unique_per_run() -> None:
+    from infra.selftest import probe_episode_id
+
+    assert probe_episode_id() != probe_episode_id()
+
+
+def test_the_ad_hoc_probe_keys_other_agents_used_were_not_in_contract() -> None:
+    # Recovered from the bucket's version history: both were written to live S3 and
+    # then deleted. This is the regression the shared probe key exists to prevent.
+    assert audit.key_findings("runs/_selftest/agent4-train/probe.json")
+    # gen's probe went under _parts/, which is transient rather than a finding.
+    assert audit.TRANSIENT.match(
+        "lake/lake_v1/_parts/storage-selftest-0000/00000-storage-selftest-0000-nsc-0.json"
+    )
+
+
+def test_selftest_round_trips_on_the_local_mirror(tmp_path: Any) -> None:
+    from infra.selftest import run
+    from infra.storage import Storage
+
+    store = Storage(local_root=tmp_path)
+    checks = run(store)
+    assert all(c.ok for c in checks), [str(c) for c in checks if not c.ok]
+    assert list(store.list("logs/")) == [], "the probe should have been cleaned up"
+
+
+def test_selftest_keep_leaves_the_probe(tmp_path: Any) -> None:
+    from infra.selftest import run
+    from infra.storage import Storage
+
+    store = Storage(local_root=tmp_path)
+    checks = run(store, keep=True)
+    assert all(c.ok for c in checks)
+    assert len(list(store.list("logs/"))) == 1

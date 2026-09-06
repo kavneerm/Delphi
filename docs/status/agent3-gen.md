@@ -5,7 +5,7 @@ last_commit: 5ff2dd7
 interfaces_ready: []
 needs: [specs/train + specs/exemplars (humans/agent9-specs), calib/attribution_lags.csv (agent2-calib)]
 awaiting_human:
-updated: 2026-09-05
+updated: 2026-09-06
 notes: |
   2026-09-05 21:40 — Read AGENTS.md, COORDINATION.md, workstreams, and all of contracts/.
   Starting gen/ scaffold: contracts loader + strict-mode projection of the decision schema,

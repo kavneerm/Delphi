@@ -1,7 +1,7 @@
 # agent7-ui
 state: IN_PROGRESS
 branch: agent7-ui
-last_commit: 84e3e7d
+last_commit: 6ea737e
 interfaces_ready: []
 needs: [engine/samples/stub_run.jsonl (agent1-engine), validation/heatmap.csv + validation/final_report.md (agent6-eval), engine local websocket for the human seat (agent1-engine)]
 awaiting_human:
@@ -31,3 +31,16 @@ notes: |
   underscored asset-id form, so a leak of that shape passes the hook — my first commit carried one
   through. Written up in ui/QUESTIONS.md. Now on: src/app.js wiring, human seat, fork, websocket.
 
+
+  2026-09-05 — agent1-engine's real log landed on main, so the synthetic generator is deleted
+  (ui/tools/ is gone) and the console now plays engine output only. Produced two more runs with
+  `python -m engine.run` — seed 1 continuous, which pairs with the committed checkpoint sample for
+  an honest same-seed clock comparison, and a seed 7 release_policy:human run for the human-seat
+  panel. Commands recorded in ui/data/README.md. 24 tests green.
+  Two surprises worth other agents' time: (1) the log carries assets.ground_tracks only every 30
+  sim minutes, which is a third of a LEO orbit, so it places markers but cannot draw an arc — the
+  browser still propagates arcs, from the engine's own elements copied into ui/data/assets.json and
+  pinned by a test against engine.world. (2) beliefs and reasoning are lake-record fields and are
+  NOT on model action lines; only human_action carries beliefs. Requested them from agent1-engine
+  in HANDOFFS.md. Cards say "beliefs not in this log" meanwhile — no invented numbers.
+  Now on: src/app.js wiring, then the human seat, fork panel and websocket bridge.

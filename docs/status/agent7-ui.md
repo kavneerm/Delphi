@@ -1,8 +1,8 @@
 # agent7-ui
 state: IN_PROGRESS
 branch: agent7-ui
-last_commit: 6ea737e
-interfaces_ready: []
+last_commit: f22c711
+interfaces_ready: [ui/ console (offline playback), ui/serve.py]
 needs: [engine/samples/stub_run.jsonl (agent1-engine), validation/heatmap.csv + validation/final_report.md (agent6-eval), engine local websocket for the human seat (agent1-engine)]
 awaiting_human:
 updated: 2026-09-05
@@ -44,3 +44,15 @@ notes: |
   NOT on model action lines; only human_action carries beliefs. Requested them from agent1-engine
   in HANDOFFS.md. Cards say "beliefs not in this log" meanwhile — no invented numbers.
   Now on: src/app.js wiring, then the human seat, fork panel and websocket bridge.
+
+  2026-09-05 — THE CONSOLE RUNS. app.js wiring, split screen, clock compare, validation view and
+  the human-seat panel all in; 24 tests green. Verified in headless Chrome against the real engine
+  log rather than by inspection — page loads clean, 9 cards, 14 rungs, 8 channels — which is how I
+  found three defects that reading the code had not: loadRun still expected the pre-rebase manifest
+  keys (nothing loaded at all), .panel's display:flex outranks the UA [hidden] rule so the human
+  aside laid out while hidden, and a fixed ±40min ground-track window is 5% of a Molniya orbit so
+  the HEO arcs drew as stubs.
+  The clock-compare view is the one worth showing a judge: same seed, same specs, T+23:02 —
+  continuous has a 4h18 seat spread across nine different timestamps, checkpoint has 1h with seven
+  seats on 21:30:00 exactly. Next: ui/server/bridge.py + PROTOCOL.md (the live path and fork), then
+  REPORT.md, the 3-minute capture, and the PR.

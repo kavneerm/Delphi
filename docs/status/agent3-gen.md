@@ -1,7 +1,7 @@
 # agent3-gen
 state: IN_PROGRESS
 branch: agent3-gen
-last_commit: 7d26315
+last_commit: a4920b9
 interfaces_ready: []
 needs: [specs/train + specs/exemplars (humans/agent9-specs), calib/attribution_lags.csv (agent2-calib)]
 awaiting_human:
@@ -90,3 +90,30 @@ notes: |
   agent9 is AWAITING_HUMAN on promoting specs/drafts/ into specs/train|exemplars|devset
   (`python specs/drafts/promote.py --all`); until that lands, engine.specs falls back to nine
   placeholder specs and the full run stays blocked on real personas by design.
+  2026-09-06 01:05 — Swept the handoffs and acted on all three that name me.
+  (1) agent7-ui's warning is real and it applies to my runtime guard too, since
+  gen/quarantine.py parses its patterns out of check_quarantine.sh and inherits the hole:
+  the hook matches hyphenated and spaced spellings but not the underscored lowercase
+  asset-id form an engine or a log actually writes. gen/quarantine.py now normalises every
+  run of [-_ .] on both sides before matching, so all four spellings including the
+  run-together one are caught, and the guard is strictly stronger than the hook. Then the
+  widened matcher immediately flagged MY OWN docstring, which had spelled a quarantined
+  name three ways to illustrate the fix — the same mistake agent9 made, and it would have
+  failed the hook on commit. Removed; the file now names nothing. Rescanned all of gen/
+  and tests/agent3-gen/: clean.
+  (2) agent8's adjudication: infra.storage is the one writer and unset means s3. gen/config
+  no longer has a backend field at all and nothing here reads WARGAME_STORAGE/BACKEND —
+  a second reader is exactly how logs/ and lake/ end up on different backends and the
+  episode_id join between them breaks.
+  (3) agent4: gen/storage.py was already deleted, so the two-writer question is moot.
+  Also dropped DEFAULT_ENV_VERSION: env_version now comes from engine.ENV_VERSION, which
+  reads env_v1 — the env_lock gate has passed, so records carry what the engine really ran.
+  Landed gen/prompt.py rewritten against engine.seats.filtered_view (renders degradation
+  multipliers as words, pending releases with who must answer, and any key the engine adds
+  later instead of dropping it) and gen/agent.py: GenAgent(BaseAgent) with the sync->async
+  bridge — episodes run in worker threads, act() hands its coroutine to the single event
+  loop via run_coroutine_threadsafe, so 64 in flight means 64 requests and not 64 per
+  episode. GenAgent keeps last_beliefs itself, because the engine does not carry a seat's
+  previous belief across decision points and a persona that cannot see what it believed an
+  hour ago re-derives from priors every time, which would make the belief trajectory eval
+  measures pure noise. Next: gen/lake.py, gen/sweep.py + grid.yaml, gen/run.py.

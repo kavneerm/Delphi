@@ -100,6 +100,11 @@ class GenConfig:
     specs_root: Path = field(
         default_factory=lambda: Path(os.environ.get("SPECS_ROOT", str(REPO_ROOT / "specs")))
     )
+    #: How the exemplar bank is folded into the cached prefix: "all" keeps the block
+    #: byte-identical across all nine seats so the run shares one cache entry;
+    #: "per_seat" uses each card's `analogous_seats` for a shorter prompt and nine
+    #: prefixes; "none" measures what the bank costs. See gen/prompt.universal_block.
+    exemplar_mode: str = field(default_factory=lambda: os.environ.get("GEN_EXEMPLAR_MODE", "all"))
     grid_path: Path = field(
         default_factory=lambda: Path(
             os.environ.get("GEN_GRID", str(REPO_ROOT / "gen" / "grid.yaml"))

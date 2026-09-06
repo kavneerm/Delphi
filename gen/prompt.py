@@ -29,31 +29,41 @@ Two hard guards run on every assembled prompt:
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from gen import exemplars
 from gen.config import GenConfig
 from gen.contracts import action_types, ladder, menu_for_seat
-from gen.engine_api import SeatView
 from gen.quarantine import assert_clean
 from gen.version import PROMPT_VERSION
 
 #: Keys that must never appear anywhere in a filtered state. `private_type` and `psyche`
 #: are another seat's hidden fields; the rest are engine or scenario ground truth.
 #: contracts/README.md rule 4.
+#: Keys that must never appear anywhere in a filtered view. `private_type` and `psyche`
+#: are hidden spec fields; the rest are engine or scenario ground truth, several of them
+#: exactly as `engine/episode.py` spells them on the `attribution_revealed` line.
+#:
+#: `cause` is deliberately NOT here. `inject_schema.json#/$defs/cause` is a ground-truth
+#: field, but the engine also uses `cause` on `observed_effects` for what the seat itself
+#: believes caused an effect, which is legitimately visible. Banning the name would fire
+#: on every storm episode; the ground-truth carrier is `ground_truth`, which is banned.
 FORBIDDEN_STATE_KEYS = frozenset(
     {
         "private_type",
+        "private_types",
         "psyche",
         "ground_truth",
         "responsible_actor",
-        "cause",
         "hacktivist_affiliation",
         "affiliation",
         "truthful",
         "red_private_type",
+        "attribution_revealed",
     }
 )
 
@@ -63,7 +73,15 @@ class LeakageError(RuntimeError):
 
 
 def assert_no_hidden_fields(state: Any, *, where: str, path: str = "filtered_state") -> None:
-    if isinstance(state, dict):
+    """Refuse a view carrying ground truth or another seat's hidden fields.
+
+    Runs over the engine's whole filtered view before any of it is rendered. The engine
+    has its own leak guards and `tests/agent1-engine/test_seats.py` asserts them; this
+    is the second lock, on the side of the boundary that would actually pay for a leak,
+    because a lake record's `filtered_state` becomes the user turn of a training example
+    and a leak there is only discovered at evaluation.
+    """
+    if isinstance(state, Mapping):
         for key, value in state.items():
             if key in FORBIDDEN_STATE_KEYS:
                 raise LeakageError(
@@ -73,7 +91,7 @@ def assert_no_hidden_fields(state: Any, *, where: str, path: str = "filtered_sta
                     "know things it will not know at evaluation."
                 )
             assert_no_hidden_fields(value, where=where, path=f"{path}.{key}")
-    elif isinstance(state, list):
+    elif isinstance(state, (list, tuple)):
         for index, value in enumerate(state):
             assert_no_hidden_fields(value, where=where, path=f"{path}[{index}]")
 
@@ -155,52 +173,32 @@ def render_ladder() -> str:
     return "\n".join(lines)
 
 
-@lru_cache(maxsize=8)
-def load_exemplars(root: str) -> list[tuple[str, str]]:
-    """The exemplar bank: `specs/exemplars/*.md`, sorted, as (id, text).
+@lru_cache(maxsize=32)
+def universal_block(specs_root: str, exemplar_mode: str, seat: str = "") -> str:
+    """The block that never changes within a run.
 
-    Human-authored historical analogues from the allowed list in `docs/quarantine.md`.
-    Each one is checked against the quarantine at load time, because the bank is exactly
-    where a quarantined incident would be most tempting to put.
+    Cached on its inputs because it is rebuilt for every decision point and is the
+    largest block in the prompt.
+
+    `exemplar_mode` decides the cache geometry, which is the whole cost question:
+
+    * `all` (default) — every card, so this block is byte-identical for all nine seats
+      and the entire run shares one cache prefix. `seat` is ignored.
+    * `per_seat` — only cards whose `analogous_seats` names this seat. Shorter prompt,
+      but nine distinct prefixes instead of one, so the cache is warmed nine times.
+    * `none` — no bank at all. For measuring what the bank costs.
     """
-    directory = Path(root)
-    if not directory.is_dir():
-        return []
-    out = []
-    for path in sorted(directory.glob("*.md")):
-        text = path.read_text().strip()
-        if not text:
-            continue
-        assert_clean(text, where=f"exemplar {path}")
-        out.append((path.stem, text))
-    return out
-
-
-def render_exemplars(exemplars: list[tuple[str, str]]) -> str:
-    if not exemplars:
-        return (
-            "TODO_EXEMPLARS: no exemplar bank is loaded for this run. Reason from the "
-            "brief and from your persona alone."
-        )
-    blocks = [
-        "Historical analogues, for calibration only. They are not this scenario and the "
-        "actors are not these actors. Use them for how decisions of this kind actually "
-        "went, not for what to do here.",
-        "",
-    ]
-    for name, text in exemplars:
-        blocks.append(f"### {name}\n{text}")
-    return "\n\n".join(blocks)
-
-
-def universal_block(config: GenConfig) -> str:
-    exemplars = load_exemplars(str(config.specs_root / "exemplars"))
+    cards = exemplars.load(str(Path(specs_root) / "exemplars"))
+    if exemplar_mode == "none":
+        cards = ()
+    elif exemplar_mode == "per_seat" and seat:
+        cards = exemplars.for_seat(cards, seat)
     return "\n\n".join(
         [
             BRIEF,
             "## The action ladder\n\n" + render_ladder(),
             "## What you emit\n\n" + OUTPUT_CONTRACT,
-            "## Exemplars\n\n" + render_exemplars(exemplars),
+            "## Exemplars\n\n" + exemplars.render(cards),
         ]
     )
 
@@ -383,8 +381,8 @@ def render_messages(messages: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def render_available(seat: str, spec: dict[str, Any], state: dict[str, Any]) -> str:
-    available = state.get("available_actions") or menu_for_seat(seat, spec["authority"])
+def render_available(seat: str, spec: dict[str, Any], view: Mapping[str, Any]) -> str:
+    available = view.get("available_actions") or menu_for_seat(seat, spec["authority"])
     unknown = [a for a in available if a not in action_types()]
     if unknown:
         raise ValueError(f"{seat}: engine offered actions not on the ladder: {unknown}")
@@ -397,36 +395,106 @@ def render_available(seat: str, spec: dict[str, Any], state: dict[str, Any]) -> 
 
 
 def variable_block(
-    view: SeatView, spec: dict[str, Any], last_beliefs: dict[str, Any] | None
+    view: Mapping[str, Any],
+    spec: dict[str, Any],
+    last_beliefs: dict[str, Any] | None,
+    *,
+    checkpoint_index: int | None = None,
 ) -> str:
-    state = view.filtered_state
-    clock = state.get("clock", {})
-    header = f"# Decision point — T+{view.sim_time_s / 3600.0:05.2f}h" + (
-        f", checkpoint {view.checkpoint_index}" if view.checkpoint_index is not None else ""
+    """Everything that changes between decision points, rendered from the engine view.
+
+    The keys are `engine.seats.Seats.filtered_view`'s: the ones
+    `lake_record_schema.json#/properties/filtered_state` documents, plus `degradation`,
+    `authority` and `counterparts`. Anything the engine adds later is rendered as JSON
+    under "Anything else your staff has put in front of you" rather than silently
+    dropped, so a new engine field reaches the model without a change here.
+    """
+    clock = view.get("clock") or {}
+    now_s = float(clock.get("sim_time_s", 0.0))
+    header = f"# Decision point — T+{now_s / 3600.0:05.2f}h" + (
+        f", checkpoint {checkpoint_index}" if checkpoint_index is not None else ""
     )
-    return "\n\n".join(
-        [
-            header,
-            f"{clock.get('sim_hours_remaining', '?')} sim hours remain in the episode.",
-            "## What has reached you\n\n" + render_injects(view.injects_seen),
-            "## Messages delivered to you\n\n" + render_messages(view.messages_seen),
-            "## Your assets\n\n" + _json_block(state.get("own_assets", [])),
-            "## What you can observe\n\n" + _json_block(state.get("observed_effects", [])),
-            "## Space weather, as your feed reports it\n\n"
-            + _json_block(state.get("space_weather", {})),
-            "## The ladder, as far as you have seen it\n\n"
-            + _json_block(state.get("ladder_state", {})),
-            "## Release requests you are party to\n\n"
-            + _json_block(state.get("pending_releases", [])),
-            "## Your beliefs\n\n" + render_beliefs_table(spec, last_beliefs),
-            "## Actions the engine will accept from you now\n\n"
-            + render_available(view.seat, spec, state),
-            "Emit one decision.",
-        ]
-    )
+    extra = {k: v for k, v in view.items() if k not in _KNOWN_VIEW_KEYS}
+    blocks = [
+        header,
+        f"{clock.get('hours_remaining', '?')} sim hours remain in the episode.",
+        "## What has reached you\n\n" + render_injects(view.get("injects_seen") or []),
+        "## Messages delivered to you\n\n" + render_messages(view.get("messages_seen") or []),
+        "## Your assets\n\n" + _json_block(view.get("own_assets") or []),
+        "## What you can observe\n\n" + _json_block(view.get("observed_effects") or []),
+        "## Space weather, as your feed reports it\n\n"
+        + _json_block(view.get("space_weather") or {}),
+        "## How degraded your own instruments are\n\n"
+        + render_degradation(view.get("degradation") or {}),
+        "## The ladder, as far as you have seen it\n\n"
+        + _json_block(view.get("ladder_state") or {}),
+        "## Release requests you are party to\n\n"
+        + render_releases(view.get("pending_releases") or []),
+        "## Your beliefs\n\n" + render_beliefs_table(spec, last_beliefs),
+        "## Actions the engine will accept from you now\n\n"
+        + render_available(str(view.get("seat") or spec["seat"]), spec, view),
+    ]
+    if extra:
+        blocks.append(
+            "## Anything else your staff has put in front of you\n\n" + _json_block(extra)
+        )
+    blocks.append("Emit one decision.")
+    return "\n\n".join(blocks)
 
 
-# --------------------------------------------------------------------------
+_KNOWN_VIEW_KEYS = frozenset(
+    {
+        "seat",
+        "own_assets",
+        "observed_effects",
+        "space_weather",
+        "ladder_state",
+        "available_actions",
+        "clock",
+        "pending_releases",
+        "degradation",
+        "injects_seen",
+        "messages_seen",
+        "authority",
+        "counterparts",
+    }
+)
+
+
+def render_degradation(degradation: Mapping[str, Any]) -> str:
+    """The storm multipliers, in words. A bare 0.31 reads as precision it does not have."""
+    if not degradation:
+        return "No degradation reported."
+    lines = []
+    sensor = degradation.get("sensor_confidence_multiplier")
+    comms = degradation.get("comms_bandwidth_multiplier")
+    capacity = degradation.get("arctic_capacity_gbps")
+    if isinstance(sensor, (int, float)):
+        lines.append(
+            f"- Your sensors are at {sensor:.0%} of normal confidence. Every confidence "
+            "figure you have been handed is softer than it looks."
+        )
+    if isinstance(comms, (int, float)):
+        lines.append(f"- Your communications are at {comms:.0%} of normal bandwidth.")
+    if isinstance(capacity, (int, float)):
+        lines.append(f"- Arctic wideband capacity across all operators: {capacity:.1f} Gbps.")
+    return "\n".join(lines) or "No degradation reported."
+
+
+def render_releases(pending: list[dict[str, Any]]) -> str:
+    if not pending:
+        return "None outstanding."
+    lines = []
+    for request in pending:
+        who = "**You must answer this.**" if request.get("must_answer") else "Yours, waiting."
+        action = (request.get("action") or {}).get("type", "?")
+        hours = float(request.get("requested_at_sim_time_s") or 0) / 3600.0
+        lines.append(
+            f"- `{action}` requested by `{request.get('requesting_seat')}` at "
+            f"T+{hours:05.2f}h, answered by `{request.get('releasing_seat')}`. {who} "
+            f"{request.get('justification', '')}".rstrip()
+        )
+    return "\n".join(lines)
 
 
 @dataclass
@@ -451,20 +519,24 @@ class Prompt:
 
 def build(
     config: GenConfig,
-    view: SeatView,
+    view: Mapping[str, Any],
     spec: dict[str, Any],
+    *,
+    episode_id: str,
     last_beliefs: dict[str, Any] | None = None,
+    checkpoint_index: int | None = None,
 ) -> Prompt:
     """Assemble the prompt for one decision point.
 
-    `instructions` carries the universal block, which the Responses API places ahead of
-    everything in `input` — the natural home for the part that never changes.
+    `instructions` carries the universal block. The Responses API places it ahead of
+    everything in `input`, which is the natural home for the part that never changes.
     """
-    assert_no_hidden_fields(view.filtered_state, where=f"{view.episode_id}/{view.seat}")
+    seat = str(view.get("seat") or spec["seat"])
+    assert_no_hidden_fields(view, where=f"{episode_id}/{seat}")
 
-    universal = universal_block(config)
+    universal = universal_block(str(config.specs_root), config.exemplar_mode, seat)
     persona = render_persona(spec)
-    variable = variable_block(view, spec, last_beliefs)
+    variable = variable_block(view, spec, last_beliefs, checkpoint_index=checkpoint_index)
 
     prompt = Prompt(
         instructions=universal,
@@ -475,7 +547,7 @@ def build(
         cache_key=f"{PROMPT_VERSION}:{spec['spec_version']}:{spec['spec_id']}",
         blocks={"universal": universal, "persona": persona, "variable": variable},
     )
-    assert_clean(prompt.text, where=f"prompt for {view.episode_id}/{view.seat}")
+    assert_clean(prompt.text, where=f"prompt for {episode_id}/{seat}")
     return prompt
 
 

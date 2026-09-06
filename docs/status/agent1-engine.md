@@ -1,7 +1,7 @@
 # agent1-engine
 state: AWAITING_HUMAN: env_lock
 branch: agent1-engine
-last_commit: pending
+last_commit: 3dda80e
 interfaces_ready: [engine.agent_api, engine.human_agent, engine.bridge, engine.run, engine.replay, engine.storm_check, engine/samples/stub_run.jsonl]
 needs: [calib/attribution_lags.csv, specs/train/*.json]
 awaiting_human: env_lock — comparison table is in engine/ENV_LOCK.md; pick one of the three options and freeze env_v1

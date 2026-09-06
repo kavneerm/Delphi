@@ -149,3 +149,32 @@ an absent seat means.
 naming a quarantined replay. That is a good workaround and it lowers the urgency of the
 rename, but it does not remove the problem — any results table, column header or report that
 prints the metric name still carries it.
+
+---
+
+## 7. `gen/prompt.py` caches on `spec_version:spec_id`, which is content-blind
+
+Not a question about my files — a hazard in the generation path that any spec edit can trip,
+found while checking whether my own doctrine edits were safe against the live run.
+
+`gen/prompt.py` builds `cache_key=f"{PROMPT_VERSION}:{spec['spec_version']}:{spec['spec_id']}"`.
+The persona block is built from `backstory`, `voice`, `authority`, `information`,
+`decision_clock` and `priors`. So **any edit to those fields under an unchanged `spec_version`
+reuses the same cache node with different content**, and the lake ends up holding records for
+one `spec_id` produced from two different prefixes, stamped `spec_v1` either way, with nothing
+in the record that distinguishes them.
+
+`contracts/spec_schema.json` already says a spec is immutable once written and that a change
+bumps `spec_version`; this is the mechanism that makes violating it undetectable rather than
+merely wrong.
+
+**Recommendation:** hash the prompt-bearing fields into the cache key, or into the lake record,
+so a mid-run spec edit shows up as a different key rather than as silent contamination. Cheap
+version: `cache_key = f"{PROMPT_VERSION}:{spec_version}:{spec_id}:{sha1(persona_block)[:8]}"`.
+
+**What I did meanwhile:** drafted a doctrinal sentence into two backstories, realised it would
+do exactly this to a live run, and pulled it back out. Verified mechanically that every
+remaining difference between my drafts and the live pool is confined to `notes`, which
+`gen/prompt.py` never sends — so `promote.py --resync` is safe to run at any point during
+generation. If the doctrine should shape behaviour rather than document provenance, it goes in
+at `spec_v2` after this lake completes.

@@ -104,6 +104,23 @@ notes: |
   tree: resync targets exactly the 7 changed specs, holds the 29 unchanged, and promotes the
   20 holdout+devset files that never landed.
 
+  2026-09-06 — Checked whether the promotion gaps break generation. They do not: gen/specs.py
+  has a hard wall (HoldoutAccessError) on specs/holdout/ and nothing in gen/ references
+  specs/devset/. gen reads specs/train/ and specs/exemplars/, both fully promoted. The
+  holdout and devset gaps hit train/gates.py and train/devset.py, after generation.
+  BUT the check found a live hazard I had created myself. Generation is RUNNING — 214 lake
+  objects in s3://svalbard-wargame/lake/lake_v1/, stamped spec_v1, most recent minutes old.
+  gen/prompt.py keys its prompt cache on PROMPT_VERSION:spec_version:spec_id, which is
+  content-blind, and builds the persona block from backstory/voice/authority/information/
+  decision_clock/priors. My doctrine pass had added a sentence to two backstories under an
+  unchanged spec_v1, which would have split the lake for those two spec_ids across two
+  different prefixes with nothing to tell them apart. Pulled both back out and verified
+  mechanically that every remaining difference between my drafts and the live pool is confined
+  to `notes`, which gen/prompt.py never sends (line 171's notes are the action ladder's, not
+  the spec's). promote.py --resync is therefore safe to run at any point during generation.
+  Doctrine that should shape behaviour rather than document provenance is a spec_v2 change
+  after this lake completes. Raised the content-blind cache key as Q7.
+
   PR: https://github.com/kavneerm/Delphi/pull/4
 
   Blocked on nothing. Downstream agents can read specs/drafts/ directly before promotion if the

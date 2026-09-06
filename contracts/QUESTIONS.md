@@ -16,17 +16,13 @@ Nothing here blocked me; I made a call on each and shipped it. All of these are 
 
 ---
 
-## Q2: no `pyproject.toml` at the repo root
+## Q2: ~~no `pyproject.toml` at the repo root~~ — resolved
 
-**Context:** `AGENTS.md` requires Python 3.12, `ruff` clean, `pytest`. `.superset/setup.sh` does `if [ -f pyproject.toml ]; then pip install -e ".[dev]"`, so it currently installs nothing and every workspace comes up bare. `REPO_SETUP.md` puts root files under human ownership, so I did not create one.
+**Status:** done. A root `pyproject.toml` now exists (`svalbard-wargame`, `requires-python >=3.12`, setuptools backend, namespace-package discovery over `engine* gen* train* selfplay* eval* calib* infra*` so the editable install succeeds against the `.gitkeep` placeholders). Runtime and `[dev]` dependencies are pinned there, `ruff` is configured at line length 100 / `py312`, and `pytest` at `testpaths = ["tests"]`, `asyncio_mode = "auto"`.
 
-**Options:** (a) a human adds a root `pyproject.toml` with `jsonschema`, `referencing`, `pytest`, `ruff`, `boto3` and `requires-python = ">=3.12"`; (b) each agent installs ad hoc and the workspaces drift.
+`.superset/setup.sh` also runs `pre-commit install || true` after the pip install, so every worktree comes up with the hooks in place. Verified end to end in a throwaway copy of the tree: `pip install -e ".[dev]"` succeeds and `pre-commit run --all-files` passes.
 
-**My recommendation:** (a), before Wave 1 launches. It is five minutes now and nine agents' worth of "works on my worktree" later. Set `line-length` explicitly while you are in there — I formatted my test file at ruff's default 88.
-
-**What I did meanwhile:** Built a local `.venv` on 3.12 with `jsonschema`, `referencing`, `pytest`, `ruff` and ran the suite green. `.venv/` is already gitignored.
-
----
+**One consequence for everyone:** `ruff` is now line length **100**, not the default 88. If you formatted anything before this landed, re-run `ruff format` after your next rebase.
 
 ## Q3: `WARGAME_LOCAL_ROOT` needs a line in the root `.gitignore`
 

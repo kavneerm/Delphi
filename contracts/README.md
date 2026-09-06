@@ -52,6 +52,8 @@ validator("action_schema.json").validate(decision)
 
 `tests/agent0-contracts/test_contracts.py` is the reference implementation; copy the fixture rather than reinventing it.
 
+A `quarantine-grep` pre-commit hook (`scripts/check_quarantine.sh`) blocks any commit that puts a quarantined incident outside `docs/`, `eval/`, `calib/holdout_2025_2026.csv` and `contracts/targets.md`. It exists because structured-output calls send schema `description` text to the model: a quarantined name in `action_schema.json` would be a quarantined name in every generation prompt.
+
 ## Reading the ladder
 
 `x-action-ladder` is **data**, not schema. JSON Schema validators ignore unknown `x-` keywords, so `action_schema.json` still validates a decision when used directly as a schema, while the same file carries the menu table. Read it as:

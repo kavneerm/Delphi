@@ -68,15 +68,18 @@ Applied on human instruction after `contracts_v1` was committed and before this 
 
 ## Quarantine check (what I searched for, what I found)
 
-Searched every JSON contract and both examples for: `Kosmos`, `Viasat`, `KA-SAT`, `AcidRain`, `Dozor`, `Balticconnector`, `Newnew`, `Intelsat`, `Galaxy 15`, `galaxy15`, `2025`, `2026`.
+Searched every JSON contract and both examples for the full list in `docs/quarantine.md` — the four real replays, the two false-positive controls, and the held-out year — plus the bare incident names and the years 2025 and 2026. The canonical machine-readable list now lives in `scripts/check_quarantine.sh` and runs as a pre-commit hook, so this is no longer a check anyone has to remember to do.
 
-**Found four hits, all in schema description or notes text, all removed:**
-- `action_schema.json` rung 3 notes named Intelsat-33e and Galaxy 15 as the control cases → now "the false-positive control scenarios".
-- `action_schema.json` `beliefs.per_actor` description named Dozor → now "end-of-episode attribution entropy".
-- `inject_schema.json` `attribution_time_s` named Dozor-Teleport and Intelsat-33e as the null cases → now "an unresolved incident".
-- `event_log_schema.json` `scenario_id` used `replay_control_galaxy15` as an example value → now `devset_storm_only`.
+**Found four hits, all in schema `description` or `notes` text, all removed:**
 
-This mattered more than it looks. `gen/prompt.py` enforces `action_schema.json` through structured outputs, and structured-output calls carry schema `description` text to the model. A quarantined incident named in a schema description is a quarantined incident in every generation prompt. `contracts/targets.md` names the replays and controls and that is correct — it is a scoring document that never reaches a model — but nothing in the five JSON schemas does now, and nothing should. Re-run the grep above after any contract edit.
+| file | field | was | now |
+|---|---|---|---|
+| `action_schema.json` | rung 3 `notes` | named the two false-positive controls | "the false-positive control scenarios" |
+| `action_schema.json` | `beliefs.per_actor` description | named one of the real replays | "end-of-episode attribution entropy" |
+| `inject_schema.json` | `attribution_time_s` description | named a replay and a control as the null cases | "an unresolved incident" |
+| `event_log_schema.json` | `scenario_id` example value | used a control as the sample id | `devset_storm_only` |
+
+This mattered more than it looks. `gen/prompt.py` enforces `action_schema.json` through structured outputs, and structured-output calls carry schema `description` text to the model. A quarantined incident named in a schema description is a quarantined incident in every generation prompt. `contracts/targets.md` names the replays and the controls and that is correct — it is a scoring document that never reaches a model, and it is one of the two exemptions in the hook alongside `docs/`.
 
 The example spec's backstory was checked by hand: it references a 2022 Svalbard fibre disruption and an unnamed relief-for-cause, neither of which is quarantine material, and it invents its subject entirely.
 

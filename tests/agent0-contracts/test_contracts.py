@@ -123,27 +123,19 @@ def test_example_spec_validates(registry: Registry) -> None:
 
 
 def test_example_decision_validates(registry: Registry) -> None:
-    decision = json.loads(
-        (EXAMPLES / "decision_usspacecom_knife_inject.json").read_text()
-    )
+    decision = json.loads((EXAMPLES / "decision_usspacecom_knife_inject.json").read_text())
     validator_for("action_schema.json", registry).validate(decision)
 
 
 def test_example_spec_priors_sum_to_one() -> None:
     spec = json.loads((EXAMPLES / "spec_northern_fleet_cautious.json").read_text())
     priors = spec["priors"]
-    total = (
-        priors["p_hostile_prior"]
-        + priors["p_natural_prior"]
-        + priors["p_unknown_prior"]
-    )
+    total = priors["p_hostile_prior"] + priors["p_natural_prior"] + priors["p_unknown_prior"]
     assert abs(total - 1.0) < 0.01
 
 
 def test_example_decision_beliefs_sum_to_one() -> None:
-    decision = json.loads(
-        (EXAMPLES / "decision_usspacecom_knife_inject.json").read_text()
-    )
+    decision = json.loads((EXAMPLES / "decision_usspacecom_knife_inject.json").read_text())
     b = decision["beliefs"]
     assert abs(b["hostile"] + b["natural"] + b["unknown"] - 1.0) < 0.01
     assert sum(b["per_actor"].values()) <= 1.0 + 1e-9
@@ -158,9 +150,7 @@ def test_ladder_matches_action_type_enum() -> None:
     action = _load("action_schema.json")
     ladder = action["x-action-ladder"]
     enum = action["$defs"]["action_type"]["enum"]
-    assert [entry["type"] for entry in ladder] == enum, (
-        "ladder order must match the enum order"
-    )
+    assert [entry["type"] for entry in ladder] == enum, "ladder order must match the enum order"
 
 
 def test_ladder_rungs_are_dense_and_ordered() -> None:
@@ -237,14 +227,10 @@ def test_example_spec_authority_is_disjoint_and_within_menu() -> None:
     rel = set(authority["requires_release"])
     rec = set(authority["recommend_only"])
 
-    assert not (uni & rel) and not (uni & rec) and not (rel & rec), (
-        "authority lists overlap"
-    )
+    assert not (uni & rel) and not (uni & rec) and not (rel & rec), "authority lists overlap"
 
     allowed = _allowed_by_seat()[spec["seat"]]
-    assert (uni | rel) <= allowed, (
-        f"executable authority outside menu: {(uni | rel) - allowed}"
-    )
+    assert (uni | rel) <= allowed, f"executable authority outside menu: {(uni | rel) - allowed}"
     # recommend_only is deliberately unconstrained: a seat may recommend what it cannot do.
 
 
@@ -270,9 +256,7 @@ def test_folded_seats_appear_nowhere_in_the_schemas() -> None:
 def test_rule_actors_match_seats_md() -> None:
     text = (CONTRACTS / "seats.md").read_text()
     rule_actors = _load("spec_schema.json")["$defs"]["rule_actor"]["enum"]
-    assert "hacktivist_injects" in rule_actors, (
-        "the hacktivist folded into an inject stream"
-    )
+    assert "hacktivist_injects" in rule_actors, "the hacktivist folded into an inject stream"
     for actor in rule_actors:
         assert f"| {actor} |" in text, f"{actor} not in seats.md"
 
@@ -323,9 +307,7 @@ def test_blue_seat_may_not_carry_private_type(registry: Registry) -> None:
     spec = _valid_spec()
     spec["seat"] = "nsc"
     del spec["psyche"]
-    assert not validator.is_valid(spec), (
-        "private_type is northern_fleet/china/hacktivist only"
-    )
+    assert not validator.is_valid(spec), "private_type is northern_fleet/china/hacktivist only"
 
 
 def test_unknown_spec_field_is_rejected(registry: Registry) -> None:
@@ -438,9 +420,7 @@ def test_checkpoint_event_validates(registry: Registry) -> None:
 
 def test_checkpoint_event_requires_its_payload(registry: Registry) -> None:
     validator = validator_for("event_log_schema.json", registry)
-    assert not validator.is_valid(
-        _event("checkpoint", {"checkpoint_index": 4}, seat=None)
-    )
+    assert not validator.is_valid(_event("checkpoint", {"checkpoint_index": 4}, seat=None))
 
 
 def test_release_cycle_events_validate(registry: Registry) -> None:
@@ -514,9 +494,7 @@ def test_episode_end_records_clock_mode_and_release_policy(registry: Registry) -
         "decision_count": 81,
     }
     line = _event("episode_end", payload, seat=None, spec_version="spec_v1")
-    assert not validator.is_valid(line), (
-        "episode_end must record how the episode was run"
-    )
+    assert not validator.is_valid(line), "episode_end must record how the episode was run"
     line["clock_mode"] = "checkpoint"
     line["release_policy"] = "human"
     validator.validate(line)
@@ -531,9 +509,7 @@ def test_example_env_configs_validate(name: str, registry: Registry) -> None:
     validator_for("env_config_schema.json", registry).validate(config)
 
 
-def _config(
-    clock_mode: dict[str, Any], release_policy: dict[str, Any]
-) -> dict[str, Any]:
+def _config(clock_mode: dict[str, Any], release_policy: dict[str, Any]) -> dict[str, Any]:
     return {
         "env_version": "env_v1",
         "duration_s": 259200,
@@ -567,9 +543,7 @@ CONTINUOUS = {"mode": "continuous"}
     ],
 )
 def test_valid_clock_modes(clock_mode: dict[str, Any], registry: Registry) -> None:
-    validator_for("env_config_schema.json", registry).validate(
-        _config(clock_mode, AUTO)
-    )
+    validator_for("env_config_schema.json", registry).validate(_config(clock_mode, AUTO))
 
 
 @pytest.mark.parametrize(
@@ -613,12 +587,8 @@ def test_invalid_clock_modes(clock_mode: dict[str, Any], registry: Registry) -> 
         },
     ],
 )
-def test_valid_release_policies(
-    release_policy: dict[str, Any], registry: Registry
-) -> None:
-    validator_for("env_config_schema.json", registry).validate(
-        _config(CONTINUOUS, release_policy)
-    )
+def test_valid_release_policies(release_policy: dict[str, Any], registry: Registry) -> None:
+    validator_for("env_config_schema.json", registry).validate(_config(CONTINUOUS, release_policy))
 
 
 @pytest.mark.parametrize(
@@ -636,9 +606,7 @@ def test_valid_release_policies(
         },
     ],
 )
-def test_invalid_release_policies(
-    release_policy: dict[str, Any], registry: Registry
-) -> None:
+def test_invalid_release_policies(release_policy: dict[str, Any], registry: Registry) -> None:
     validator = validator_for("env_config_schema.json", registry)
     assert not validator.is_valid(_config(CONTINUOUS, release_policy))
 

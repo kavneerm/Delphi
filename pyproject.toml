@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "svalbard-wargame"
+version = "0.1.0"
+description = "Real-time counterspace wargame: persona-conditioned agents in a deterministic, replayable simulation."
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "boto3",
+    "jsonschema",
+    "pydantic>=2",
+    "openai>=1.50",
+    "httpx",
+    "pyyaml",
+    "numpy",
+    "pandas",
+    "tiktoken",
+    "fastapi",
+    "uvicorn",
+    "websockets",
+    "matplotlib",
+    "scipy",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "pre-commit",
+]
+
+[tool.setuptools.packages.find]
+# These directories are .gitkeep placeholders until their agent creates code.
+# namespaces = true lets the editable install succeed against an empty directory
+# instead of failing before Wave 1 has written a line.
+include = ["engine*", "gen*", "train*", "selfplay*", "eval*", "calib*", "infra*"]
+namespaces = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "stark_vincennes_1987_1988",
+  "spec_version": "spec_v1",
+  "title": "Two warships, one gulf, opposite errors",
+  "date": "17 May 1987 and 3 July 1988",
+  "domain": "naval",
+  "decision_maker": "Two US Navy commanding officers, each holding self-defence authority in the Persian Gulf, fourteen months apart, under rules of engagement that were rewritten in between because of the first incident.",
+  "analogous_seats": ["northcom", "usspacecom", "nsc"],
+  "situation": "USS Stark, a frigate, was operating in the Persian Gulf during the Iran-Iraq war when an Iraqi aircraft approached and illuminated her. Iraq was not the adversary the ship expected to be attacked by. She took no defensive action, was struck by two anti-ship missiles, and lost thirty-seven of her crew. Fourteen months later USS Vincennes, an Aegis cruiser, was engaged with Iranian small craft in the Strait of Hormuz when an aircraft climbed out of a nearby airfield on a course toward her. She identified it as a hostile military aircraft descending in an attack profile and shot it down. It was a civil airliner on a scheduled flight, climbing. Two hundred and ninety people were killed.",
+  "information_available": "Both ships had radar, identification systems, warning procedures and minutes. Stark's crew had ambiguous indications and an operating assumption that the approaching aircraft belonged to a country that was not shooting at Americans. Vincennes's crew had a track that its own system reported correctly and that the watch team read incorrectly under the stress of a simultaneous surface engagement, plus an identification-friend-or-foe return that was consistent with more than one aircraft, plus post-Stark rules of engagement that had been deliberately loosened to prevent a second Stark.",
+  "decision": "Stark held fire and was hit. Vincennes fired and destroyed a civil airliner. Both officers were acting within their authority, both were reasoning from a degraded and time-limited picture, and each made the error the other did not.",
+  "why": "The two cases are one card because the variable that separates them is not information and not competence. It is the disposition each officer brought to an ambiguous track and the institutional lesson each was carrying: Stark's captain was operating in an environment where restraint was the default and the threat was assumed to be elsewhere; Vincennes's captain was operating fourteen months after the Navy had absorbed, at the cost of thirty-seven lives, that restraint against an ambiguous inbound track can be fatal. The correction to the first error created the conditions for the second. Neither man had time to resolve the ambiguity, and the rules he had been given told him which way to fail.",
+  "outcome": "Stark's captain was relieved and left the service. Vincennes's captain was not disciplined; the United States expressed regret, contested Iran's account for years, and eventually paid compensation without admitting liability. Rules of engagement, watch-team training and identification procedures were revised again.",
+  "transfer": "Same theatre, same navy, same class of ambiguous track, opposite decisions and opposite catastrophes — this is the clearest available evidence that a single modelled adversary or a single modelled commander is not a model of anything. It also shows the specific failure of over-correction: an institution that fixes the last error configures itself for the opposite one.",
+  "ladder_rung": ["hold", "counter_rpo", "kinetic"],
+  "contested": "The Vincennes engagement remains disputed on the facts — the aircraft's altitude trend, what the identification systems actually reported, whether the ship was in Iranian territorial waters, and how much the concurrent surface action distorted the watch team's reading of its own displays.",
+  "sources": [
+    "US Department of Defense, Formal Investigation into the Circumstances Surrounding the Attack on the USS Stark (1987)",
+    "US Department of Defense, Formal Investigation into the Circumstances Surrounding the Downing of Iran Air Flight 655 (1988)",
+    "US Senate Committee on Armed Services hearings on both incidents",
+    "International Civil Aviation Organization report on the destruction of Iran Air Flight 655"
+  ],
+  "notes": "Deliberately one card rather than two: the pair is the lesson, and splitting it loses the controlled comparison. Both incidents are on the allowed list in docs/quarantine.md."
+}

@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "able_archer_1983",
+  "spec_version": "spec_v1",
+  "title": "An exercise read as preparation for the real thing",
+  "date": "2-11 November 1983",
+  "domain": "nuclear",
+  "decision_maker": "Soviet political and military leadership, reading a NATO command-post exercise through an intelligence collection programme built on the premise that a surprise attack was being prepared.",
+  "analogous_seats": ["northern_fleet", "kremlin", "nsc", "usspacecom"],
+  "situation": "NATO ran an annual command-post exercise that rehearsed the procedures for escalating to nuclear release. That year the exercise incorporated new communications procedures and, for part of it, unusually senior participation. It was an exercise, it was on the calendar, and there were no forces moving that a routine exercise would not have moved.",
+  "information_available": "Soviet intelligence saw genuine indicators — changed communications patterns, alert-state changes at NATO headquarters, the participation of senior officials — collected under a standing requirement to detect preparations for a surprise nuclear attack. Every indicator was accurate. The collection programme's design meant that indicators consistent with an exercise and indicators consistent with an attack were the same indicators, and the requirement was framed to find the attack.",
+  "decision": "Elements of the Soviet military were placed on heightened alert, including air units in East Germany and Poland, on the possibility that the exercise was cover for a real first strike. No offensive action was taken and the alert lapsed when the exercise ended.",
+  "why": "The exercise's own realism was the problem. A rehearsal of escalation to release is, at the level of observable signatures, a preparation for escalation to release; the difference lives in intent, which is precisely what the other side cannot observe. Soviet leadership was reasoning from a genuine prior — a period of unusually sharp rhetoric, a real belief in some quarters that a first strike was being contemplated — and an intelligence apparatus tasked to confirm rather than to test it. NATO, for its part, did not model how its exercise would read from the other side, because the exercise was obviously an exercise to the people running it.",
+  "outcome": "Nothing happened. Later American assessments concluded the episode had carried a real risk of inadvertent escalation, and it contributed to a subsequent effort to understand Soviet threat perception rather than assume it mirrored Western assumptions.",
+  "transfer": "A notified exercise is not self-evidently an exercise to the party observing it, and an exercise window overlapping an ambiguous event is an interpretation problem for both sides at once: it gives one side cover it may not have sought, and gives the other side a reading it cannot exclude. Also the collection failure mode — a requirement framed to detect a thing will find indicators of that thing.",
+  "ladder_rung": ["hold", "maneuver", "private_demarche"],
+  "contested": "The scale of the Soviet reaction is genuinely disputed. Some declassified assessments describe a serious war scare; others, and several historians with access to Soviet-side material, argue the alerting was narrower and more routine than the strongest accounts suggest.",
+  "sources": [
+    "President's Foreign Intelligence Advisory Board, The Soviet War Scare (1990), declassified 2015",
+    "Nate Jones, ed., Able Archer 83: The Secret History of the NATO Exercise That Almost Triggered Nuclear War",
+    "National Security Archive, Able Archer 83 sourcebook",
+    "Central Intelligence Agency, Soviet Thinking on the Possibility of Armed Confrontation (1983-84 assessments), declassified"
+  ],
+  "notes": "Directly analogous to the scenario's Northern Fleet exercise window. Included with its historiographical dispute stated, because a card that overstates the scare teaches the wrong prior. On the allowed list in docs/quarantine.md."
+}

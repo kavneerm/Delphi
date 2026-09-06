@@ -34,6 +34,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS = REPO_ROOT / "contracts"
 DRAFTS = REPO_ROOT / "specs" / "drafts"
 
+# exemplar_card_schema.json declares an $id under this prefix, so its relative $refs into
+# the contract schemas resolve against it rather than against contracts/. Register the
+# contracts under this base too, so "spec_schema.json#/$defs/seat" resolves from either side.
+DRAFTS_BASE = "https://panoptes.wargame/specs/drafts/"
+
 
 def _registry() -> Registry:
     """Every contract schema, addressable by bare filename and by $id."""
@@ -42,6 +47,7 @@ def _registry() -> Registry:
         schema = json.loads(path.read_text())
         resource = Resource.from_contents(schema)
         registry = registry.with_resource(uri=path.name, resource=resource)
+        registry = registry.with_resource(uri=DRAFTS_BASE + path.name, resource=resource)
         if "$id" in schema:
             registry = registry.with_resource(uri=schema["$id"], resource=resource)
     for path in sorted(DRAFTS.glob("*_schema.json")):

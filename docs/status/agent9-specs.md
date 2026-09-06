@@ -37,4 +37,16 @@ notes: |
   spec_v1 are on this branch now — UI persona cards should not hardcode the placeholders.
   I cannot append to docs/HANDOFFS.md (AGENTS.md limits me to my own status file), so this
   note and the PROGRESS line are the relay.
-  Next: exemplars/ (10 cards from the allowed list), then devset/ (8 scenarios + expected.json).
+  2026-09-05 — exemplars/ done: 10 cards, every one from the allowed list in
+  docs/quarantine.md, all validating and all passing scripts/check_quarantine.sh. Stark and
+  Vincennes are deliberately one card rather than two — the controlled comparison (same navy,
+  same gulf, fourteen months, opposite errors) is the lesson, and splitting it loses that.
+  Every card carries a `contested` field saying what the public record does not establish,
+  because a card that overstates its incident teaches the wrong prior; Able Archer's
+  historiographical dispute is stated rather than smoothed. The storm card is marked
+  ENVIRONMENTAL ONLY and names no adversary — it exists to give every persona the natural
+  base rate for correlated degradation, which is the comparison the whole scenario turns on.
+  Hit a schema-resolution bug on the way: exemplar_card_schema.json declares an $id under the
+  drafts prefix, so its relative $refs into contracts/ did not resolve; the validator now
+  registers each contract schema under both bases.
+  Next: devset/ — 8 scenarios with expected.json.

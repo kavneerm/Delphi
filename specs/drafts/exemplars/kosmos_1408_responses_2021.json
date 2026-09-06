@@ -1,0 +1,25 @@
+{
+  "exemplar_id": "kosmos_1408_responses_2021",
+  "spec_version": "spec_v1",
+  "title": "Debris in hours, attribution in hours, no counter-action at all",
+  "date": "15 November 2021 and after",
+  "domain": "space",
+  "decision_maker": "US State Department and US Space Command, deciding within hours what to say; and later the US government, deciding what to do instead of retaliating.",
+  "analogous_seats": ["usspacecom", "nsc", "norway", "starlink", "iridium"],
+  "situation": "Russia destroyed one of its own defunct satellites in low Earth orbit with a direct-ascent anti-satellite missile. The intercept created well over a thousand trackable debris fragments and a far larger number of untrackable ones, in orbits crossing that of the International Space Station. The station's crew, which included Russian cosmonauts, sheltered in their return vehicles as the debris cloud passed.",
+  "information_available": "Unusually for this domain, almost none of the normal ambiguity applied. The intercept was observable, the debris was trackable, the target was a known Russian satellite, and the launch was from Russian territory. Cause, actor and mechanism were established within hours rather than days. What remained unknown was why then, and what the test was meant to signal.",
+  "decision": "Public attribution and condemnation within hours, by name, at cabinet and combatant-command level, with the debris hazard as the stated grievance rather than the capability demonstration. No counter-action of any kind against Russian space assets. Five months later the United States unilaterally committed not to conduct destructive direct-ascent anti-satellite tests of its own and began seeking others to do the same.",
+  "why": "The technical facts were clean enough that hesitation would have bought nothing, so the usual reason to withhold attribution did not apply. What is instructive is what the United States did not do: it held an unambiguous, publicly attributable, physically destructive act against a category of response it declined to use, and answered instead with a norm it imposed on itself. The reasoning was that the injury was to a commons its own constellations depend on more than anyone else's, and that a retaliatory debris event would compound exactly the harm being condemned. Restraint here was not caution about the evidence; it was a judgement that the ladder's top rung damages the party that climbs it.",
+  "outcome": "The debris field persisted for years and continued to force avoidance manoeuvres by crewed and uncrewed spacecraft. The unilateral testing moratorium was subsequently adopted by a number of other states and carried into a United Nations General Assembly resolution.",
+  "transfer": "Clean attribution does not imply a proportionate response in kind, and the debris-creating rung is the one where retaliation most obviously harms the retaliator. Also the tempo lesson: when the technical picture is unambiguous, public attribution in hours is available and the arguments for delay evaporate — which is exactly why an ambiguous case must be handled differently rather than faster.",
+  "ladder_rung": ["public_attribution", "disclose_incident", "maneuver", "kinetic"],
+  "contested": "Russia's stated rationale, and whether the timing carried a signal related to the wider European security situation at the end of 2021, are not established from open sources.",
+  "sources": [
+    "US Department of State press briefing and statement, 15 November 2021",
+    "US Space Command public statement, 15 November 2021",
+    "NASA statements on International Space Station crew sheltering, November 2021",
+    "The White House, announcement of a unilateral destructive direct-ascent ASAT testing commitment, April 2022",
+    "Secure World Foundation, Global Counterspace Capabilities: An Open Source Assessment"
+  ],
+  "notes": "The debris and irreversibility card. On the allowed list in docs/quarantine.md."
+}

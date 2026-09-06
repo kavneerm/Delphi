@@ -1,38 +1,26 @@
-# Delphi
+# Svalbard Commercial-LEO Blackout Wargame
 
-Agentic research harness to enhance the American strength.
+Real-time, event-driven counterspace crisis simulation with a fine-tuned population of adversary, allied, commercial, and non-state personas. DNHacks 2026, Defense track.
 
-> **Status:** early scaffold. The repository is being set up; code and docs land here as the harness takes shape.
+**Agents: read `AGENTS.md` first.** Humans: `docs/execution_plan_v2.md` is the schedule, `docs/COORDINATION.md` is the protocol, `docs/REPO_SETUP.md` is how to launch.
 
-## Overview
-
-Panoptes is a harness for running agentic research workflows — coordinating
-model-driven agents, the tools they call, and the evidence they produce, so that
-runs are reproducible and their outputs auditable.
-
-## Getting started
-
-```bash
-git clone https://github.com/kavneerm/Panoptes.git
-cd Panoptes
+## Layout
 ```
-
-Setup and run instructions will be added alongside the first implementation.
-
-## Repository layout
-
+AGENTS.md        agent rules (Codex reads this in every worktree)
+.superset/       workspace setup/run scripts
+contracts/       frozen interfaces — humans only
+docs/            plan, brief, prompts, coordination, status board, templates, quarantine
+specs/           persona specs: train/ holdout/ exemplars/ devset/; drafts/ is agent output
+calib/           calibration tables with citations; holdout_2025_2026.csv is eval-only
+engine/          real-time event loop, world, storm, attacks, seats, log, stubs
+gen/             frontier-model trajectory generation + judge
+train/           filter, LoRA sweep, DPO, serve, gates, devset
+selfplay/        round-2 generation from the fine-tuned model
+eval/            replays (eval-only), runners, final report
+ui/              demo front end (plays back logs)
+infra/           AWS provisioning
+pitch/           narrative, one-pager, answers
+tests/
 ```
-.
-├── .gitignore
-├── NOTES.md     # local toolchain / credential status
-└── README.md
-```
-
-## Contributing
-
-Issues and pull requests are welcome. Please open an issue to discuss
-substantial changes before sending a PR.
-
-## License
-
-Not yet specified.
+## Environment
+`OPENAI_API_KEY`, `WARGAME_BUCKET`, `GEN_MODEL` (default `gpt-6-astra`, fallback `gpt-5.5`), AWS via CLI profile. Copy `.env.example` to `.env` at the repo root; `.superset/setup.sh` copies it into each worktree.

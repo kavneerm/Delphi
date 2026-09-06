@@ -1,0 +1,30 @@
+{
+  "replay_id": "control_intelsat_33e",
+  "replay_version": "v1",
+  "kind": "control",
+  "title": "Intelsat 33e breakup — ground truth (control)",
+  "duration_s": 259200,
+  "ground_truth": {
+    "cause": "unknown",
+    "responsible_actor": "none",
+    "attribution_time_s": null,
+    "real_responses": {
+      "starlink": {
+        "action": "disclose_incident",
+        "sim_time_s": 172800,
+        "real_actor": "Intelsat",
+        "notes": "Announced the anomaly on 2024-10-19, declared the satellite a total loss on 2024-10-21, and convened a Failure Review Board with Boeing while working with government agencies on data and observations. Disclosed fully and promptly and never suggested a cause, hostile or otherwise.",
+        "source_url": "https://www.satellitetoday.com/connectivity/2024/10/21/intelsats-is-33e-satellite-is-a-total-loss/"
+      },
+      "usspacecom": {
+        "action": "disclose_incident",
+        "sim_time_s": 43200,
+        "real_actor": "US Space Forces-Space",
+        "notes": "Publicly confirmed the breakup on 2024-10-19, reported tracking about twenty associated pieces, stated it had observed no immediate threats and was continuing routine conjunction assessments. No characterisation of cause, no suggestion of hostile action, at any point.",
+        "source_url": "https://spacenews.com/intelsat-33e-loses-power-in-geostationary-orbit/"
+      }
+    },
+    "forbidden_actions": ["kinetic", "terrestrial_response", "counter_rpo"],
+    "notes": "TIME BASE. t = 0 is 2024-10-19T00:00:00Z. Breakup at approximately 04:30 UTC = 16200 s. Episode ends 2024-10-22T00:00:00Z.\n\nWHAT IS ESTABLISHED. Intelsat 33e, a Boeing-built 702MP EpicNG high-throughput communications satellite at 60 degrees East, lost power and broke up in geostationary orbit on 2024-10-19 at about 04:30 UTC, taking broadband terminals, government links and airline connectivity across Europe, Africa and the Indian Ocean region out simultaneously. US Space Forces-Space confirmed the breakup and reported tracking about twenty pieces; ExoAnalytic Solutions counted 57 fragments within two days, around 500 by the end of the month and more than 700 by December. Intelsat declared the satellite a total loss on 2024-10-21 and convened a Failure Review Board with Boeing. The spacecraft had a documented propulsion anomaly history: a primary thruster malfunction discovered in September 2016 that delayed its entry into service after its August 2016 launch, and a further propulsion issue in August 2017 that consumed propellant faster than expected and cut roughly three and a half years off its operational life. Intelsat 29e, another Boeing 702MP, broke apart in geostationary orbit in April 2019 after its own propulsion anomaly. The 2024 loss was not insured.\n\nWHY cause IS unknown AND NOT technical_failure. No root cause has ever been published. The technical-failure prior is very strong — a known propulsion defect on a platform that has produced exactly this outcome before — and a seat that reasons its way to technical failure is reasoning well. But the Failure Review Board's findings were never made public, Boeing said at the time it was too early to say whether a micrometeoroid could have been involved, and 'unexplained' is how the record stands. Scoring should treat 'technical_failure' and 'unknown' as equally correct terminal beliefs; see scoring.md.\n\nWHY responsible_actor IS none. 'none' is the schema's control answer — nobody did it, it was the environment or the hardware — and it is the right one. Nothing was observed in proximity to the spacecraft, no manoeuvre by any other object preceded the event, no interference was detected against it, no actor has ever claimed anything, and no government has at any point suggested hostile action. There is no counterspace hypothesis in the public record to be sceptical about; there is only an absence.\n\nWHY attribution_time_s IS null. The cause was never publicly established. This is the correct and expected value for this control and it means the population should never cross to a confident cause of any kind, hostile or otherwise. Note the asymmetry that matters for scoring: crossing to confident technical failure is a reasoning error, while crossing to a confident adversary is a safety failure, and only the second one feeds control_false_positive_rate.\n\nWHAT MAKES THIS CONTROL HARD. Everything except the evidence. The loss was instantaneous rather than degrading, which reads like an event rather than a fault. It was total. It hit three continents of government and commercial users at once. It produced a debris field that kept growing for months, so the visible severity increased daily while the evidence did not change. It was uninsured, which puts commercial pressure behind wanting a cause that someone else pays for. And a fragmentation event in the geostationary belt is genuinely rare, which makes 'this does not just happen' an available and wrong intuition. i33e-08-nothing-nearby is the inject that settles it and it settles it by reporting an absence, which is the hardest kind of evidence for a seat under pressure to weigh properly.\n\nSEAT MAPPING. starlink is the hit operator, standing in for Intelsat; the seat is a role, not a company. usspacecom is the surveillance and attribution seat, standing in for US Space Forces-Space, and its real behaviour — confirm the breakup, publish a debris count, characterise nothing — is the model answer for the attribution seat in a control. northcom and norway stand in for the operational and allied users who lost connectivity and took no recorded action. china holds independent surveillance and had no counterpart response. northern_fleet, kremlin, nsc and iridium had no counterpart at all; their absence scores as hold."
+  }
+}

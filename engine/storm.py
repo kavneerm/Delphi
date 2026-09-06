@@ -15,21 +15,29 @@ from the placeholder curves below when it has not. Every placeholder is tagged
 `TODO_CALIB` in `profile.sources`, and `engine.storm_check` prints the tags, so
 "where did that number come from" is always answerable.
 
-Columns `engine/storm.py` reads from `calib/storm_effects.csv` (all optional;
-anything missing falls back to a placeholder):
+`calib/storm_effects.csv` is read in Agent 2's long format — one cited row per
+measurement, `profile, metric, asset_class, value, unit, ...` — and the metrics
+this module consumes are:
 
-    profile, severity, peak_kp, min_dst_nt, onset_hours, plateau_hours,
-    decay_hours, safe_mode_heo_node_per_hour,
-    safe_mode_constellation_per_member_hour, safe_mode_pass_sensor_per_hour,
-    tracking_degradation_hours, screening_suspension_hours, satellites_lost
+    peak_kp, min_dst, noaa_g_scale, storm_duration_g1_plus,
+    ring_current_recovery, tracking_degradation, screening_suspension,
+    satellites_lost, safe_mode_events_documented (per asset_class)
 
-and, if present, a per-profile series `calib/kp_<profile>.csv` with columns
-`time_s, kp, dst_nt` (or `hours, kp, dst_nt`).
+A wide-format file (one row per profile, one column per field) is also accepted,
+because that was the shape the engine assumed first and a fallback costs nothing.
+Anything missing falls back to a placeholder tagged `TODO_CALIB`.
+
+Kp and Dst series come from `calib/series/kp_<profile>.csv` and
+`calib/series/dst_<profile>.csv` (columns `utc_start`, `kp` / `dst_nt`), or from
+a single `calib/kp_<profile>.csv` with `time_s` or `hours`. Series times are
+converted to sim seconds from the first sample, so a profile starts at t=0 and
+`storm.onset_sim_time_s` shifts it.
 """
 
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -223,50 +231,200 @@ def placeholder_profile(severity: str = "G5", name: str | None = None) -> StormP
     )
 
 
-def _read_series(profile_name: str) -> list[tuple[float, float, float]]:
-    path = calib_dir() / f"kp_{profile_name}.csv"
+def _series_paths(profile_name: str) -> tuple[Path, Path]:
+    root = calib_dir()
+    return root / "series" / f"kp_{profile_name}.csv", root / "series" / f"dst_{profile_name}.csv"
+
+
+def _parse_utc(value: str) -> float | None:
+    """Seconds since the epoch from an RFC 3339 stamp, or None."""
+    text = (value or "").strip().replace("Z", "+00:00")
+    if not text:
+        return None
+    try:
+        return dt.datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        return None
+
+
+def _read_column(path: Path, column: str) -> list[tuple[float, float]]:
+    """(epoch seconds, value) from one of Agent 2's series files."""
     if not path.is_file():
         return []
-    series: list[tuple[float, float, float]] = []
+    out: list[tuple[float, float]] = []
     with path.open(newline="") as handle:
         for row in csv.DictReader(handle):
-            if "time_s" in row and row["time_s"]:
+            when = _parse_utc(row.get("utc_start") or row.get("utc") or "")
+            raw = row.get(column)
+            if when is None or raw in (None, ""):
+                continue
+            try:
+                out.append((when, float(raw)))
+            except ValueError:
+                continue
+    return sorted(out)
+
+
+def _series_origin(kp: list[tuple[float, float]]) -> float:
+    """Where t=0 sits in a recorded series: the storm's onset, not the file's start.
+
+    A NOAA series covers days of quiet either side of the event. Anchoring on
+    the first sample would put the peak somewhere past the end of a 72-hour
+    episode; anchoring on the last quiet sample before the peak makes
+    `onset_sim_time_s` mean what its name says. Samples before that point keep
+    negative times and read as the quiet background.
+    """
+    peak_index = max(range(len(kp)), key=lambda i: kp[i][1])
+    index = peak_index
+    while index > 0 and kp[index - 1][1] >= 4.0:
+        index -= 1
+    # One sample further back, so an episode opens on the quiet before the rise
+    # rather than halfway up it.
+    return kp[max(0, index - 1)][0]
+
+
+def _read_series(profile_name: str) -> tuple[list[tuple[float, float, float]], str]:
+    """A merged Kp/Dst series in sim seconds from the profile start.
+
+    Prefers Agent 2's `calib/series/` pair; falls back to a single
+    `calib/kp_<profile>.csv` carrying `time_s`/`hours`, `kp` and `dst_nt`.
+    """
+    kp_path, dst_path = _series_paths(profile_name)
+    kp = _read_column(kp_path, "kp")
+    dst = _read_column(dst_path, "dst_nt")
+    if kp:
+        origin = _series_origin(kp)
+        dst_lookup = dict(dst)
+        dst_times = sorted(dst_lookup)
+        merged: list[tuple[float, float, float]] = []
+        for when, value in kp:
+            if when in dst_lookup:
+                dst_value = dst_lookup[when]
+            elif dst_times:
+                nearest = min(dst_times, key=lambda t: abs(t - when))
+                dst_value = dst_lookup[nearest]
+            else:
+                dst_value = 0.0
+            merged.append((when - origin, value, dst_value))
+        return merged, f"calib/series/kp_{profile_name}.csv"
+
+    flat = calib_dir() / f"kp_{profile_name}.csv"
+    if not flat.is_file():
+        return [], ""
+    series: list[tuple[float, float, float]] = []
+    with flat.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("time_s"):
                 t = float(row["time_s"])
             elif row.get("hours"):
                 t = float(row["hours"]) * 3600.0
             else:
                 continue
             series.append((t, float(row.get("kp") or 0.0), float(row.get("dst_nt") or 0.0)))
-    return sorted(series)
+    return sorted(series), f"calib/kp_{profile_name}.csv"
 
 
-def load_profile(name: str, severity: str | None = None) -> StormProfile:
-    """A profile from `calib/`, falling back to placeholders field by field."""
-    base = placeholder_profile(severity or "G5", name=name)
-    path = calib_dir() / "storm_effects.csv"
-    row: dict[str, str] | None = None
-    if path.is_file():
-        with path.open(newline="") as handle:
-            for candidate in csv.DictReader(handle):
-                if (candidate.get("profile") or "").strip() == name:
-                    row = candidate
-                    break
-    if row is None:
-        base.series = _read_series(name)
-        if base.series:
-            base.sources["series"] = f"calib/kp_{name}.csv"
-        return base
+def _long_format_rows(path: Path, name: str) -> list[dict[str, str]]:
+    with path.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows or "metric" not in rows[0]:
+        return []
+    return [r for r in rows if (r.get("profile") or "").strip() == name]
 
+
+def _apply_long_format(base: StormProfile, rows: list[dict[str, str]]) -> None:
+    """Fold Agent 2's cited measurements into a profile.
+
+    Only the metrics the engine actually consumes are read; the rest of the
+    table is calibration evidence for other consumers and for a human at the
+    env_lock gate.
+    """
+    safe_mode_counts: dict[str, float] = {}
+    duration_hours: float | None = None
+    recovery_hours: float | None = None
+    for row in rows:
+        metric = (row.get("metric") or "").strip()
+        raw = (row.get("value") or "").strip()
+        cite = (row.get("source_url") or "calib/storm_effects.csv").strip()
+        asset_class = (row.get("asset_class") or "").strip()
+        if not raw:
+            continue
+        try:
+            number = float(raw)
+        except ValueError:
+            number = float("nan")
+        if metric == "peak_kp" and number == number:
+            base.peak_kp = number
+            base.sources["peak_kp"] = cite
+        elif metric == "min_dst" and number == number:
+            base.min_dst_nt = number
+            base.sources["min_dst_nt"] = cite
+        elif metric == "noaa_g_scale":
+            base.severity = raw
+            base.sources["severity"] = cite
+        elif metric == "tracking_degradation" and number == number:
+            base.tracking_degradation_hours = number
+            base.sources["tracking_degradation_hours"] = cite
+        elif metric == "screening_suspension" and number == number:
+            base.screening_suspension_hours = number
+            base.sources["screening_suspension_hours"] = cite
+        elif metric == "satellites_lost" and number == number:
+            base.satellites_lost = int(number)
+            base.sources["satellites_lost"] = cite
+        elif metric == "safe_mode_events_documented" and number == number:
+            safe_mode_counts[asset_class or "unspecified"] = number
+            base.sources["safe_mode_rates"] = cite
+        elif metric == "storm_duration_g1_plus" and number == number:
+            duration_hours = number
+            base.sources["shape"] = cite
+        elif metric == "ring_current_recovery" and number == number:
+            recovery_hours = number
+            base.sources["shape"] = cite
+
+    if duration_hours is not None:
+        # Split the observed G1+ duration into the ramp and the plateau; the
+        # decay comes from the ring-current recovery when we have it.
+        base.onset_hours = max(1.0, round(duration_hours * 0.15, 2))
+        base.plateau_hours = max(1.0, round(duration_hours * 0.35, 2))
+    if recovery_hours is not None:
+        base.decay_hours = max(2.0, recovery_hours)
+
+    if safe_mode_counts:
+        # Documented safe-mode events over the storm, turned into a per-hour
+        # hazard at peak. `population` is how many units of that class the
+        # observed count was drawn from; the engine's own fleet is much smaller,
+        # so the rate, not the count, is what transfers.
+        window = max(1.0, (duration_hours or 24.0))
+        population = {
+            "leo_constellation": 5000.0,
+            "science_leo": 40.0,
+            "leo_200_400km": 5000.0,
+            "unspecified": 100.0,
+        }
+        rates = dict(base.safe_mode_rates)
+        for asset_class, count in sorted(safe_mode_counts.items()):
+            size = population.get(asset_class, 100.0)
+            per_unit_hour = count / (size * window)
+            if "constellation" in asset_class:
+                rates["constellation"] = per_unit_hour
+            else:
+                rates["heo_node"] = max(rates.get("heo_node", 0.0), per_unit_hour * 4.0)
+                rates["pass_sensor"] = max(rates.get("pass_sensor", 0.0), per_unit_hour * 2.0)
+        base.safe_mode_rates = rates
+
+
+def _apply_wide_format(base: StormProfile, row: dict[str, str]) -> None:
+    """The one-row-per-profile shape, kept as a fallback."""
     cited = str(row.get("source_url") or "calib/storm_effects.csv")
+    if row.get("severity"):
+        base.severity = str(row["severity"]).strip()
 
     def take(column: str, key: str, cast: Any = float) -> None:
-        value = (row or {}).get(column)
+        value = row.get(column)
         if value not in (None, ""):
             setattr(base, key, cast(value))
             base.sources[key] = cited
 
-    if row.get("severity"):
-        base.severity = str(row["severity"]).strip()
     take("peak_kp", "peak_kp")
     take("min_dst_nt", "min_dst_nt")
     take("onset_hours", "onset_hours")
@@ -289,9 +447,28 @@ def load_profile(name: str, severity: str | None = None) -> StormProfile:
     base.safe_mode_rates = rates
     if hit:
         base.sources["safe_mode_rates"] = cited
-    base.series = _read_series(name)
-    if base.series:
-        base.sources["series"] = f"calib/kp_{name}.csv"
+
+
+def load_profile(name: str, severity: str | None = None) -> StormProfile:
+    """A profile from `calib/`, falling back to placeholders field by field."""
+    base = placeholder_profile(severity or "G5", name=name)
+    path = calib_dir() / "storm_effects.csv"
+    if path.is_file():
+        long_rows = _long_format_rows(path, name)
+        if long_rows:
+            _apply_long_format(base, long_rows)
+        else:
+            with path.open(newline="") as handle:
+                for candidate in csv.DictReader(handle):
+                    if (candidate.get("profile") or "").strip() == name:
+                        _apply_wide_format(base, candidate)
+                        break
+    if severity:
+        base.severity = severity
+    series, source = _read_series(name)
+    if series:
+        base.series = series
+        base.sources["series"] = source
     return base
 
 

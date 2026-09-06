@@ -39,6 +39,7 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import math
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -130,6 +131,15 @@ def _interp(knots: tuple[tuple[float, float], ...], x: float) -> float:
 
 
 def calib_dir() -> Path:
+    """Locate `calib/`. `PANOPTES_CALIB_DIR` overrides.
+
+    Same reasoning as `engine.specs.specs_dir`: the default is anchored to this
+    module, which is right for a checkout and wrong for a run against a
+    different calibration — which is exactly what `env_v1_perturbed` is.
+    """
+    override = os.environ.get("PANOPTES_CALIB_DIR")
+    if override:
+        return Path(override)
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / "calib").is_dir():

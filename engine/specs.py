@@ -15,6 +15,7 @@ wins over the placeholder for that seat.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -476,6 +477,16 @@ def placeholder_specs() -> dict[str, dict[str, Any]]:
 
 
 def specs_dir() -> Path:
+    """Locate `specs/`. `PANOPTES_SPECS_DIR` overrides.
+
+    The override exists because the default is anchored to this module's own
+    location, which is right for a repo checkout and wrong for anyone running
+    the engine against a different spec pool — a perturbation run, a holdout
+    sweep, or a test.
+    """
+    override = os.environ.get("PANOPTES_SPECS_DIR")
+    if override:
+        return Path(override)
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / "specs").is_dir():
@@ -507,6 +518,13 @@ def load_pool(assignment: dict[str, str] | None = None) -> dict[str, dict[str, A
             if spec_id in by_id and by_id[spec_id].get("seat") == seat:
                 pool[seat] = by_id[spec_id]
         return pool
+    # No assignment: a real spec beats the placeholder for its seat. `pool`
+    # already holds a placeholder for every seat, so this must ASSIGN rather
+    # than setdefault — setdefault here silently ignored the whole real pool.
+    # Ties within a seat go to the first spec_id in sort order, so an
+    # unassigned run is still deterministic.
     for _spec_id, spec in sorted(by_id.items()):
-        pool.setdefault(str(spec["seat"]), spec)
+        seat = str(spec["seat"])
+        if pool[seat]["spec_version"] == PLACEHOLDER_SPEC_VERSION:
+            pool[seat] = spec
     return pool

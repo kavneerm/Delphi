@@ -1,8 +1,8 @@
 # agent7-ui
 state: IN_PROGRESS
 branch: agent7-ui
-last_commit: f22c711
-interfaces_ready: [ui/ console (offline playback), ui/serve.py]
+last_commit: 21d0ca7
+interfaces_ready: [ui/ console (offline playback), ui/serve.py, ui/server/bridge.py + PROTOCOL.md (live human seat + fork)]
 needs: [engine/samples/stub_run.jsonl (agent1-engine), validation/heatmap.csv + validation/final_report.md (agent6-eval), engine local websocket for the human seat (agent1-engine)]
 awaiting_human:
 updated: 2026-09-05
@@ -56,3 +56,13 @@ notes: |
   continuous has a 4h18 seat spread across nine different timestamps, checkpoint has 1h with seven
   seats on 21:30:00 exactly. Next: ui/server/bridge.py + PROTOCOL.md (the live path and fork), then
   REPORT.md, the 3-minute capture, and the PR.
+
+  2026-09-05 — Live path done and verified from a real browser: connect, 143 event lines streamed,
+  release prompt, fork of 100 continuations in ~3s, answer sent, clock resumed. 27 tests green.
+  ui/server/bridge.py + PROTOCOL.md + wsproto.py (stdlib RFC 6455 — pyproject.toml is not mine to
+  add a dependency to). Two bugs that only running it could find, both now covered by tests:
+  the fork did not fork (build_stubs and EventLoop capture the RngBook at construction, so
+  rebinding ep.rng after restore left all 50 continuations identical — and the numbers looked
+  entirely reasonable), and the websocket GUID had its last two groups mis-split, which a raw
+  socket client accepts and only a real browser rejects. Both written up in HANDOFFS for agent1.
+  Next: ui/REPORT.md, the 3-minute screen capture, and the PR.

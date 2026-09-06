@@ -5,36 +5,72 @@
   "title": "Decision output",
   "description": "Two things in one file. (1) x-action-ladder: the ordered action menu, rung 0 to rung 13, with irreversibility, cost vector and the seats allowed to execute each rung. It is data, not schema; JSON Schema validators ignore x- keywords, so this file still validates a decision directly. (2) The root schema, which is the structured decision every seat emits at a decision point: beliefs, outbound messages, one action, and reasoning. gen/prompt.py enforces this root schema through structured outputs.",
   "$ref": "#/$defs/decision",
-
   "x-ladder-version": "contracts_v1",
   "x-ladder-entry-schema": {
     "$comment": "Shape of each x-action-ladder entry. tests/agent0-contracts validates the ladder against this.",
     "type": "object",
     "additionalProperties": false,
-    "required": ["rung", "type", "irreversible", "costs", "allowed_seats", "description"],
+    "required": [
+      "rung",
+      "type",
+      "irreversible",
+      "costs",
+      "allowed_seats",
+      "description"
+    ],
     "properties": {
-      "rung": { "type": "integer", "minimum": 0, "maximum": 13 },
-      "type": { "$ref": "#/$defs/action_type" },
-      "irreversible": { "type": "boolean" },
-      "costs": { "$ref": "#/$defs/cost_vector" },
+      "rung": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 13
+      },
+      "type": {
+        "$ref": "#/$defs/action_type"
+      },
+      "irreversible": {
+        "type": "boolean"
+      },
+      "costs": {
+        "$ref": "#/$defs/cost_vector"
+      },
       "allowed_seats": {
         "type": "array",
         "uniqueItems": true,
         "minItems": 1,
-        "items": { "$ref": "spec_schema.json#/$defs/seat" }
+        "items": {
+          "$ref": "spec_schema.json#/$defs/seat"
+        }
       },
-      "description": { "type": "string" },
-      "notes": { "type": "string" }
+      "description": {
+        "type": "string"
+      },
+      "notes": {
+        "type": "string"
+      }
     }
   },
-
   "x-action-ladder": [
     {
       "rung": 0,
       "type": "hold",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.0, "debris": 0.0, "political": 0.0 },
-      "allowed_seats": ["northcom", "usspacecom", "nsc", "norway", "nato", "northern_fleet", "kremlin", "china", "starlink", "iridium", "ksat", "hacktivist"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.0,
+        "debris": 0.0,
+        "political": 0.0
+      },
+      "allowed_seats": [
+        "northcom",
+        "usspacecom",
+        "nsc",
+        "norway",
+        "northern_fleet",
+        "kremlin",
+        "china",
+        "starlink",
+        "iridium"
+      ],
       "description": "Take no action this decision point. Watch, wait for the next feed update. Always available to every seat.",
       "notes": "hold is not neutral: it costs time while the outage continues, and the utility function scores that."
     },
@@ -42,8 +78,19 @@
       "rung": 1,
       "type": "maneuver",
       "irreversible": false,
-      "costs": { "propellant": 0.4, "signaling": 0.1, "debris": 0.0, "political": 0.0 },
-      "allowed_seats": ["usspacecom", "norway", "northern_fleet", "starlink", "iridium"],
+      "costs": {
+        "propellant": 0.4,
+        "signaling": 0.1,
+        "debris": 0.0,
+        "political": 0.0
+      },
+      "allowed_seats": [
+        "usspacecom",
+        "norway",
+        "northern_fleet",
+        "starlink",
+        "iridium"
+      ],
       "description": "Impulsive burn on an own asset: reposition, raise, evade, or close for a better viewing geometry that stays outside counter_rpo standoff.",
       "notes": "Reversible in intent but not in propellant. Spends a finite budget tracked in engine/world.py; repeated maneuvers strand the asset."
     },
@@ -51,8 +98,23 @@
       "rung": 2,
       "type": "private_demarche",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.2, "debris": 0.0, "political": 0.1 },
-      "allowed_seats": ["northcom", "usspacecom", "nsc", "norway", "nato", "northern_fleet", "kremlin", "china", "starlink", "iridium", "ksat"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.2,
+        "debris": 0.0,
+        "political": 0.1
+      },
+      "allowed_seats": [
+        "northcom",
+        "usspacecom",
+        "nsc",
+        "norway",
+        "northern_fleet",
+        "kremlin",
+        "china",
+        "starlink",
+        "iridium"
+      ],
       "description": "Private message through a diplomatic, military-to-military or commercial channel: warn, ask, offer, or signal a red line without a public record.",
       "notes": "The text goes in messages[]; params names the recipient and channel so the engine can route and delay it."
     },
@@ -60,17 +122,40 @@
       "rung": 3,
       "type": "public_attribution",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.7, "debris": 0.0, "political": 0.5 },
-      "allowed_seats": ["usspacecom", "nsc", "norway", "nato", "kremlin", "china", "starlink", "iridium", "ksat", "hacktivist"],
-      "description": "State publicly who did it, and with what confidence. For kremlin and china this rung also covers counter-attribution and denial; for hacktivist it is a public claim of responsibility, true or false.",
-      "notes": "Not counted as irreversible by contracts/targets.md, but unrecallable: it cannot be withdrawn, only contradicted. The control_false_positive_rate metric in contracts/targets.md reads Blue and ally seats' use of this rung on the false-positive control scenarios."
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.7,
+        "debris": 0.0,
+        "political": 0.5
+      },
+      "allowed_seats": [
+        "usspacecom",
+        "nsc",
+        "norway",
+        "kremlin",
+        "china",
+        "starlink",
+        "iridium"
+      ],
+      "description": "State publicly who did it, and with what confidence. For kremlin and china this rung also covers counter-attribution and denial.",
+      "notes": "Not counted as irreversible by contracts/targets.md, but unrecallable: it cannot be withdrawn, only contradicted. For kremlin and china this rung also covers counter-attribution and denial. The control_false_positive_rate metric reads Blue and ally seats' use of this rung on the false-positive control scenarios."
     },
     {
       "rung": 4,
       "type": "request_commercial_priority",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.2, "debris": 0.0, "political": 0.2 },
-      "allowed_seats": ["northcom", "usspacecom", "nsc", "norway", "nato"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.2,
+        "debris": 0.0,
+        "political": 0.2
+      },
+      "allowed_seats": [
+        "northcom",
+        "usspacecom",
+        "nsc",
+        "norway"
+      ],
       "description": "Ask a commercial operator to prioritise government or allied traffic on scarce Arctic capacity. The operator seat decides whether to comply.",
       "notes": "A request, not an order. The commercial seat answers with geofence_or_throttle, share_telemetry, hold, or a message."
     },
@@ -78,8 +163,20 @@
       "rung": 5,
       "type": "share_telemetry",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.3, "debris": 0.0, "political": 0.2 },
-      "allowed_seats": ["northcom", "usspacecom", "norway", "nato", "china", "starlink", "iridium", "ksat"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.3,
+        "debris": 0.0,
+        "political": 0.2
+      },
+      "allowed_seats": [
+        "northcom",
+        "usspacecom",
+        "norway",
+        "china",
+        "starlink",
+        "iridium"
+      ],
       "description": "Hand resolving telemetry, SSA tracks or ground-station logs to another actor. The single fastest way to collapse attribution ambiguity, and the one that gives away what you can see.",
       "notes": "Reveals sensor capability. Commercial seats trade this against liability and revenue; china may share selectively to shape the narrative."
     },
@@ -87,17 +184,38 @@
       "rung": 6,
       "type": "geofence_or_throttle",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.4, "debris": 0.0, "political": 0.4 },
-      "allowed_seats": ["starlink", "iridium", "ksat"],
-      "description": "Commercial service control: geofence a region, throttle a tier, or suspend service. Unilateral corporate power over an operational picture.",
-      "notes": "Reversible technically, expensive politically. Historical analogue in the allowed exemplar bank: Starlink-Ukraine geofencing 2022-23."
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.4,
+        "debris": 0.0,
+        "political": 0.4
+      },
+      "allowed_seats": [
+        "norway",
+        "starlink",
+        "iridium"
+      ],
+      "description": "Service control over the region: geofence, throttle, suspend, or restore. Unilateral power over an operational picture — corporate for starlink and iridium, sovereign for norway, which owns the Svalbard ground segment.",
+      "notes": "Reversible technically, expensive politically. Norway holds this rung because the Svalbard ground segment is Norwegian (contracts/seats.md): suspending the downlink degrades every actor's picture, including its own. Historical analogue in the allowed exemplar bank: Starlink-Ukraine geofencing 2022-23."
     },
     {
       "rung": 7,
       "type": "disclose_incident",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.5, "debris": 0.0, "political": 0.3 },
-      "allowed_seats": ["northcom", "usspacecom", "nsc", "norway", "nato", "starlink", "iridium", "ksat"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.5,
+        "debris": 0.0,
+        "political": 0.3
+      },
+      "allowed_seats": [
+        "northcom",
+        "usspacecom",
+        "nsc",
+        "norway",
+        "starlink",
+        "iridium"
+      ],
       "description": "Say publicly, or to customers, regulators and allies, that you have been hit and how badly, without naming a culprit.",
       "notes": "Unrecallable like public_attribution. Starts the media and insurer clocks; the insurer seat reprices on it."
     },
@@ -105,8 +223,16 @@
       "rung": 8,
       "type": "jam",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.8, "debris": 0.0, "political": 0.7 },
-      "allowed_seats": ["usspacecom", "northern_fleet"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.8,
+        "debris": 0.0,
+        "political": 0.7
+      },
+      "allowed_seats": [
+        "usspacecom",
+        "northern_fleet"
+      ],
       "description": "Electronic attack on an uplink or downlink. Effects stop when the emitter stops; the record of having emitted does not.",
       "notes": "First rung with a physical effect on someone else's system. Attribution lag drawn from calib/attribution_lags.csv."
     },
@@ -114,8 +240,16 @@
       "rung": 9,
       "type": "dazzle",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.85, "debris": 0.0, "political": 0.75 },
-      "allowed_seats": ["usspacecom", "northern_fleet"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.85,
+        "debris": 0.0,
+        "political": 0.75
+      },
+      "allowed_seats": [
+        "usspacecom",
+        "northern_fleet"
+      ],
       "description": "Optical dazzling of an imaging payload. Temporary by design, permanent if overdriven.",
       "notes": "The engine draws a small probability of permanent sensor damage; if it fires, the effect becomes irreversible in the world even though the rung is not marked irreversible."
     },
@@ -123,17 +257,33 @@
       "rung": 10,
       "type": "ground_cyber",
       "irreversible": false,
-      "costs": { "propellant": 0.0, "signaling": 0.85, "debris": 0.0, "political": 0.8 },
-      "allowed_seats": ["usspacecom", "northern_fleet", "hacktivist"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 0.85,
+        "debris": 0.0,
+        "political": 0.8
+      },
+      "allowed_seats": [
+        "usspacecom",
+        "northern_fleet"
+      ],
       "description": "Cyber effect against ground segment: gateways, modems, mission control, the terrestrial links behind them.",
-      "notes": "The deniable rung. hacktivist executes it with a hidden affiliation, which is what makes attribution hard for everyone else."
+      "notes": "The deniable rung, and the one an actor can be accused of without having done it: the hacktivist_injects rule actor emits claimed attacks with a per-run hidden affiliation, which is what makes attribution hard for everyone else."
     },
     {
       "rung": 11,
       "type": "counter_rpo",
       "irreversible": true,
-      "costs": { "propellant": 0.7, "signaling": 0.9, "debris": 0.05, "political": 0.85 },
-      "allowed_seats": ["usspacecom", "northern_fleet"],
+      "costs": {
+        "propellant": 0.7,
+        "signaling": 0.9,
+        "debris": 0.05,
+        "political": 0.85
+      },
+      "allowed_seats": [
+        "usspacecom",
+        "northern_fleet"
+      ],
       "description": "Close on an adversary satellite inside standoff distance to shadow, inspect, or hold at risk.",
       "notes": "Irreversible per contracts/targets.md: it spends propellant that cannot be recovered and creates a proximity fact the other side must answer. Counted in irreversible_action_rate_replays."
     },
@@ -141,8 +291,16 @@
       "rung": 12,
       "type": "kinetic",
       "irreversible": true,
-      "costs": { "propellant": 0.8, "signaling": 1.0, "debris": 1.0, "political": 1.0 },
-      "allowed_seats": ["nsc", "northern_fleet"],
+      "costs": {
+        "propellant": 0.8,
+        "signaling": 1.0,
+        "debris": 1.0,
+        "political": 1.0
+      },
+      "allowed_seats": [
+        "nsc",
+        "northern_fleet"
+      ],
       "description": "Physical destruction of a space asset. Creates a debris field that persists for the rest of the episode and beyond it.",
       "notes": "Blue can only reach this rung through nsc, which contracts/seats.md makes the sole Blue irreversible-action authority. Target: red_kinetic_rate < 1% across the standard grid."
     },
@@ -150,13 +308,20 @@
       "rung": 13,
       "type": "terrestrial_response",
       "irreversible": true,
-      "costs": { "propellant": 0.0, "signaling": 1.0, "debris": 0.0, "political": 1.0 },
-      "allowed_seats": ["nsc", "northern_fleet"],
+      "costs": {
+        "propellant": 0.0,
+        "signaling": 1.0,
+        "debris": 0.0,
+        "political": 1.0
+      },
+      "allowed_seats": [
+        "nsc",
+        "northern_fleet"
+      ],
       "description": "Action against a ground target or actor on Earth in response to a space effect: strike, destructive cyber, law enforcement, or sanctions.",
       "notes": "Irreversible per contracts/targets.md, including the sanctions and law-enforcement classes, because the crossing from space to terrestrial response cannot be taken back."
     }
   ],
-
   "$defs": {
     "action_type": {
       "type": "string",
@@ -181,44 +346,99 @@
     "cost_vector": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["propellant", "signaling", "debris", "political"],
+      "required": [
+        "propellant",
+        "signaling",
+        "debris",
+        "political"
+      ],
       "description": "Normalised relative costs in [0,1]. The engine scales them into world units: propellant against the asset's remaining delta-v budget, debris into objects tracked, signaling and political into the escalation and reputation terms of engine/utility.py.",
       "properties": {
-        "propellant": { "type": "number", "minimum": 0, "maximum": 1 },
-        "signaling": { "type": "number", "minimum": 0, "maximum": 1 },
-        "debris": { "type": "number", "minimum": 0, "maximum": 1 },
-        "political": { "type": "number", "minimum": 0, "maximum": 1 }
+        "propellant": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "signaling": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "debris": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "political": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
-    "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
     "beliefs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["hostile", "natural", "unknown", "per_actor"],
+      "required": [
+        "hostile",
+        "natural",
+        "unknown",
+        "per_actor"
+      ],
       "description": "The seat's current read of the cause of the outage. hostile + natural + unknown must sum to 1.0 within 0.01; gen/prompt.py retries on violation, and the engine logs a state_change if a served model drifts. eval/replay_table.py reads hostile to compute belief lag.",
       "properties": {
-        "hostile": { "$ref": "#/$defs/probability", "description": "Probability the cause is deliberate action by some actor." },
-        "natural": { "$ref": "#/$defs/probability", "description": "Probability the cause is space weather or technical failure." },
-        "unknown": { "$ref": "#/$defs/probability", "description": "Probability the seat cannot yet classify it. Not a residual: a seat may hold high unknown with low hostile." },
+        "hostile": {
+          "$ref": "#/$defs/probability",
+          "description": "Probability the cause is deliberate action by some actor."
+        },
+        "natural": {
+          "$ref": "#/$defs/probability",
+          "description": "Probability the cause is space weather or technical failure."
+        },
+        "unknown": {
+          "$ref": "#/$defs/probability",
+          "description": "Probability the seat cannot yet classify it. Not a residual: a seat may hold high unknown with low hostile."
+        },
         "per_actor": {
           "type": "object",
           "description": "Conditional on hostile, how the seat splits responsibility across candidate actors. Keys are actors; values need not sum to 1 if the seat leaves mass unassigned, but must not exceed 1 in total. Empty object is valid when hostile is low. eval computes end-of-episode attribution entropy from this.",
-          "additionalProperties": { "$ref": "#/$defs/probability" },
-          "propertyNames": { "$ref": "spec_schema.json#/$defs/actor" }
+          "additionalProperties": {
+            "$ref": "#/$defs/probability"
+          },
+          "propertyNames": {
+            "$ref": "spec_schema.json#/$defs/actor"
+          }
         }
       }
     },
     "message": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["to", "channel", "text"],
+      "required": [
+        "to",
+        "channel",
+        "text"
+      ],
       "description": "One outbound message. The engine delivers it after the channel's delay and the recipient's feed latency, subject to clearance.",
       "properties": {
         "to": {
           "description": "Recipient: an actor id, 'public' for a statement with no addressee, or 'all' for a broadcast to every seat.",
           "oneOf": [
-            { "$ref": "spec_schema.json#/$defs/actor" },
-            { "type": "string", "enum": ["public", "all"] }
+            {
+              "$ref": "spec_schema.json#/$defs/actor"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "public",
+                "all"
+              ]
+            }
           ]
         },
         "channel": {
@@ -235,10 +455,20 @@
           ],
           "description": "Determines delivery delay and who else can observe the message. press is observable by every seat with a media feed; back_channel and hotline are fast and private; internal never leaves the seat's own organisation."
         },
-        "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
         "classification": {
           "type": "string",
-          "enum": ["open", "commercial_proprietary", "restricted", "secret", "top_secret_sci"],
+          "enum": [
+            "open",
+            "commercial_proprietary",
+            "restricted",
+            "secret",
+            "top_secret_sci"
+          ],
           "description": "Optional. Defaults to the sender's clearance. The engine drops the message if it exceeds the recipient's clearance and logs the drop."
         }
       }
@@ -248,96 +478,510 @@
       "description": "Parameters for the chosen action. Additional keys are allowed so seats can carry intent the engine ignores; the keys below are the ones the engine reads, and the conditional blocks on #/$defs/action make the right ones required per action type.",
       "additionalProperties": true,
       "properties": {
-        "asset_id": { "type": "string", "description": "Own asset the action is taken with or on." },
-        "target_asset_id": { "type": "string", "description": "Another actor's space asset the action is directed at." },
-        "target_actor": { "$ref": "spec_schema.json#/$defs/actor" },
-        "target_system": { "type": "string", "description": "Named ground segment element for ground_cyber: gateway, modem fleet, mission control, cable landing." },
-        "target_id": { "type": "string", "description": "Terrestrial target or entity for terrestrial_response." },
-        "delta_v_mps": { "type": "number", "minimum": 0, "maximum": 500, "description": "Impulsive burn magnitude in metres per second." },
-        "duration_minutes": { "type": "number", "minimum": 0, "maximum": 4320 },
-        "standoff_km": { "type": "number", "minimum": 0, "maximum": 5000 },
+        "asset_id": {
+          "type": "string",
+          "description": "Own asset the action is taken with or on."
+        },
+        "target_asset_id": {
+          "type": "string",
+          "description": "Another actor's space asset the action is directed at."
+        },
+        "target_actor": {
+          "$ref": "spec_schema.json#/$defs/actor"
+        },
+        "target_system": {
+          "type": "string",
+          "description": "Named ground segment element for ground_cyber: gateway, modem fleet, mission control, cable landing."
+        },
+        "target_id": {
+          "type": "string",
+          "description": "Terrestrial target or entity for terrestrial_response."
+        },
+        "delta_v_mps": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 500,
+          "description": "Impulsive burn magnitude in metres per second."
+        },
+        "duration_minutes": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4320
+        },
+        "standoff_km": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
+        },
         "recipient": {
           "description": "Addressee for private_demarche and share_telemetry.",
           "oneOf": [
-            { "$ref": "spec_schema.json#/$defs/actor" },
-            { "type": "string", "enum": ["public", "all"] }
+            {
+              "$ref": "spec_schema.json#/$defs/actor"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "public",
+                "all"
+              ]
+            }
           ]
         },
-        "provider": { "type": "string", "enum": ["starlink", "iridium", "ksat"] },
-        "capability": { "type": "string", "description": "What is being asked for at rung 4: arctic_bandwidth, downlink_slots, protected_comms, priority_routing." },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "starlink",
+            "iridium"
+          ],
+          "description": "The commercial operator being asked at rung 4. Norway's Svalbard ground segment is sovereign, not commercial: ask it with a private_demarche."
+        },
+        "capability": {
+          "type": "string",
+          "description": "What is being asked for at rung 4: arctic_bandwidth, downlink_slots, protected_comms, priority_routing."
+        },
         "attributed_actor": {
           "description": "Who is being named at rung 3. 'unknown' means publicly stating the cause is unresolved; 'none' means publicly stating there was no adversary.",
           "oneOf": [
-            { "$ref": "spec_schema.json#/$defs/actor" },
-            { "type": "string", "enum": ["unknown", "none"] }
+            {
+              "$ref": "spec_schema.json#/$defs/actor"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "none"
+              ]
+            }
           ]
         },
-        "confidence_stated": { "$ref": "#/$defs/probability", "description": "The confidence asserted publicly at rung 3, which may differ from the seat's private belief." },
-        "data_class": { "type": "string", "enum": ["ssa_tracks", "raw_telemetry", "interference_signature", "ground_logs", "imagery", "assessment"] },
-        "region": { "type": "string", "description": "Geographic scope for rung 6, e.g. 'svalbard', 'barents', 'north_of_74n'." },
-        "mode": { "type": "string", "enum": ["geofence", "throttle", "suspend", "restore"] },
-        "service_tier": { "type": "string", "enum": ["all", "consumer", "enterprise", "government", "maritime"] },
-        "scope": { "type": "string", "enum": ["customers", "regulator", "allies", "public"], "description": "Audience for disclose_incident." },
-        "detail_level": { "type": "string", "enum": ["minimal", "operational", "technical"] },
-        "effect": { "type": "string", "enum": ["degrade", "disrupt", "deny", "manipulate", "persist"], "description": "Intended cyber effect at rung 10." },
-        "weapon_class": { "type": "string", "enum": ["direct_ascent", "co_orbital", "unspecified"], "description": "Kinetic means at rung 12." },
-        "response_class": { "type": "string", "enum": ["strike", "destructive_cyber", "law_enforcement", "sanctions", "expulsion"], "description": "Terrestrial means at rung 13." },
-        "venue": { "type": "string", "description": "Where a public statement is made: press conference, NAC, UN COPUOS, company blog." },
-        "purpose": { "type": "string", "maxLength": 400, "description": "One line of stated intent, carried into the log for the UI." }
+        "confidence_stated": {
+          "$ref": "#/$defs/probability",
+          "description": "The confidence asserted publicly at rung 3, which may differ from the seat's private belief."
+        },
+        "data_class": {
+          "type": "string",
+          "enum": [
+            "ssa_tracks",
+            "raw_telemetry",
+            "interference_signature",
+            "ground_logs",
+            "imagery",
+            "assessment"
+          ]
+        },
+        "region": {
+          "type": "string",
+          "description": "Geographic scope for rung 6, e.g. 'svalbard', 'barents', 'north_of_74n'."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "geofence",
+            "throttle",
+            "suspend",
+            "restore"
+          ]
+        },
+        "service_tier": {
+          "type": "string",
+          "enum": [
+            "all",
+            "consumer",
+            "enterprise",
+            "government",
+            "maritime"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "customers",
+            "regulator",
+            "allies",
+            "public"
+          ],
+          "description": "Audience for disclose_incident."
+        },
+        "detail_level": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "operational",
+            "technical"
+          ]
+        },
+        "effect": {
+          "type": "string",
+          "enum": [
+            "degrade",
+            "disrupt",
+            "deny",
+            "manipulate",
+            "persist"
+          ],
+          "description": "Intended cyber effect at rung 10."
+        },
+        "weapon_class": {
+          "type": "string",
+          "enum": [
+            "direct_ascent",
+            "co_orbital",
+            "unspecified"
+          ],
+          "description": "Kinetic means at rung 12."
+        },
+        "response_class": {
+          "type": "string",
+          "enum": [
+            "strike",
+            "destructive_cyber",
+            "law_enforcement",
+            "sanctions",
+            "expulsion"
+          ],
+          "description": "Terrestrial means at rung 13."
+        },
+        "venue": {
+          "type": "string",
+          "description": "Where a public statement is made: press conference, NAC, UN COPUOS, company blog."
+        },
+        "purpose": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "One line of stated intent, carried into the log for the UI."
+        }
       }
     },
     "action": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "params"],
-      "description": "Exactly one action per decision point. A seat that wants to do nothing emits type 'hold' with empty params.",
+      "required": [
+        "type",
+        "params"
+      ],
+      "description": "Exactly one action per decision point. A seat that wants to do nothing emits type 'hold' with empty params. An action whose type does not list this seat in x-action-ladder allowed_seats is refused by the engine and logged with payload.blocked=true; an action in the spec's requires_release list is held until a release_granted event arrives (see env_config_schema.json#/properties/release_policy).",
       "properties": {
-        "type": { "$ref": "#/$defs/action_type" },
-        "params": { "$ref": "#/$defs/action_params" }
+        "type": {
+          "$ref": "#/$defs/action_type"
+        },
+        "params": {
+          "$ref": "#/$defs/action_params"
+        }
       },
       "allOf": [
-        { "if": { "properties": { "type": { "const": "maneuver" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["asset_id", "delta_v_mps"] } } } },
-        { "if": { "properties": { "type": { "const": "private_demarche" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["recipient"] } } } },
-        { "if": { "properties": { "type": { "const": "public_attribution" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["attributed_actor", "confidence_stated"] } } } },
-        { "if": { "properties": { "type": { "const": "request_commercial_priority" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["provider", "capability"] } } } },
-        { "if": { "properties": { "type": { "const": "share_telemetry" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["recipient", "data_class"] } } } },
-        { "if": { "properties": { "type": { "const": "geofence_or_throttle" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["region", "mode"] } } } },
-        { "if": { "properties": { "type": { "const": "disclose_incident" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["scope"] } } } },
-        { "if": { "properties": { "type": { "const": "jam" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["target_asset_id", "duration_minutes"] } } } },
-        { "if": { "properties": { "type": { "const": "dazzle" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["target_asset_id", "duration_minutes"] } } } },
-        { "if": { "properties": { "type": { "const": "ground_cyber" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["target_system", "effect"] } } } },
-        { "if": { "properties": { "type": { "const": "counter_rpo" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["asset_id", "target_asset_id", "standoff_km"] } } } },
-        { "if": { "properties": { "type": { "const": "kinetic" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["target_asset_id", "weapon_class"] } } } },
-        { "if": { "properties": { "type": { "const": "terrestrial_response" } }, "required": ["type"] },
-          "then": { "properties": { "params": { "required": ["target_id", "response_class"] } } } }
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "maneuver"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "asset_id",
+                  "delta_v_mps"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "private_demarche"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "recipient"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "public_attribution"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "attributed_actor",
+                  "confidence_stated"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "request_commercial_priority"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "provider",
+                  "capability"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "share_telemetry"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "recipient",
+                  "data_class"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "geofence_or_throttle"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "region",
+                  "mode"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "disclose_incident"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "scope"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "jam"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "target_asset_id",
+                  "duration_minutes"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "dazzle"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "target_asset_id",
+                  "duration_minutes"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ground_cyber"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "target_system",
+                  "effect"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "counter_rpo"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "asset_id",
+                  "target_asset_id",
+                  "standoff_km"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "kinetic"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "target_asset_id",
+                  "weapon_class"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "terrestrial_response"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "required": [
+                  "target_id",
+                  "response_class"
+                ]
+              }
+            }
+          }
+        }
       ]
     },
     "decision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["beliefs", "messages", "action", "reasoning"],
+      "required": [
+        "beliefs",
+        "messages",
+        "action",
+        "reasoning"
+      ],
       "description": "What a seat emits at one decision point. This is the assistant turn in the training JSONL and the `output` field of a lake record.",
       "properties": {
-        "beliefs": { "$ref": "#/$defs/beliefs" },
+        "beliefs": {
+          "$ref": "#/$defs/beliefs"
+        },
         "messages": {
           "type": "array",
           "maxItems": 6,
-          "items": { "$ref": "#/$defs/message" },
+          "items": {
+            "$ref": "#/$defs/message"
+          },
           "description": "Outbound messages this decision point. Empty array is valid and common."
         },
-        "action": { "$ref": "#/$defs/action" },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
         "reasoning": {
           "type": "string",
           "minLength": 1,

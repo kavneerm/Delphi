@@ -5,9 +5,9 @@
     "unknown": 0.27,
     "per_actor": {
       "northern_fleet": 0.24,
-      "hacktivist": 0.11,
       "china": 0.02,
-      "environment": 0.05
+      "environment": 0.05,
+      "hacktivist_injects": 0.11
     }
   },
   "messages": [

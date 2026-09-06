@@ -68,17 +68,11 @@ Nothing here blocked me; I made a call on each and shipped it. All of these are 
 
 ---
 
-## Q6: `hacktivist` can use `public_attribution`, which is not really attribution
+## Q6: ~~hacktivist `public_attribution`~~ — resolved by the nine-seat fold
 
-**Context:** The hacktivist seat needs a signalling move or it is just a cyber effect generator. I gave it rung 3 to mean a public *claim of responsibility*, true or false — which is how deniable actors actually muddy attribution.
+**Status:** moot. The hacktivist is no longer a seat; it is the `hacktivist_injects` rule actor, which emits claimed attacks with a per-run hidden affiliation and takes no menu actions. Nothing on the ladder can now make a false claim of responsibility.
 
-**Risk:** `control_false_positive_rate` in `targets.md` counts controls "attributed to an adversary". If that metric is computed over all seats, a hacktivist false claim on the Galaxy 15 control would score as a false positive when it is in fact correct adversary behaviour.
-
-**My recommendation:** Agent 6 computes `control_false_positive_rate` over **Blue and ally seats only** (`northcom`, `usspacecom`, `nsc`, `norway`, `nato`). Confirm and I will write it into `targets.md`, or tell me to drop rung 3 from the hacktivist's `allowed_seats`.
-
-**What I did meanwhile:** Noted the dual meaning in the rung's `notes` field so Agent 6 sees it when implementing the metric.
-
----
+**What is left of it:** `control_false_positive_rate` in `targets.md` still needs a stated scope, because `kremlin` and `china` can both use `public_attribution` and neither is a false positive when it does. My reading is that Agent 6 computes it over **Blue and ally seats only** — `northcom`, `usspacecom`, `nsc`, `norway`. Confirm and I will write the scope into `targets.md`.
 
 ## Q7: `ground_truth.real_responses` accepts two shapes
 
@@ -99,4 +93,36 @@ Flagging these so nobody assumes they exist:
 - **No release-mechanism schema.** `authority.requires_release` says an action needs release; it does not say what a release message looks like. I left that to Agent 1, since it is engine state, not an interface between agents. If Gen needs to *see* pending releases in `filtered_state`, that is a contract change.
 - **No `filtered_state` inner shape.** `lake_record_schema.json` names six keys Engine should populate and lets Engine own the rest. Freezing it now, before `engine/world.py` exists, would freeze the wrong thing.
 - **No judge rubric.** `judge_scores` fixes the four dimensions and the 1–5 range; the rubric text is Agent 3's and versioned as `judge_vN`.
-- **I did not touch `targets.md` or `seats.md`.** I found no errors in either. The only thing I would change is the metric scope in Q6, and that is a human call.
+- **`targets.md` is untouched.** The numbers still hold under nine seats. The one edit I would make is writing the Q6 metric scope into it, and that is a human call.
+- **`seats.md` was rewritten** on the human scope change to nine personas and six rule actors, with a Design notes section on the folds. That is the one contract file I changed on instruction rather than authored fresh.
+
+---
+
+## Q9: what the nine-seat fold changed, and the two calls inside it I had to make
+
+**Context:** The scope change arrived after `contracts_v1` was committed: nine seats, `nsc` human-playable, `release_policy`, `clock_mode`, five new event types, `seats.md` rewritten. All of it is applied. Two things inside it were not specified and I chose:
+
+**(a) Where the folded rungs went.** Dropping `ksat` and `hacktivist` left three rungs with holes in them:
+- `geofence_or_throttle` — I gave it to **norway** alongside `starlink` and `iridium`. Norway now owns the Svalbard ground segment, so the downlink chokepoint has to be somebody's decision, and it is the only mechanism the KSAT fold would otherwise have lost. It also makes Norway the one seat that can degrade everyone's picture including its own, which is the interesting version of that seat.
+- `ground_cyber` — now `usspacecom` and `northern_fleet` only. The deniable version of it survives as `hacktivist_injects` claims.
+- `request_commercial_priority` — `provider` is now `starlink | iridium`. Asking Norway for downlink priority is a `private_demarche`, not a commercial request, because Norway is a state.
+
+**(b) `env_config_schema.json` is a new contract file.** `clock_mode` and `release_policy` are engine configuration, and there was no engine-config contract to put them in. Rather than scatter them, I wrote one: `env_version`, `duration_s`, `seed`, `clock_mode`, `release_policy`, `storm`, `hacktivist_injects`, `seats`, and an open `engine_params` object that is Agent 1's to fill. Two example configs are committed and validate — the demo shape (checkpoint + human) and the sweep shape (continuous + auto).
+
+**My recommendation:** Accept both. If `geofence_or_throttle` should not be Norwegian, say so now — it is one line in the ladder and it changes what the Norway seat is for.
+
+**What I did meanwhile:** Applied all of it, with tests. A test now fails if `nato`, `ksat` or the bare `hacktivist` id reappears in any schema.
+
+---
+
+## Q10: `release_policy: human` and reproducibility
+
+**Context:** A person deliberating at the `nsc` seat takes real time that has no sim-time meaning. If the sim clock runs while they think, the episode cannot be replayed, and `docs/COORDINATION.md` §8's rule that a result without reproducibility is not a result would disqualify every human-played run.
+
+**What I chose:** `pause_clock` defaults to **true** and the schema says true is the contract. Real deliberation time is recorded on the `human_action` event as `wall_time_to_decide_s` and, like `wall_time`, is excluded from replay comparison. `pause_clock: false` exists for a live demo where the ticking clock is the point, and is documented as making the episode unreproducible.
+
+**Also chosen:** `on_timeout` defaults to `deny` — silence is not consent. The alternative `model` value hands the decision to the `nsc` persona and logs `decided_by: "model"`, which is the honest way to run a mostly-human demo without stalling.
+
+**My recommendation:** Accept. If the demo wants a running clock, set `pause_clock: false` explicitly on that one config and do not use those episodes in any table.
+
+**What I did meanwhile:** Both defaults are in the schema and both are covered by tests.

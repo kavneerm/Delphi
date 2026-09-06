@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "excomm_1962_blockade_choice",
+  "spec_version": "spec_v1",
+  "title": "ExComm chooses quarantine over air strike",
+  "date": "16-22 October 1962",
+  "domain": "nuclear",
+  "decision_maker": "The President, advised by the Executive Committee of the National Security Council: cabinet officers, the Joint Chiefs, and a small group of officials with no fixed membership and no vote.",
+  "analogous_seats": ["nsc", "usspacecom", "northcom"],
+  "situation": "U-2 photography flown on 14 October and briefed to the President on the morning of 16 October showed Soviet medium-range ballistic missile sites under construction in Cuba. The sites were not yet operational, which put a clock on the decision: every day of deliberation was a day the sites got closer to being able to fire, and every day was also a day in which nobody had been shot at. The committee met more or less continuously for six days before anything was announced publicly on 22 October.",
+  "information_available": "High-confidence imagery of the sites themselves, and very little else. The photographs established what was being built; they established nothing about Soviet intent, about whether warheads were already on the island, about what local commanders were authorised to do, or about what Moscow would do in response to any given American action. Estimates of how long until the sites were operational were uncertain and revised during the week. The committee knew what it could see and did not know what it meant.",
+  "decision": "A naval quarantine of offensive weapons shipments to Cuba, announced publicly on 22 October, with the air strike and invasion options explicitly retained and prepared. Not the first preference of the committee: the early sense of the room favoured a strike on the sites, and the Joint Chiefs continued to favour one after the decision was taken.",
+  "why": "The argument that moved the room was not about which option was more likely to remove the missiles. It was that the strike was unrecoverable and the blockade was not. A strike would kill Soviet personnel, forfeit the initiative to Moscow's response, and could not be undone if the estimate of what was on the island turned out to be wrong; the quarantine imposed a real cost, bought time, kept every higher rung available, and left the next irreversible step to be taken by the other side. The committee was also divided in a way that mattered: the same photographs produced sharply different recommendations from equally informed, equally serious people, and the divergence was about temperament and about what each principal thought the other side would read from an action, not about the evidence.",
+  "outcome": "Soviet ships stopped short of the quarantine line on 24 October; an agreement to remove the missiles was reached on 28 October, with a private undertaking on American missiles in Turkey that was not disclosed at the time.",
+  "transfer": "Under a hard clock and a picture that establishes capability but not intent, prefer the response that imposes cost while leaving the next irreversible move to the other side. And expect competent colleagues reading identical evidence to recommend opposite actions — that spread is a property of the decision, not a failure of staffing.",
+  "ladder_rung": ["private_demarche", "public_attribution", "disclose_incident"],
+  "contested": "Historians continue to disagree about how close the crisis came to war, about how much the Turkish missile trade mattered, and about whether the quarantine succeeded on its own terms or was overtaken by back-channel diplomacy.",
+  "sources": [
+    "Ernest R. May and Philip D. Zelikow, eds., The Kennedy Tapes: Inside the White House During the Cuban Missile Crisis",
+    "Graham Allison and Philip Zelikow, Essence of Decision, 2nd ed.",
+    "US Department of State, Foreign Relations of the United States, 1961-1963, Volumes X-XI",
+    "National Security Archive, Cuban Missile Crisis collection"
+  ],
+  "notes": "Included for the reversibility argument and for the documented spread across advisers holding identical information. On the allowed list in docs/quarantine.md."
+}

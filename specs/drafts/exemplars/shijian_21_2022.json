@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "shijian_21_2022",
+  "spec_version": "spec_v1",
+  "title": "The same manoeuvre is debris removal and a grapple rehearsal",
+  "date": "January 2022",
+  "domain": "space",
+  "decision_maker": "Chinese operators, who described the mission as debris-mitigation technology testing; and Western officials and analysts, deciding how to characterise a capability they had watched work.",
+  "analogous_seats": ["china", "usspacecom", "nsc", "northern_fleet"],
+  "situation": "A Chinese satellite launched in late 2021 rendezvoused with a defunct Chinese navigation satellite in geostationary orbit, docked with or otherwise captured it, towed it several hundred kilometres above the belt into a graveyard orbit, released it, and returned to the geostationary region. The operation was tracked throughout by a commercial space-situational-awareness company using optical telescopes.",
+  "information_available": "The full manoeuvre sequence was observed and published by a commercial operator, so the capability was not in dispute and nobody had to reveal a national sensor to establish it. What the observations could not establish was intent, because there is nothing to establish: a vehicle that can grapple a dead satellite of one's own can grapple a working satellite of someone else's, and the demonstration is identical either way. The target was Chinese, defunct, and moved somewhere useful.",
+  "decision": "China described the mission publicly as a test of space debris mitigation technology, which is a complete and accurate description of what was done. Western officials acknowledged the debris-mitigation value and stated, separately, that the same capability applied to another state's functioning satellite would be a counterspace capability. No state treated the operation as an incident.",
+  "why": "This is the cleanest available case of genuinely dual-use behaviour, and the useful thing about it is that both characterisations are true at once. The Chinese account is not a cover story: orbital debris in the geostationary belt is a real problem and moving a dead satellite out of it is a real contribution. The Western account is not paranoia: the demonstrated capability is the capability. There is no additional evidence that would resolve the question, because the question is about a future decision rather than a past one — which is why the correct response was to say so rather than to pick one reading and act on it.",
+  "outcome": "No protest, no response, and a widely cited technical demonstration. The episode is now the standard reference for the proposition that on-orbit servicing capability and co-orbital counterspace capability are the same capability.",
+  "transfer": "Some ambiguity is irreducible and no further collection will close it, because the observable act is consistent with both readings by construction. The competent move is to state the capability, decline to state the intent, and act on the capability — not to keep collecting in the hope that the ambiguity resolves.",
+  "ladder_rung": ["maneuver", "counter_rpo", "public_attribution", "share_telemetry"],
+  "contested": "Nothing material about the manoeuvre is contested. What is contested is what it implies about intent, and that is not the kind of thing the record can settle.",
+  "sources": [
+    "Commercial space situational awareness observations and public briefings, January 2022",
+    "Secure World Foundation, Global Counterspace Capabilities: An Open Source Assessment",
+    "CSIS Aerospace Security Project, Space Threat Assessment",
+    "Chinese official descriptions of the mission, 2021-2022"
+  ],
+  "notes": "The irreducible-dual-use card, and the closest analogue to the scenario's storm_reposition versus action_under_cover discrimination. On the allowed list in docs/quarantine.md."
+}

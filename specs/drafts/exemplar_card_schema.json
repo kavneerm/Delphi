@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://panoptes.wargame/specs/drafts/exemplar_card_schema.json",
+  "title": "Historical decision card",
+  "description": "One historical decision, written as a short structured card for the cache-friendly prompt prefix assembled by gen/prompt.py. Cards teach the shape of a decision under ambiguity — what was known, what was chosen, and why — not the content of any scenario the model will be scored on. Every card must come from the allowed list in docs/quarantine.md; nothing from the quarantined replays or the held-out year. This schema is a draft local to specs/drafts/ and is not a contract; a human promoting the bank may fold it into contracts/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["exemplar_id", "spec_version", "title", "date", "situation", "information_available", "decision", "why", "sources"],
+  "properties": {
+    "exemplar_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^spec_v[0-9]+$",
+      "description": "The spec-pool version this bank ships with, so a prompt prefix is reproducible."
+    },
+    "title": { "type": "string", "maxLength": 200 },
+    "date": {
+      "type": "string",
+      "maxLength": 40,
+      "description": "Free text, because several of these are ranges or campaigns rather than a single day."
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["nuclear", "naval", "space", "commercial_space", "environmental"]
+    },
+    "decision_maker": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "The seat, not a psychological portrait: what post the person held and what authority it carried."
+    },
+    "analogous_seats": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 9,
+      "items": { "$ref": "spec_schema.json#/$defs/seat" },
+      "description": "Which seats on this board face a decision of the same shape. Used to select cards per seat when the prefix budget is tight."
+    },
+    "situation": { "type": "string", "minLength": 50, "maxLength": 2000 },
+    "information_available": {
+      "type": "string",
+      "minLength": 50,
+      "maxLength": 2000,
+      "description": "What the decision-maker actually had at the moment of choice, including its latency and its confidence. Never what was learned afterwards."
+    },
+    "decision": { "type": "string", "minLength": 20, "maxLength": 1200 },
+    "why": {
+      "type": "string",
+      "minLength": 50,
+      "maxLength": 2000,
+      "description": "The reasoning as far as the public record supports it, plus the incentive structure the seat sat inside. Where motive is contested, say so."
+    },
+    "outcome": { "type": "string", "maxLength": 1200 },
+    "transfer": {
+      "type": "string",
+      "maxLength": 1200,
+      "description": "What this card is in the bank to teach: the generalisable move, not the incident."
+    },
+    "ladder_rung": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 14,
+      "items": { "$ref": "action_schema.json#/$defs/action_type" },
+      "description": "The rung(s) on contracts/action_schema.json#/x-action-ladder the historical decision maps onto."
+    },
+    "contested": {
+      "type": "string",
+      "maxLength": 1200,
+      "description": "What the public record does not establish. Required in spirit for every card whose motive is disputed."
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 4, "maxLength": 300 },
+      "description": "Open sources a human can check. Not sent to the model."
+    },
+    "notes": { "type": "string", "maxLength": 2000 }
+  }
+}

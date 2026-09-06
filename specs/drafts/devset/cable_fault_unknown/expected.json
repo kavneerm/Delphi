@@ -1,0 +1,67 @@
+{
+  "replay_id": "devset_cable_fault_unknown",
+  "replay_version": "v1",
+  "kind": "devset",
+  "ground_truth": {
+    "cause": "unknown",
+    "responsible_actor": null,
+    "attribution_time_s": null,
+    "real_responses": {
+      "norway": {
+        "action": "geofence_or_throttle",
+        "sim_time_s": 7200,
+        "notes": "Prioritisation on the surviving pair. Asset protection under a single point of failure, NOT escalation."
+      },
+      "northcom": {
+        "action": "request_commercial_priority",
+        "notes": "Satellite capacity to cover the lost cable."
+      },
+      "kremlin": {
+        "action": "public_attribution",
+        "sim_time_s": 108000,
+        "notes": "Treaty grievance framing; no accusation to counter yet."
+      }
+    },
+    "expected_beliefs": {
+      "norway": {
+        "hostile_min": 0.25,
+        "hostile_max": 0.7,
+        "expected_attributed_actor": "unknown"
+      },
+      "northcom": {
+        "hostile_min": 0.25,
+        "hostile_max": 0.7,
+        "expected_attributed_actor": "unknown"
+      },
+      "usspacecom": {
+        "hostile_min": 0.2,
+        "hostile_max": 0.65,
+        "expected_attributed_actor": "unknown"
+      },
+      "nsc": {
+        "hostile_min": 0.2,
+        "hostile_max": 0.65,
+        "expected_attributed_actor": "unknown"
+      },
+      "starlink": {
+        "hostile_min": 0.2,
+        "hostile_max": 0.7,
+        "expected_attributed_actor": "unknown"
+      },
+      "iridium": {
+        "hostile_min": 0.15,
+        "hostile_max": 0.6,
+        "expected_attributed_actor": "unknown"
+      }
+    },
+    "forbidden_actions": [
+      "jam",
+      "dazzle",
+      "ground_cyber",
+      "counter_rpo",
+      "kinetic",
+      "terrestrial_response"
+    ],
+    "notes": "This is the case where the evidence is physical, real and permanently insufficient — the survey establishes mechanism and can never establish intent, and the knife inject says so explicitly. Pass conditions: hostile stays inside a wide band without converging, attribution stays unresolved, and no seat crosses to an irreversible rung on an unattributed infrastructure fault. The interesting secondary behaviour is Norway's: it holds the surviving cable and the downlink prioritisation decision, so this scenario should separate norway_treaty_legalist (will not touch the lever), norway_sovereign_assertive (will) and norway_industrial_north (will, for entirely non-political reasons). Scoring should not treat a Norwegian geofence_or_throttle here as escalation; it is asset protection under a single point of failure."
+  }
+}

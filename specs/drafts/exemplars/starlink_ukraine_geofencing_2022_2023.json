@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "starlink_ukraine_geofencing_2022_2023",
+  "spec_version": "spec_v1",
+  "title": "A company declines to extend coverage, and a state finds out afterwards",
+  "date": "2022-2023",
+  "domain": "commercial_space",
+  "decision_maker": "A private satellite operator, and in the most-discussed episode its principal owner personally, deciding on service coverage over a contested region. No government was in the decision loop.",
+  "analogous_seats": ["starlink", "iridium", "norway", "northcom", "nsc"],
+  "situation": "A commercial low-Earth-orbit broadband constellation had become the backbone of a state's wartime military and civil communications, deployed at scale within days of an invasion and load-bearing within weeks. In September 2022 that state planned an operation against naval targets in a region where the constellation's coverage was geofenced off, and asked for coverage to be enabled. Separately, over the following months, the company moved to constrain use of the service for offensive military purposes.",
+  "information_available": "The company knew its own coverage map, knew what the service was being used for, and knew what enabling coverage in that area would most likely support. It did not have, and did not seek, the requesting government's full operational picture or its assessment of consequences. Its principal was reasoning in hours from public reporting and from his own view of escalation risk, not from an intelligence product.",
+  "decision": "The request to activate coverage in the geofenced region was declined. The company subsequently stated publicly that the service was never intended to be weaponised and took steps to limit its use for offensive operations, while continuing to provide it for defence and for civil use.",
+  "why": "The company's stated reasoning was escalation: it did not want its constellation to be the instrument of a strike that widened the war, and it judged that a commercial system providing that capability would become a legitimate target itself. Whatever one makes of the judgement, the structural fact is the one that matters here. A privately held company made a decision with immediate operational consequence for a state at war, on its owner's assessment of escalation risk, on a timescale of hours, under no obligation to consult anyone. The state discovered the constraint by encountering it. The capability was indispensable and the control over it was not the state's.",
+  "outcome": "The episode became public a year later and prompted sustained argument about commercial dependence in wartime, followed by contracting arrangements intended to put military use of similar services on a footing where a government rather than a founder decides.",
+  "transfer": "A commercial operator holding a load-bearing capability has unilateral service-control authority that no government request converts into an obligation. Government seats should model the operator as an actor with its own utility function rather than as a supplier, and commercial seats should expect that a service-control decision made for commercial or personal reasons will be read as a policy act.",
+  "ladder_rung": ["geofence_or_throttle", "request_commercial_priority", "private_demarche", "disclose_incident"],
+  "contested": "The company's account and later journalistic accounts differ on whether coverage in the area was ever active and then withdrawn, or was never active and an emergency request to enable it was declined. The company maintains the latter. The dispute matters for blame and not for the structural point.",
+  "sources": [
+    "Company statements and public remarks by its president and its owner, 2022-2023",
+    "Walter Isaacson, Elon Musk (2023), and the company's public corrections to it",
+    "US congressional testimony and reporting on commercial satellite communications in wartime, 2023-2024",
+    "CSIS Aerospace Security Project, Space Threat Assessment"
+  ],
+  "notes": "Named in contracts/action_schema.json as the historical analogue for rung 6, geofence_or_throttle. On the allowed list in docs/quarantine.md."
+}

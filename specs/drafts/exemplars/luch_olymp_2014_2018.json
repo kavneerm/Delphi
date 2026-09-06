@@ -1,0 +1,24 @@
+{
+  "exemplar_id": "luch_olymp_2014_2018",
+  "spec_version": "spec_v1",
+  "title": "A commercial operator, then a defence minister, says it out loud",
+  "date": "2014-2018 and after",
+  "domain": "space",
+  "decision_maker": "First a commercial geostationary satellite operator deciding whether to complain about a neighbour, then a European defence minister deciding whether to name the behaviour in a public speech.",
+  "analogous_seats": ["starlink", "iridium", "norway", "usspacecom"],
+  "situation": "A Russian satellite launched in 2014 spent years relocating around the geostationary belt and parking unusually close to commercial and government communications satellites belonging to other states. In one episode it manoeuvred to a position between two satellites of a large commercial operator. In another it closed on a Franco-Italian military communications satellite. Nothing was damaged at any point.",
+  "information_available": "Station-keeping boxes in geostationary orbit are public, orbital positions are trackable by commercial and amateur observers, and the operators could see exactly where the object was. What none of them could see was whether it was collecting, and if so what. Proximity in the belt is not itself evidence of interception: a satellite can be close without listening, and a satellite can listen without being close.",
+  "decision": "The commercial operator raised it privately with the Russian operator and, when that produced nothing, allowed the episode to become public without making a formal accusation of espionage. Four years later a European defence minister chose a different route and named it directly in a public speech, calling the approach to the military satellite an act of espionage.",
+  "why": "The commercial operator had almost nothing to gain from a public fight: its customers would hear that its satellites can be approached at will, its insurers would hear the same, and it had no means of stopping the behaviour and no state's authority behind it. Its interest was in the object moving away, which a private complaint might achieve and a public one might not. The minister's calculus ran the other way. A state that watches a foreign satellite close on its military communications and says nothing has established that the behaviour is tolerated, and the domestic and allied audience for saying so was worth more than the intelligence cost of revealing that it had been noticed.",
+  "outcome": "The satellite continued to relocate around the belt for years. No physical response was taken by anyone. The public naming became a reference point in European space-security policy and contributed to subsequent national space defence strategies.",
+  "transfer": "The same observed behaviour produces opposite disclosure decisions from a commercial operator and from a state, and the reason is structural rather than temperamental: the company is exposed to customers and insurers and has no instrument, while the state has an audience and a deterrent interest. Expect the commercial seats to want the incident quiet and the government seats to want it named, and expect that split to be about incentives rather than about honesty.",
+  "ladder_rung": ["private_demarche", "public_attribution", "disclose_incident", "maneuver"],
+  "contested": "Whether any communications were actually intercepted has never been established publicly. Russia rejected the espionage characterisation. The observable record is proximity and persistence.",
+  "sources": [
+    "Secure World Foundation, Global Counterspace Capabilities: An Open Source Assessment (annual editions)",
+    "CSIS Aerospace Security Project, Space Threat Assessment (annual editions)",
+    "French Ministry of the Armed Forces, public remarks by the Minister, September 2018",
+    "Commercial GEO operator public statements and trade-press reporting, 2015 onward"
+  ],
+  "notes": "Included for the commercial-versus-sovereign disclosure split, which is the tension contracts/seats.md builds into the starlink, iridium and norway seats. On the allowed list in docs/quarantine.md."
+}

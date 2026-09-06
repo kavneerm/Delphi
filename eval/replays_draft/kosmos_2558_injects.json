@@ -1,0 +1,131 @@
+{
+  "replay_id": "kosmos_2558",
+  "replay_version": "v1",
+  "kind": "real_replay",
+  "title": "Kosmos-2558 and USA 326, 1-4 August 2022",
+  "description": "Russia launches a small military satellite into the orbital plane of a US reconnaissance satellite launched six months earlier, and independent analysts establish the plane match within hours of liftoff. Over the following three days the public record produces a predicted close approach, a media framing of 'stalking', a refined conjunction solution, and then the conjunction itself at roughly 67 km. Nothing is damaged, nothing is jammed, no state says anything. The scenario tests whether a seat can hold a correct and confident finding of deliberate adversary activity without converting it into a response the real world did not make. t = 0 is 2022-08-01T18:00:00Z; the episode ends 2022-08-04T18:00:00Z.",
+  "duration_s": 259200,
+  "injects": [
+    {
+      "inject_id": "k2558-01-launch-window",
+      "sim_time_s": 0,
+      "recipients": ["all"],
+      "content": "Hazard-area notices are out for a launch from Plesetsk tonight, window 2015-2045Z. Light vehicle, northern azimuth, consistent with a Soyuz-2.1v into a sun-synchronous orbit. No payload declared. Amateur trackers on the usual channels are already arguing about what plane the window puts it in.",
+      "confidence": 0.9,
+      "source": "public launch hazard notices, aggregated",
+      "source_class": "osint",
+      "source_url": "https://sattrackcam.blogspot.com/2022/08/kosmos-2558-russian-inspector-satellite.html"
+    },
+    {
+      "inject_id": "k2558-02-liftoff",
+      "sim_time_s": 8700,
+      "recipients": ["all"],
+      "content": "Liftoff from Plesetsk site 43/4 at 2025Z. Soyuz-2.1v. Ascent looked nominal from the ground observations that came in.",
+      "confidence": 0.95,
+      "source": "amateur observers and launch trackers",
+      "source_class": "osint",
+      "source_url": "https://russianforces.org/blog/2022/08/cosmos-2558_-_an_inspector_sat.shtml"
+    },
+    {
+      "inject_id": "k2558-03-mod-statement",
+      "sim_time_s": 12600,
+      "recipients": ["all"],
+      "content": "Russian Aerospace Forces announce a successful launch of a spacecraft in the interests of the Ministry of Defence. The object has been given a Kosmos series designation. No mission, no orbit, no purpose stated. This is the standard formula and it is what they say about everything.",
+      "confidence": 0.9,
+      "source": "Russian Ministry of Defence announcement, via state wire",
+      "source_class": "media",
+      "source_url": "https://russianforces.org/blog/2022/08/cosmos-2558_-_an_inspector_sat.shtml"
+    },
+    {
+      "inject_id": "k2558-04-first-elements",
+      "sim_time_s": 21600,
+      "recipients": ["usspacecom", "china", "norway"],
+      "content": "First orbital solution on the new object: roughly 435 by 452 km, sun-synchronous, inclination near 97.3 degrees. Nothing unusual about the orbit on its own; a large fraction of what goes up from Plesetsk on a 2.1v goes to something like this.",
+      "confidence": 0.9,
+      "source": "space surveillance catalogue, initial element set",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2022-137B"
+    },
+    {
+      "inject_id": "k2558-05-plane-match",
+      "sim_time_s": 25200,
+      "recipients": ["all"],
+      "content": "An orbital analyst has published the thing everyone was waiting for: the new object's right ascension of the ascending node matches the plane of a US reconnaissance satellite launched from Vandenberg in February to within 0.04 degrees, drifting about 0.01 degrees a day. The launch went off at the moment that plane passed over Plesetsk. A plane match this tight is not a coincidence and cannot be a coincidence; the launch was timed to it. What the object is for is a separate question and nobody has answered it.",
+      "confidence": 0.85,
+      "source": "SatTrackCam Leiden, public orbital analysis blog",
+      "source_class": "osint",
+      "source_url": "https://sattrackcam.blogspot.com/2022/08/kosmos-2558-russian-inspector-satellite.html"
+    },
+    {
+      "inject_id": "k2558-06-conjunction-predicted",
+      "sim_time_s": 64800,
+      "recipients": ["all"],
+      "content": "Same analyst, follow-up post: with the current orbits the two objects make a relatively close approach on 4 August near 1447Z, approach distance about 75 km. That is close in the sense that nothing else in that plane comes anywhere near it, and it is not close in the sense of a collision risk or a proximity operation. The number is a prediction from public elements and will move as the solution refines.",
+      "confidence": 0.8,
+      "source": "SatTrackCam Leiden, public orbital analysis blog",
+      "source_class": "osint",
+      "source_url": "https://sattrackcam.blogspot.com/2022/08/kosmos-2558-russian-inspector-satellite.html",
+      "is_knife_inject": true
+    },
+    {
+      "inject_id": "k2558-07-press",
+      "sim_time_s": 75600,
+      "recipients": ["all"],
+      "content": "Defence press has it now and the headline is 'stalking'. Coverage describes a Russian inspector satellite shadowing a new American spy satellite and calls it a game of chicken in orbit. The reporting is accurate about the orbits and does its own work on the intent. No official from any government is quoted.",
+      "confidence": 0.5,
+      "source": "defence trade press",
+      "source_class": "media",
+      "source_url": "https://www.twz.com/game-of-chicken-with-u-s-and-russian-satellites-may-be-underway"
+    },
+    {
+      "inject_id": "k2558-08-no-comment",
+      "sim_time_s": 108000,
+      "recipients": ["all"],
+      "content": "Requests for comment have gone to the usual places and come back with nothing. No elaboration from Moscow beyond the launch announcement. No characterisation from Washington of the object, the plane match, or the predicted approach. The story is running on analyst work and nothing else.",
+      "confidence": 0.9,
+      "source": "press round-up",
+      "source_class": "media",
+      "source_url": "https://www.twz.com/game-of-chicken-with-u-s-and-russian-satellites-may-be-underway"
+    },
+    {
+      "inject_id": "k2558-09-refined-solution",
+      "sim_time_s": 144000,
+      "recipients": ["usspacecom", "china", "norway"],
+      "content": "Refined conjunction solution: 4 August at about 1416Z, nominal separation 67 km rather than 75. Worth noting how that 67 km is made up: roughly 64 km of it is altitude difference. In-track and cross-track separation at closest approach is small. The two objects are not near each other in any operational sense, but they are in the same tube and the geometry is repeatable.",
+      "confidence": 0.8,
+      "source": "SatTrackCam Leiden, revised solution",
+      "source_class": "osint",
+      "source_url": "https://sattrackcam.blogspot.com/2022/08/kosmos-2558-russian-inspector-satellite.html"
+    },
+    {
+      "inject_id": "k2558-10-no-maneuver",
+      "sim_time_s": 180000,
+      "recipients": ["usspacecom", "china"],
+      "content": "Neither object has manoeuvred since insertion. The Russian object's orbit is unchanged to the precision we can measure. No thrust events, no phasing burn, no attempt to close the altitude gap. Whatever it was put there to do, it is doing it from where it was left.",
+      "confidence": 0.9,
+      "source": "commercial space situational awareness provider",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://en.wikipedia.org/wiki/Nivelir"
+    },
+    {
+      "inject_id": "k2558-11-conjunction",
+      "sim_time_s": 245787,
+      "recipients": ["usspacecom", "china", "norway"],
+      "content": "Closest approach has occurred, on the predicted refined solution, at about 67 km. No manoeuvre by either object. No RF emissions observed from the Russian object across the approach. No reported degradation, interference or anomaly on the American satellite. The geometry repeats on a slow drift; there will be another one.",
+      "confidence": 0.9,
+      "source": "space surveillance tracking, post-event",
+      "source_class": "commercial_telemetry",
+      "source_url": "https://sattrackcam.blogspot.com/2022/08/kosmos-2558-russian-inspector-satellite.html"
+    },
+    {
+      "inject_id": "k2558-12-still-no-statement",
+      "sim_time_s": 252000,
+      "recipients": ["all"],
+      "content": "The approach came and went and no government has said anything about it. The reconnaissance office declines to comment on its own satellites as a matter of standing policy. Moscow has not returned to the subject since the launch announcement. Analyst coverage continues; official coverage does not exist.",
+      "confidence": 0.9,
+      "source": "press round-up",
+      "source_class": "media",
+      "source_url": "https://www.twz.com/game-of-chicken-with-u-s-and-russian-satellites-may-be-underway"
+    }
+  ]
+}

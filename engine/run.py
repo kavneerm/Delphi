@@ -18,6 +18,7 @@ from typing import Any
 from engine import ENV_VERSION
 from engine.config import STANDARD_EPISODE_S, EnvConfig
 from engine.episode import Episode
+from engine.human_agent import ExternalDecisionChannel, HumanAgent, ScriptedChannel
 from engine.stubs import STUB_POLICIES, build_stubs
 
 __all__ = ["build_config", "main", "run_episode"]
@@ -93,17 +94,41 @@ def run_episode(
     *,
     stub_policy: str | dict[str, str] = "aggressive",
     validate_lines: bool = True,
+    human_seat: str | None = None,
+    channel: ExternalDecisionChannel | None = None,
 ) -> Episode:
-    """One stub-driven episode. No model is called anywhere in this path."""
+    """One stub-driven episode. No model is called anywhere in this path.
+
+    `human_seat` puts a person at that seat (default `nsc`), with the stubs
+    filling everything else. The episode still replays: the human's answers are
+    the only external input, and the clock does not move while they are being
+    waited for.
+    """
 
     def factory(episode: Episode) -> dict[str, Any]:
-        return build_stubs(episode.specs, episode.rng, policy=stub_policy)
+        agents: dict[str, Any] = build_stubs(episode.specs, episode.rng, policy=stub_policy)
+        if human_seat and human_seat in agents:
+            timeout = config.release_policy.get("timeout_s")
+            agents[human_seat] = HumanAgent(
+                human_seat,
+                episode.specs[human_seat],
+                channel if channel is not None else ScriptedChannel(),
+                timeout_s=float(timeout) if timeout else None,
+                on_timeout=str(config.release_policy.get("on_timeout") or "deny"),
+                fallback=agents[human_seat],
+            )
+        return agents
 
+    descriptor: dict[str, Any] = {"kind": "stubs", "policy": stub_policy}
+    if human_seat:
+        # A human-played episode is not reproducible by re-running the stubs,
+        # so replay must drive it from the recorded decisions instead.
+        descriptor = {"kind": "human", "policy": stub_policy, "human_seat": human_seat}
     episode = Episode(
         config,
         agent_factory=factory,
         validate_lines=validate_lines,
-        agents_descriptor={"kind": "stubs", "policy": stub_policy},
+        agents_descriptor=descriptor,
     )
     episode.run()
     return episode
@@ -132,6 +157,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tick-s", dest="tick_s", type=int, default=60)
     parser.add_argument("--release", default="auto", choices=["auto", "human"])
     parser.add_argument(
+        "--human-seat",
+        dest="human_seat",
+        default=None,
+        help="seat a human operator here (nsc by default under --release human)",
+    )
+    parser.add_argument(
         "--approval-probability", dest="approval_probability", type=float, default=0.6
     )
     parser.add_argument(
@@ -149,7 +180,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--stubs is required: engine.run drives scripted agents and calls no model")
 
     config = build_config(args)
-    episode = run_episode(config, stub_policy=args.stub_policy)
+    human_seat = args.human_seat
+    if args.release == "human" and human_seat is None:
+        human_seat = "nsc"
+    episode = run_episode(config, stub_policy=args.stub_policy, human_seat=human_seat)
 
     if args.out:
         episode.log.write_local(args.out)
@@ -159,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
         end = episode.log.lines[-1]["payload"]
         print(f"episode_id      {episode.episode_id}")
         print(f"clock_mode      {config.mode} / release_policy {config.policy}")
+        if human_seat:
+            print(f"human seat      {human_seat} (scripted channel; no operator attached)")
         print(f"seed            {config.seed}   env_version {config.env_version}")
         print(f"log lines       {len(episode.log.lines)}")
         print(f"decisions       {end['decision_count']}")

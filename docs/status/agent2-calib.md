@@ -1,10 +1,11 @@
 # agent2-calib
 state: DONE
 branch: agent2-calib
-last_commit:
+pr: https://github.com/kavneerm/Delphi/pull/5
+last_commit: 43ebe82
 interfaces_ready: [calib/red_action_rates.csv, calib/attribution_lags.csv, calib/attribution_incidents.csv, calib/storm_effects.csv, calib/series/, calib/holdout_2025_2026.csv (eval only), calib/calibration.md]
 needs: []
-awaiting_human:
+awaiting_human: env_lock (2 items, see calib/QUESTIONS.md Q1 and REPORT.md)
 updated: 2026-09-05
 notes:
   2026-09-05 — Read AGENTS.md, COORDINATION.md, workstreams, quarantine, contracts

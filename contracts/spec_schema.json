@@ -161,7 +161,7 @@
     "psyche": {
       "type": "string",
       "enum": ["revisionist", "revanchist", "opportunistic_cautious", "regime_survival"],
-      "description": "Red-only strategic disposition (seats northern_fleet and kremlin). The second field flipped to build counterfactual pairs, and the field eval/holdout_mix.py sweeps when comparing against the 2025-26 action mix."
+      "description": "Red-only strategic disposition (seats northern_fleet and kremlin). The second field flipped to build counterfactual pairs, and the field eval/holdout_mix.py sweeps when comparing against the held-out action mix."
     },
     "priors": {
       "type": "object",

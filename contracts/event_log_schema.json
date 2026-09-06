@@ -67,7 +67,7 @@
     "scenario_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
-      "description": "Optional. The grid cell or replay this episode came from, e.g. 'g5_lowconf_actionundercover' or 'replay_control_galaxy15'."
+      "description": "Optional. The grid cell or replay this episode came from, e.g. 'g5_lowconf_actionundercover' or 'devset_storm_only'."
     }
   },
   "allOf": [

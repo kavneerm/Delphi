@@ -142,7 +142,7 @@
           ]
         },
         "attribution_time_s": {
-          "description": "Sim seconds from episode start at which the cause became publicly established in reality. null means it never was, which is the correct value for Dozor-Teleport and Intelsat-33e. eval/replay_table.py compares the population's belief crossing against this.",
+          "description": "Sim seconds from episode start at which the cause became publicly established in reality. null means it never was, which is the correct and common value for an unresolved incident. eval/replay_table.py compares the population's belief crossing against this.",
           "oneOf": [
             { "type": "number", "minimum": 0 },
             { "type": "null" }

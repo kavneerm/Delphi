@@ -63,7 +63,7 @@
       "costs": { "propellant": 0.0, "signaling": 0.7, "debris": 0.0, "political": 0.5 },
       "allowed_seats": ["usspacecom", "nsc", "norway", "nato", "kremlin", "china", "starlink", "iridium", "ksat", "hacktivist"],
       "description": "State publicly who did it, and with what confidence. For kremlin and china this rung also covers counter-attribution and denial; for hacktivist it is a public claim of responsibility, true or false.",
-      "notes": "Not counted as irreversible by contracts/targets.md, but unrecallable: it cannot be withdrawn, only contradicted. The control-false-positive metric reads Blue seats' use of this rung on Intelsat-33e and Galaxy 15."
+      "notes": "Not counted as irreversible by contracts/targets.md, but unrecallable: it cannot be withdrawn, only contradicted. The control_false_positive_rate metric in contracts/targets.md reads Blue and ally seats' use of this rung on the false-positive control scenarios."
     },
     {
       "rung": 4,
@@ -202,7 +202,7 @@
         "unknown": { "$ref": "#/$defs/probability", "description": "Probability the seat cannot yet classify it. Not a residual: a seat may hold high unknown with low hostile." },
         "per_actor": {
           "type": "object",
-          "description": "Conditional on hostile, how the seat splits responsibility across candidate actors. Keys are actors; values need not sum to 1 if the seat leaves mass unassigned, but must not exceed 1 in total. Empty object is valid when hostile is low. eval computes Dozor attribution entropy from this.",
+          "description": "Conditional on hostile, how the seat splits responsibility across candidate actors. Keys are actors; values need not sum to 1 if the seat leaves mass unassigned, but must not exceed 1 in total. Empty object is valid when hostile is low. eval computes end-of-episode attribution entropy from this.",
           "additionalProperties": { "$ref": "#/$defs/probability" },
           "propertyNames": { "$ref": "spec_schema.json#/$defs/actor" }
         }

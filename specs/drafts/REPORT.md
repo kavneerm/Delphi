@@ -20,8 +20,9 @@ rather than a reading exercise.
 - **`specs/drafts/devset/<id>/{scenario,expected}.json` — 8 synthetic scenarios** with ground
   truth, per-seat belief bands and forbidden-action lists.
 - **`specs/drafts/validate_drafts.py`** — validates everything, checks the invariants the
-  schemas state only in prose, and checks that every counterfactual arm `gen/specs.py` would
-  derive still fits `spec_id`'s 64-character ceiling.
+  schemas state only in prose, checks that every counterfactual arm `gen/specs.py` would derive
+  still fits `spec_id`'s 64-character ceiling, and runs both the hook's quarantine scan and a
+  normalised one over the whole tree.
 - **`specs/drafts/promote.py`** — moves approved drafts into `specs/train|holdout|exemplars|devset`.
 - **`specs/drafts/devset_view.py`** — projects the contract-shaped devset into the flat
   per-(scenario, seat) dicts `train/devset.py` expects, so that module needs one import line
@@ -117,9 +118,22 @@ pool; I did not add one because `docs/VERSIONS.md` is outside my directory.
 ## Quarantine check (what I searched for, what I found)
 
 Searched by delegating to `scripts/check_quarantine.sh` — the single source of the banned list
-— over every draft file, at authoring time as part of `validate_drafts.py`, again as a gate in
-`promote.py`, and again by the pre-commit hook on every commit. The exemplar bank is drawn
-exclusively from the allowed line in `docs/quarantine.md`.
+— over every file in the drafts tree, at authoring time as part of `validate_drafts.py`, again
+as a gate in `promote.py`, and again by the pre-commit hook on every commit. The exemplar bank
+is drawn exclusively from the allowed line in `docs/quarantine.md`.
+
+**Plus a normalised scan, after agent7-ui's warning.** The hook's patterns match only the
+hyphenated and space-separated spellings, so the underscored lowercase form — which is the form
+a `spec_id`, `replay_id`, `inject_id`, asset id or feed name actually takes — passes it.
+`validate_drafts.py` now reads the same patterns out of the hook at runtime (never restating
+them), strips `[-_ .]` from both sides and matches again, over the whole drafts tree rather than
+only the exemplars. Verified both directions: the hook alone misses an underscored probe, the
+validator catches it. A normalised scan of every `.json`, `.md` and `.py` under `specs/drafts/`
+is clean in every separator spelling.
+
+**Third finding, mine, caught by my own new check:** the docstring I wrote explaining agent7-ui's
+bug spelled out a quarantined name as the example. The normalised scan failed the validator on
+its own source file. Removed; the explanation no longer names an incident.
 
 **Two findings, both mine, both caught before anything was committed:**
 

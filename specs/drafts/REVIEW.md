@@ -115,7 +115,9 @@ Run `python specs/drafts/validate_drafts.py` yourself if you want to see it. It 
   action's `allowed_seats` permits in `contracts/action_schema.json#/x-action-ladder`
 - `p_hostile_prior + p_natural_prior + p_unknown_prior` sums to 1.0
 - no duplicate `spec_id` anywhere in the tree
-- `scripts/check_quarantine.sh` over the whole draft tree
+- `scripts/check_quarantine.sh` over the whole draft tree, **plus** a normalised scan that
+  strips `[-_ .]` from both sides — the hook misses the underscored lowercase spelling, which is
+  the form an id actually takes (reported by agent7-ui, verified here in both directions)
 - every counterfactual arm `gen/specs.py` would derive (`<spec_id>_cf_<field>_<value>`) still
   fits `spec_id`'s 64-character ceiling — this already caught one real break, see REPORT.md
 

@@ -11,10 +11,16 @@ Three checks, one per draft family:
 * ``specs/drafts/devset/<id>/{scenario,expected}.json`` validate against
   ``contracts/inject_schema.json``.
 * ``specs/drafts/exemplars/*.json`` validate against the local
-  ``exemplar_card_schema.json`` and are passed through ``scripts/check_quarantine.sh``,
-  so the exemplar bank is checked at authoring time and not only at commit time. The
-  quarantined strings themselves live in that script and are deliberately not repeated
-  here — a copy of the list is a copy of the material.
+  ``exemplar_card_schema.json``.
+
+The whole tree — not just the exemplars — is then passed through
+``scripts/check_quarantine.sh``, and separately through a *normalised* scan. agent7-ui
+found that the hook's patterns match only the hyphenated and space-separated spellings,
+so the underscored lowercase form an id actually uses (``spec_id``, ``replay_id``,
+``inject_id``, an asset id, a feed name) passes it. The normalised scan reads the same
+patterns out of the hook — a copy of the list would be a copy of the material — strips
+``[-_ .]`` from both sides, and matches again, so every separator spelling is caught here
+regardless of when the shared fix lands.
 
 Run from the repo root::
 
@@ -24,6 +30,7 @@ Run from the repo root::
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -158,6 +165,40 @@ def _check_spec_invariants(spec: dict[str, Any], allowed: dict[str, set[str]]) -
     return problems
 
 
+def _quarantine_patterns() -> list[str]:
+    """The banned list, read out of scripts/check_quarantine.sh at runtime.
+
+    Never restated here. The hook is the single source of truth, and a second copy of
+    the list in a file a model could read is exactly what the hook exists to prevent.
+    """
+    hook = (REPO_ROOT / "scripts" / "check_quarantine.sh").read_text(encoding="utf-8")
+    block = re.search(r"PATTERNS=\((.*?)\n\)", hook, re.S)
+    return re.findall(r"'([^']+)'", block.group(1)) if block else []
+
+
+def _normalise(text: str) -> str:
+    return re.sub(r"[-_ .]+", "", text.lower())
+
+
+def _check_quarantine_normalised(paths: list[Path]) -> list[str]:
+    """Catch the separator spellings scripts/check_quarantine.sh misses.
+
+    Reported by agent7-ui: the hook matches the hyphenated and space-separated forms of
+    each incident but not the underscored lowercase one, which is the form an id in a
+    spec, a replay file or a log would take. No example is spelled out here, for the
+    obvious reason.
+    """
+    normed = {_normalise(p) for p in _quarantine_patterns()}
+    if not normed:
+        return ["could not read PATTERNS from scripts/check_quarantine.sh"]
+    problems: list[str] = []
+    for path in paths:
+        flat = _normalise((REPO_ROOT / path).read_text(encoding="utf-8", errors="ignore"))
+        if any(n in flat for n in normed):
+            problems.append(f"{path}: quarantined incident in a normalised spelling")
+    return problems
+
+
 def _check_quarantine(paths: list[Path]) -> list[str]:
     """Delegate to scripts/check_quarantine.sh — the single source of the banned list."""
     if not paths:
@@ -183,7 +224,6 @@ def main() -> int:
     failures: list[str] = []
     counts = {"spec": 0, "holdout": 0, "devset": 0, "exemplar": 0}
     spec_ids: dict[str, Path] = {}
-    exemplar_paths: list[Path] = []
 
     spec_files = sorted(DRAFTS.glob("*.json")) + sorted((DRAFTS / "holdout").glob("*.json"))
     for path in spec_files:
@@ -211,10 +251,16 @@ def main() -> int:
         rel = path.relative_to(REPO_ROOT)
         card = json.loads(path.read_text())
         failures += [f"{rel}: {e.message}" for e in card_validator.iter_errors(card)]
-        exemplar_paths.append(path.relative_to(REPO_ROOT))
         counts["exemplar"] += 1
 
-    failures += [f"quarantined: {hit}" for hit in _check_quarantine(exemplar_paths)]
+    # Quarantine: the whole drafts tree, in both the hook's spellings and normalised.
+    scanned = [
+        p.relative_to(REPO_ROOT)
+        for p in sorted(DRAFTS.rglob("*"))
+        if p.is_file() and p.suffix in {".json", ".md", ".py"}
+    ]
+    failures += [f"quarantined: {hit}" for hit in _check_quarantine(scanned)]
+    failures += [f"quarantined: {hit}" for hit in _check_quarantine_normalised(scanned)]
 
     print(
         f"specs {counts['spec']} | holdout {counts['holdout']} | "

@@ -5,3 +5,7 @@
 | contracts_v1 | frozen interfaces: spec/action/event_log/inject/lake_record/env_config schemas, s3_layout, seats | 7e00826 | agent0-contracts | 2026-09-05 | 77 tests green; DRAFT markers removed by a human at merge |
 | contracts_v1 (rev) | nine-seat fold: nato/ksat/hacktivist folded; nsc human-playable; env_config adds clock_mode + release_policy; 5 new event types | 7660c65 | agent0-contracts | 2026-09-05 | human scope change, applied before merge and before any consumer, so a revision of v1 rather than a v2 |
 | env_v1 | engine, calibrated storm curves, attack parameters, engine_params defaults; 72-hour episode, both clock modes, both release policies | 68e68b5 | finisher | 2026-09-05 | FROZEN after the approved density/drag and persistence fix. Feb-2022 check: 36 tracking hours and median 28 safe modes; May-2024 check: 72-hour episode-clipped tracking/screening windows and median 40 safe modes. |
+
+## Fireworks deployment log
+
+The prior smoke tests trained two 200-example, rank-8, one-epoch adapters (llama31_8b and qwen3_8b). Only llama31_8b successfully served a completion. All deployments were torn down; total historical deployment use was 15.0 H100-minutes, with zero live deployments confirmed. `train/serve.py` now records each up/down event and deletes deployments with `ignoreChecks=true` after traffic, then verifies teardown.

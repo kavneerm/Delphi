@@ -1,0 +1,154 @@
+# train/config.yaml — the only place sweep and filter numbers live.
+#
+# Every filter block carries its own `filter_version`. Changing any number in a
+# block WITHOUT bumping that string invalidates the run (AGENTS.md: "do not edit
+# filter configs without bumping the version"); tests/train/test_filter.py fails
+# the build if two blocks share a version.
+
+versions:
+  # Placeholders until Engine locks env_v1, humans approve spec_v1 and Gen
+  # writes lake_v1. `--env-version` / `--spec-version` / `--lake-version`
+  # override at the command line; the smoke path uses the _v0 mocks.
+  env_version: env_v0
+  spec_version: spec_v0
+  lake_version: lake_v0
+  judge_version: judge_v0
+
+# Smallest context window across the sweep bases (Qwen3-8B, 40960). Llama 3.1 8B
+# is 131072, so the floor is what matters: an example over it trains fine on
+# Llama and is silently truncated on the Qwen arm.
+# tests/train/test_filter.py asserts this equals fireworks.MIN_CONTEXT_LENGTH, so
+# it cannot drift away from whatever bases are actually in the sweep.
+context:
+  min_context_tokens: 40960
+  # Room for the assistant turn and the chat template's own scaffolding.
+  completion_reserve_tokens: 1024
+  # drop | flag. `drop` removes the example; `flag` keeps it and records the
+  # count in the manifest so a human can decide.
+  over_length_policy: drop
+
+filters:
+  filter_v1:
+    description: >-
+      Baseline. Mid judge bar on all four dimensions, top-half utility per
+      persona, counterfactual pairs doubled so sensitivity survives the cut.
+    judge_min:
+      authority: 3
+      risk: 3
+      private_info: 3
+      voice: 3
+    judge_mean_min: 3.5
+    utility_percentile: 50          # per spec_id, keep the top (100 - p)%
+    counterfactual_oversample: 2.0
+    drop_identical_pairs: true
+    seat_weights:                   # relative sampling weight; 1.0 is neutral
+      nsc: 1.5
+      norway: 1.25
+      kremlin: 1.25
+      northern_fleet: 1.0
+      northcom: 1.0
+      usspacecom: 1.0
+      china: 0.75
+      starlink: 0.75
+      iridium: 0.75
+    max_examples: null
+    require_judged: true
+
+  filter_v2:
+    description: >-
+      Strict. High authority and private_info bars, top quartile utility, heavier
+      counterfactual oversampling. Tests whether the persona signal survives a
+      much smaller dataset.
+    judge_min:
+      authority: 4
+      risk: 3
+      private_info: 4
+      voice: 3
+    judge_mean_min: 4.0
+    utility_percentile: 75
+    counterfactual_oversample: 3.0
+    drop_identical_pairs: true
+    seat_weights:
+      nsc: 1.5
+      norway: 1.25
+      kremlin: 1.25
+      northern_fleet: 1.0
+      northcom: 1.0
+      usspacecom: 1.0
+      china: 0.75
+      starlink: 0.75
+      iridium: 0.75
+    max_examples: null
+    require_judged: true
+
+  filter_v3:
+    description: >-
+      Broad. Low bar, no utility cut, neutral seat weights. The control arm: if
+      it wins, the judge rubric is not buying anything.
+    judge_min:
+      authority: 2
+      risk: 2
+      private_info: 2
+      voice: 2
+    judge_mean_min: 2.5
+    utility_percentile: 0
+    counterfactual_oversample: 1.0
+    drop_identical_pairs: true
+    seat_weights: {}
+    max_examples: null
+    require_judged: true
+
+  filter_v0:
+    description: Smoke path only. Everything through, 200 examples, no judging required.
+    judge_min: {authority: 1, risk: 1, private_info: 1, voice: 1}
+    judge_mean_min: 1.0
+    utility_percentile: 0
+    counterfactual_oversample: 1.0
+    drop_identical_pairs: true
+    seat_weights: {}
+    max_examples: 200
+    require_judged: false
+
+sweep:
+  # 2 bases x 2 ranks x 2 epoch counts x 3 filters = 24 cells; `variants` below
+  # names the 8-12 we actually run (docs/agent_workstreams.md, Agent 4 DoD).
+  # qwen2p5-7b-instruct was the brief's second base; the SFT API refuses it, and
+  # qwen3-8b trains but cannot serve multi-LoRA (FP8 drafter). qwen3-14b does
+  # both. Pending human sign-off -- see train/QUESTIONS.md #2; launch.py refuses
+  # to start on it without --approve-base-swap.
+  bases: [llama31_8b, qwen3_14b]
+  ranks: [16, 32]
+  epochs: [2, 3]
+  filters: [filter_v1, filter_v2, filter_v3]
+  learning_rate: 0.0001
+  variants:
+    - {base: qwen3_14b,  rank: 16, epochs: 2, filter: filter_v1}
+    - {base: qwen3_14b,  rank: 32, epochs: 2, filter: filter_v1}
+    - {base: qwen3_14b,  rank: 32, epochs: 3, filter: filter_v1}
+    - {base: qwen3_14b,  rank: 32, epochs: 3, filter: filter_v2}
+    - {base: qwen3_14b,  rank: 16, epochs: 3, filter: filter_v3}
+    - {base: llama31_8b, rank: 16, epochs: 2, filter: filter_v1}
+    - {base: llama31_8b, rank: 32, epochs: 2, filter: filter_v1}
+    - {base: llama31_8b, rank: 32, epochs: 3, filter: filter_v1}
+    - {base: llama31_8b, rank: 32, epochs: 3, filter: filter_v2}
+    - {base: llama31_8b, rank: 16, epochs: 3, filter: filter_v3}
+
+serve:
+  deployment_id_prefix: svalbard-sweep
+  min_replica_count: 0
+  max_replica_count: 1
+  # Required: Fireworks refuses a non-embeddings deployment without one.
+  # One of NVIDIA_A100_80GB, NVIDIA_H100_80GB, NVIDIA_H200_141GB, AMD_MI300X_192GB.
+  accelerator_type: NVIDIA_H100_80GB
+
+dpo:
+  dimension: risk                   # judge dimension the preference pairs split on
+  min_score_gap: 2
+  epochs: 1
+  lora_rank: 16
+
+gates:
+  schema_validity_min: 0.95
+  counterfactual_sensitivity_min: 0.90
+  holdout_persona_coherence_min: 0.80
+  samples_per_gate: 40

@@ -1,7 +1,7 @@
 # agent8-infra
 state: DONE
 branch: agent8-infra
-last_commit: b25c942
+last_commit: 09b5bcb
 interfaces_ready: [s3_bucket, infra.storage, infra.storage.resolve_backend, infra/teardown.sh]
 needs: []
 pr: https://github.com/kavneerm/Delphi/pull/3

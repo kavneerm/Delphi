@@ -21,7 +21,7 @@ tests are integrated.  Recommendation: admit the already-authored file unchanged
 when evaluation is authorized, using the documented human override; it does not
 block generation or training.
 
-## 3. Generation cost preflight — approval required before 3,960 live calls
+## 3. RESOLVED — Generation cost check
 
 `python -m gen.cost_check` made no API call. For ten representative 72-hour
 checkpoint episodes (396 decisions each), it estimates 3,960 calls, 3,500 prompt
@@ -29,8 +29,14 @@ tokens/call, and reserves 4,096 completion plus 4,096 hidden-reasoning tokens/ca
 At the currently configured conservative rates this caps the live check at
 **$341.73**. The live checker will report provider-observed reasoning tokens.
 
-**Recommendation:** use `gpt-5.6-terra` at low reasoning effort for generation
-and judging. It is the current balance-of-quality-and-cost option; `gpt-5.6-luna`
-is reserved for a later high-volume fallback only if the cost check demonstrates
-that Terra is unaffordable. Approve the live ten-episode check only after
-`GEN_MODEL=gpt-5.6-terra` is explicitly present in the execution environment.
+The user approved Terra and the live ten-episode check completed under
+`GEN_MODEL=gpt-5.6-terra`, low reasoning effort and flex tier. It made 90 calls
+(one sealed decision for each of nine seats per episode): 1,421,936 prompt tokens,
+1,027,120 cached prompt tokens, 52,159 output tokens, and 6,313 provider-reported
+reasoning tokens; there were zero failures, zero schema retries, and zero transport
+retries. At $2/M uncached input, $0.20/M cached input, and $12/M output, observed
+cost was **$1.62**.
+
+**Recommendation:** retain Terra for quality-sensitive generation and judging.
+The next gate is `sample_review`; do not launch a full lake until the human approves
+the episode/sample count and reviewed outputs.

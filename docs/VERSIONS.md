@@ -10,3 +10,4 @@
 
 The prior smoke tests trained two 200-example, rank-8, one-epoch adapters (llama31_8b and qwen3_8b). Only llama31_8b successfully served a completion. All deployments were torn down; total historical deployment use was 15.0 H100-minutes, with zero live deployments confirmed. `train/serve.py` now records each up/down event and deletes deployments with `ignoreChecks=true` after traffic, then verifies teardown.
 | 2026-09-06T03:46:24+00:00 | down | `svalbard-sweep-sweep-1-llama31-8b` | llama31_8b | `sweep-1` | 454048f | deleted and confirmed gone |
+| 2026-09-06T03:47:58+00:00 | down | `svalbard-sweep-sweep-1-llama31-8b` | llama31_8b | `sweep-1` | bdfabf4 | deleted and confirmed gone |

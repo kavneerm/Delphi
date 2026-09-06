@@ -1,7 +1,7 @@
 # agent7-ui
 state: IN_PROGRESS
 branch: agent7-ui
-last_commit:
+last_commit: 84e3e7d
 interfaces_ready: []
 needs: [engine/samples/stub_run.jsonl (agent1-engine), validation/heatmap.csv + validation/final_report.md (agent6-eval), engine local websocket for the human seat (agent1-engine)]
 awaiting_human:
@@ -24,3 +24,10 @@ notes: |
   equirectangular one: the scenario is Svalbard/Barents and the storm overlay is an auroral oval,
   which only reads correctly on a polar projection. Now on: src/app.js wiring, then the human-seat
   panel, fork panel, and the websocket bridge.
+
+  2026-09-05 — Quarantine hit, flagged per AGENTS.md: my stub's Red satellite used a designator
+  reserved for Agent 6's replays. Removed everywhere in ui/ and regenerated the stubs. Worth other
+  agents knowing: scripts/check_quarantine.sh matches the hyphenated spelling but not the
+  underscored asset-id form, so a leak of that shape passes the hook — my first commit carried one
+  through. Written up in ui/QUESTIONS.md. Now on: src/app.js wiring, human seat, fork, websocket.
+

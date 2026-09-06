@@ -172,7 +172,8 @@ ground_sites:
     name: SvalSat (Platåberget, Longyearbyen)
     real: true
     owner: norway                               # operated by KSAT; Norway seat controls it
-    lat: 78.23, lon: 15.39
+    lat: 78.23
+    lon: 15.39
     role: polar ground station, 100+ antennas; downlink for nearly every polar-orbiting satellite
     comms: [fiber, x_band_mil, ka_band]
     dependencies: [svalbard_cable_1, svalbard_cable_2, longyearbyen_power]
@@ -184,7 +185,8 @@ ground_sites:
     name: Ny-Ålesund uplink
     real: true
     owner: norway
-    lat: 78.93, lon: 11.93
+    lat: 78.93
+    lon: 11.93
     role: science station and secondary uplink; only path to SvalSat-1 in the opening state
     comms: [fiber, x_band_mil]
     neighbors: [yellow_river_station]
@@ -193,7 +195,8 @@ ground_sites:
     name: Yellow River Station (Ny-Ålesund)
     real: true
     owner: china
-    lat: 78.92, lon: 11.93
+    lat: 78.92
+    lon: 11.93
     role: Chinese Arctic research station; ionospheric and auroral instruments
     sensors: [magnetometer]
     notes: Gives China an independent read on the storm. Under treaty, civilian.
@@ -202,7 +205,8 @@ ground_sites:
     name: Isfjord Radio
     real: true
     owner: norway
-    lat: 78.06, lon: 13.62
+    lat: 78.06
+    lon: 13.62
     comms: [hf, line_of_sight]
     role: coastal radio; HF fallback for the archipelago
 
@@ -210,7 +214,8 @@ ground_sites:
     name: Bjørnøya station
     real: true
     owner: norway
-    lat: 74.50, lon: 19.00
+    lat: 74.50
+    lon: 19.00
     role: met station; reports Kalvøy-3 downlink carrier quality in the UI feed
     comms: [hf, l_band_narrow]
 
@@ -218,7 +223,8 @@ ground_sites:
     name: Barentsburg (Trust Arktikugol)
     real: true
     owner: kremlin                              # Russian state company; civilians
-    lat: 78.06, lon: 14.21
+    lat: 78.06
+    lon: 14.21
     role: Russian settlement; ~400 residents; helipad; own comms
     comms: [ka_band, hf]
     notes: Source of the "Russian citizens endangered" narrative and of Russian helicopter movements the treaty tolerates.
@@ -226,7 +232,8 @@ ground_sites:
   - id: longyearbyen_gateway
     name: Longyearbyen LEO gateway
     owner: starlink
-    lat: 78.22, lon: 15.63
+    lat: 78.22
+    lon: 15.63
     role: commercial gateway for Barents-1 shell and Kalvøy-3 users on the archipelago
     comms: [ku_band_leo, fiber]
     effects_vulnerable_to: [cyber_ground, jam_satcom_uplink]
@@ -252,7 +259,8 @@ ground_sites:
     name: Andøya Space (mainland)
     real: true
     owner: norway
-    lat: 69.29, lon: 16.02
+    lat: 69.29
+    lon: 16.02
     role: mainland ground station and rocket range; cable landing; US aircraft stage here (treaty keeps them off Svalbard)
     comms: [fiber, x_band_mil, ka_band]
 
@@ -260,7 +268,8 @@ ground_sites:
     name: Globus III (Vardø)
     real: true
     owner: norway                               # US-funded, Norwegian-operated
-    lat: 70.37, lon: 31.10
+    lat: 70.37
+    lon: 31.10
     sensors: [space_track, radar_air]
     role: space surveillance radar 50 km from the Russian border; watches Barents launches
     notes: Constant Russian grievance. Its tracking is the best allied catalog input during the storm.
@@ -268,7 +277,8 @@ ground_sites:
   - id: pechenga_ew_site
     name: Pechenga EW site
     owner: northern_fleet
-    lat: 69.53, lon: 31.17
+    lat: 69.53
+    lon: 31.17
     effects: [jam_gnss, jam_satcom_uplink, jam_satcom_downlink]
     role: Kola-based electronic-warfare complex; source of the Finnmark GPS jamming since 2017
     range_km: 300
@@ -276,7 +286,8 @@ ground_sites:
   - id: kola_laser_site
     name: Kola optical site
     owner: northern_fleet
-    lat: 68.9, lon: 33.1
+    lat: 68.9
+    lon: 33.1
     effects: [dazzle_eo]
     role: ground-based laser for dazzling imaging satellites on overhead passes
 
@@ -284,7 +295,8 @@ ground_sites:
     name: Severomorsk (Northern Fleet HQ)
     real: true
     owner: northern_fleet
-    lat: 69.07, lon: 33.42
+    lat: 69.07
+    lon: 33.42
     role: fleet headquarters; C2 node
 
 # ------------------------------------------------------------------

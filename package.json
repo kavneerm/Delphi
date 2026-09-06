@@ -5,20 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "catalog": "node scripts/catalog.ts",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run catalog && tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
-    "check": "npm run typecheck && npm run check:shell && npm run check:laydown && npm run check:bridge",
-    "check:placeholder": "node scripts/placeholder.ts",
-    "deploy": "npm run build && npm run check:placeholder && node scripts/deploy.ts",
+    "check": "npm run typecheck && npm run check:engine && npm run check:shell && npm run check:laydown && npm run check:bridge",
+    "check:engine": "node scripts/engine.ts",
+    "check:shell": "node scripts/shell.ts",
     "check:laydown": "node scripts/laydown.ts",
     "check:bridge": "node scripts/bridge.ts",
-    "check:shell": "node scripts/shell.ts"
+    "check:placeholder": "node scripts/placeholder.ts",
+    "deploy": "npm run build && npm run check:placeholder && node scripts/deploy.ts"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "playwright": "1.62.1",
     "typescript": "7.0.2",
-    "vite": "8.2.1"
+    "vite": "8.2.1",
+    "yaml": "2.9.0"
   }
 }

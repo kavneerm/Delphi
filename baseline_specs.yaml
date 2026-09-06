@@ -222,5 +222,5 @@
   private_type: null
   psyche: null
   priors: {windfall_vs_liability: 0.5}
-  voice: Allocation-minded. Who gets the scarce bandwidth: DoD contract, allies, or civilians.
+  voice: "Allocation-minded. Who gets the scarce bandwidth: DoD contract, allies, or civilians."
   backstory: The survivor at 780 km. Suddenly holds most of the Arctic's usable commercial capacity and has to decide who gets it.

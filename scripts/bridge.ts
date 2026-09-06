@@ -163,6 +163,70 @@ async function main(): Promise<void> {
       await page.close();
     }
 
+    // --- the order box goes through the gate ------------------------------------------
+    {
+      const page = await browser.newPage();
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(`${server.url}/wargame/`, { waitUntil: 'load' });
+      await page.waitForSelector('.setup-card');
+      await page.click('.setup-go');
+      await page.waitForSelector('.setup', { state: 'hidden' });
+
+      // The engine is on the page, loaded the real catalog, and is reachable for a
+      // RemoteModel to be attached from the console until there is UI for it.
+      const loaded = await page.evaluate(() => {
+        const w = window as unknown as { engine?: { catalog: { assets: unknown[]; specs: Map<string, unknown> } }; RemoteModel?: unknown };
+        return { assets: w.engine?.catalog.assets.length ?? 0, specs: w.engine?.catalog.specs.size ?? 0, remote: typeof w.RemoteModel === 'function' };
+      });
+      report.assert(loaded.assets === 51, `engine on the page holds ${loaded.assets} assets, expected 51`);
+      report.assert(loaded.specs === 9, `engine on the page holds ${loaded.specs} specs, expected 9`);
+      report.assert(loaded.remote, 'RemoteModel is exposed for attaching the trained model');
+
+      const feed = () => page.textContent('#stream').then((t) => t ?? '');
+      const issue = async (text: string) => { await page.fill('#cmd', text); await page.press('#cmd', 'Enter'); await page.waitForTimeout(80); };
+
+      // Norwegian Joint HQ is the default actor. A wrong-kind target is refused with a reason.
+      await issue('board svalsat_ground');
+      let f = await feed();
+      report.assert(f.includes('✗') && f.includes('targets a ship'), 'boarding a ground station is rejected in the feed with the reason');
+
+      // Switch to the Northern Fleet through the page's own actor switcher.
+      // `A` is a top-level const in the page's classic script: global lexical scope, not a
+      // window property. A string expression evaluates in that scope, where the bare name
+      // resolves; a function would only see `window`.
+      await page.evaluate(`setActor(A['rus'])`);
+      await issue('jam svalsat_ground with pechenga_ew_site');
+      f = await feed();
+      report.assert(f.includes('300 km'), 'a named jammer out of reach is refused with the range');
+
+      // A held action reports who has to release it.
+      await issue('inspect svalsat_1 with kosmos_2xxx');
+      f = await feed();
+      report.assert(f.includes('⏳') && f.includes('kremlin'), 'counter_rpo is held pending the Kremlin');
+
+      // Plain intent is echoed as it always was, and logged as a hold — never judged aloud.
+      const before = (await feed()).length;
+      await issue('check the cable landing at Longyearbyen');
+      f = await feed();
+      report.assert(f.includes('check the cable landing'), 'free text still appears in the feed');
+      report.assert(!f.slice(before).includes('✗'), 'free text is not rejected');
+      const held = await page.evaluate(() => {
+        const w = window as unknown as { engine: { log: { ofType: (t: string) => Array<{ order: { action: string; text?: string } }> } } };
+        return w.engine.log.ofType('order_result').some((e) => e.order.action === 'hold' && (e.order.text ?? '').includes('cable landing'));
+      });
+      report.assert(held, 'free text is logged by the engine as a hold carrying the text');
+
+      // The observer holds no seat.
+      await page.evaluate(`setActor(A['obs'])`);
+      await issue('hold');
+      f = await feed();
+      report.assert(f.includes('holds no seat'), 'the observer is told it holds no seat');
+
+      report.assert(errors.length === 0, `page errors with the engine wired: ${errors.join('; ')}`);
+      await page.close();
+    }
+
     // --- reduced motion skips the clip entirely -----------------------------------------
     {
       const ctx = await browser.newContext({ reducedMotion: 'reduce' });

@@ -290,7 +290,10 @@ let me = ACTORS[0];
 const A = Object.fromEntries(ACTORS.map(a=>[a.id,a]));
 
 /* ---------- satellites & links ---------- */
-const ORBITS={ geo:{y:.17,k:.07,label:'GEO'}, meo:{y:.50,k:.13,label:'MEO'}, leo:{y:.83,k:.19,label:'LEO'} };
+/* Top band is HEO, not GEO: geostationary satellites cannot see Svalbard at 78°N. The
+   persistent Arctic relays fly highly elliptical orbits, which is what the three satellites
+   drawn there are. The `geo` key is an internal id and stays; only the label changes. */
+const ORBITS={ geo:{y:.17,k:.07,label:'HEO'}, meo:{y:.50,k:.13,label:'MEO'}, leo:{y:.83,k:.19,label:'LEO'} };
 const arcY=(o,x)=>ORBITS[o].y+ORBITS[o].k*Math.pow(x-.5,2)*2;   /* gentle curve echoing the Earth limb */
 const SATS = [
   {id:'s1', name:'SvalSat-1',   type:'comms',   orbit:'geo', x:.16, links:[['gs-nya','ok']]},
@@ -1181,6 +1184,118 @@ relayout();
 /* youtube-style: controls fade after the pointer sits still */
 let idleT; theatre.addEventListener('pointermove',()=>{ theatre.classList.remove('idle'); clearTimeout(idleT); idleT=setTimeout(()=>theatre.classList.add('idle'),2500); });
 theatre.addEventListener('pointerleave',()=>{ clearTimeout(idleT); theatre.classList.remove('idle'); });
+</script>
+<!-- The engine. A module so Vite bundles it and its JSON; it runs after the classic script
+     above has built the page, and reaches that script's top-level bindings (push, me, cmd,
+     posture, sim) by name — a classic script's let/const live in the global lexical scope a
+     module shares. Nothing above is changed; this layers the gate over the order box. -->
+<script type="module">
+import { Engine } from '../engine/engine.ts';
+import { HumanModel, RemoteModel } from '../engine/model.ts';
+import assets from '../engine/assets.json';
+import specs from '../engine/specs.json';
+
+const engine = new Engine(assets, specs, { t0Minutes: 14 * 60 });
+
+/* The page's five actors predate the catalog's ten seats. KSAT and the Governor both
+   resolve to Norway: the catalog has no KSAT seat, and gives Norway the ground segment and
+   the coast guard. The observer holds no seat, and every order it issues says so. Replacing
+   ACTORS with the catalog's seats is the clean fix and is out of this pass. */
+const SEAT_OF_ACTOR = { nor: 'norway', ksat: 'norway', sar: 'norway', rus: 'northern_fleet', obs: null };
+const seatOf = () => SEAT_OF_ACTOR[me.id] ?? null;
+
+for (const seat of engine.catalog.specs.keys()) engine.attach(seat, new HumanModel());
+
+/* Feed identities for the gate's answers, so a rejection is red and a release is amber
+   without the feed code knowing the engine exists. */
+Object.assign(A, {
+  gate_allow:     { name: 'Allowed',           color: '#57B37A' },
+  gate_pending:   { name: 'Pending release',   color: '#E3A92A' },
+  gate_recommend: { name: 'Recommendation',    color: '#5E8FD6' },
+  gate_reject:    { name: 'Rejected',          color: '#D9534F' },
+});
+
+/* Orders are typed. The first word is an action if it names one — `jam svalsat_ground`,
+   `board yantar with kv_svalbard`, `image storfjorden` — and anything that is not an order
+   is intent: it goes in the feed as it always did, and the engine logs it as a hold. */
+const ALIAS = {
+  board: 'board_vessel', image: 'task_imagery_pass', imagery: 'task_imagery_pass',
+  demarche: 'private_demarche', attribute: 'public_attribution', throttle: 'geofence_or_throttle',
+  geofence: 'geofence_or_throttle', disclose: 'disclose_incident', share: 'share_telemetry',
+  cyber: 'ground_cyber', inspect: 'counter_rpo', respond: 'terrestrial_response',
+};
+const PLACES = { storfjorden: { lat: 78.0, lon: 19.0, radius_km: 25 }, isfjorden: { lat: 78.2, lon: 14.5, radius_km: 25 },
+                 barentsburg: { lat: 78.06, lon: 14.21, radius_km: 15 }, hinlopen: { lat: 79.5, lon: 19.0, radius_km: 30 } };
+
+function parse(text, seat) {
+  const words = text.trim().toLowerCase().replace(/[^a-z0-9_ .,-]/g, '').split(/\s+/);
+  const head = words[0]?.replace(/-/g, '_');
+  const action = ALIAS[head] ?? (engine.catalog.actions.includes(head) ? head : null);
+  if (!action) return null;
+  const order = { seat, action, text };
+  const ids = engine.catalog.byId;
+  for (let i = 1; i < words.length; i++) {
+    const w = words[i].replace(/-/g, '_');
+    if ((w === 'with' || w === 'from' || w === 'using') && ids.has(words[i + 1]?.replace(/-/g, '_'))) { order.asset_id = words[++i].replace(/-/g, '_'); continue; }
+    if (ids.has(w) && !order.target_id) { order.target_id = w; continue; }
+    if (PLACES[w] && !order.area) { order.area = PLACES[w]; continue; }
+    const m = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(w);
+    if (m && !order.area) order.area = { lat: +m[1], lon: +m[2], radius_km: 25 };
+  }
+  return order;
+}
+
+function echo(verdict, order) {
+  const what = order.target_id ? `${order.action} → ${engine.catalog.byId.get(order.target_id)?.name ?? order.target_id}`
+             : order.area ? `${order.action} over ${order.area.lat.toFixed(1)}N ${order.area.lon.toFixed(1)}E` : order.action;
+  const line = { allow: `✓ ${what} — ${verdict.reason}`, pending: `⏳ ${what} — ${verdict.reason}`,
+                 recommend: `→ ${what} — ${verdict.reason}`, reject: `✗ ${what} — ${verdict.reason}` }[verdict.kind];
+  push('system', '', line, `gate_${verdict.kind}`);
+}
+
+const compose = document.getElementById('compose');
+compose.onsubmit = (e) => {
+  e.preventDefault();
+  if (typeof rec !== 'undefined' && rec) rec.stop();
+  const text = cmd.value.trim();
+  if (!text) return;
+  push('action', '', text, me.id);
+  cmd.value = '';
+  const seat = seatOf();
+  if (!seat) { push('system', '', `✗ ${me.name} holds no seat — it observes`, 'gate_reject'); return; }
+  engine.setPosture(seat, posture);
+  const order = parse(text, seat) ?? { seat, action: 'hold', text };
+  if (order.action !== 'hold' || order === null) { echo(engine.order(order), order); }
+  else engine.order(order);                          // intent is logged, not judged aloud
+};
+
+/* Severity follows the setup: the demo scenario is a severe storm. */
+document.getElementById('setupForm').addEventListener('submit', () => {
+  engine.setSeverity(document.getElementById('setupDemo').getAttribute('aria-pressed') === 'true' ? 'G5' : 'G4');
+});
+
+/* The engine's clock is the scenario clock. Effects expire and release-holders wake on it. */
+let lastTick = -1;
+(function tickEngine() {
+  const minutes = Math.floor((typeof sim === 'number' ? sim : 0) / 60);
+  if (minutes !== lastTick && typeof playing !== 'undefined' && playing) {
+    lastTick = minutes;
+    engine.tick(minutes).then((made) => {
+      for (const { seat, decision, verdict } of made) {
+        // Only a real model's decisions reach the feed; a NullModel's holds are silence.
+        if (decision.rationale?.startsWith('no model attached')) continue;
+        push('system', '', `${seat}: ${decision.action}${decision.rationale ? ' — ' + decision.rationale : ''} → ${verdict.kind}`, `gate_${verdict.kind}`);
+      }
+    });
+  }
+  requestAnimationFrame(tickEngine);
+})();
+
+/* Until the model is trained, this is how a seat comes alive — from the console:
+     engine.attach('northern_fleet', new RemoteModel('https://…/decide', engine.catalog.actions))
+   The gate is the same one the order box goes through. */
+window.engine = engine;
+window.RemoteModel = RemoteModel;
 </script>
 </body>
 </html>
